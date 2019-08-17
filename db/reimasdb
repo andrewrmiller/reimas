@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# rdb.sh - Reimas database management utility.
+
+
+
+usage() {
+	echo
+	echo "reimasdb - Reimas database management utility."
+	echo
+	echo "Usage:"
+	echo
+	echo "   reimasdb <command>"
+	echo 
+	echo "Available commands:"
+	echo
+	echo "   create             Create a new Reimas database."
+	echo "   migrate            Migrate a Reimas database to the current version."
+	echo "   clean              Drop all objects in a  Reimas database."
+	echo "   delete             Delete a Remias database."
+	echo "   backup             Backs up a Reimas database."
+	echo
+	echo "Requirements:"
+	echo
+	echo "   Flyway CLI         https://flywaydb.org/documentation/commandline"
+	echo
+}
+
+# The name of the database to initialize.
+DATABASE_NAME=reimas
+
+# The name of the login-path to use.  To create a login-path use
+# a command like the following:
+#
+#   mysql_config_editor set --login-path=reimasadmin --host=localhost --user=myRemiasAdminUser --password
+#
+# To list all login-path entries use this command:
+#
+#   mysql_config_editor print --all
+LOGIN_PATH=reimasadmin
+
+# The name of the user that will be used by the web app
+# to access the database.
+USER=reimasuser
+
+# JDBC needs to know the time zone of the MySQL server.
+SERVER_TIMEZONE=America/Los_Angeles
+
+# The JDBC connection URL for the data
+JDBC_CONNECT_URL="jdbc:mysql://localhost/$DATABASE_NAME?useUnicode=true&useSSL=false&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=$SERVER_TIMEZONE"
+
+createDb() {
+
+	MYSQL="mysql --login-path=$LOGIN_PATH "
+	CREATESCRIPT=~/tmp/create_reimas_db.sql
+	INITIALIZESCRIPT=~/tmp/initialize_reimas_db.sql
+	SRCDIR="$( pwd )"
+
+	if [ ! -d ~/tmp ]; then
+	echo 'dir not found'
+	mkdir ~/tmp
+	fi
+
+	echo
+	echo Are you sure that you want to create a new $DATABASE_NAME database?
+	echo
+	echo WARNING: All existing data will be deleted!
+	echo
+
+	OPTIONS="Yes No"
+	select opt in $OPTIONS; do
+		if [ "$opt" = "Yes" ]; then
+			echo Creating database...
+			break
+		elif [ "$opt" = "No" ]; then
+			echo Operation aborted.
+			exit
+		else
+			echo Bad selection.
+			exit
+		fi
+	done
+
+	(echo SET @db_name=\'$DATABASE_NAME\'\;) > $CREATESCRIPT
+	(echo SET @user_name=\'\\\'$USER\\\'@\\\'localhost\\\'\'\;) >> $CREATESCRIPT
+	(cat $SRCDIR/init/create_db.sql; echo) >> $CREATESCRIPT
+
+	# TODO: Need to set this option to avoid a MySQL whine about not
+	# having some declarations in our stored procedures.  See this article:
+	# https://stackoverflow.com/questions/26015160/deterministic-no-sql-or-reads-sql-data-in-its-declaration-and-binary-logging-i.
+	(echo 'SET GLOBAL log_bin_trust_function_creators = 1;') > $INITIALIZESCRIPT;
+
+	# We need to deploy in two steps because MySQL's 
+	# USE statement does not allow a variable name.
+	$MYSQL < $CREATESCRIPT
+	$MYSQL $DATABASE_NAME < $INITIALIZESCRIPT
+}
+
+
+migrateDb() {
+	# Pull the admin user and password out of the config.
+	ADMIN_USER=$(my_print_defaults -s $LOGIN_PATH | grep user | cut -d "=" -f 2)
+	ADMIN_PASSWORD=$(my_print_defaults -s $LOGIN_PATH | grep password | cut -d "=" -f 2)
+
+	# Tell flyway to migrate the database.
+	flyway migrate -url="$JDBC_CONNECT_URL" -user=$ADMIN_USER -password=$ADMIN_PASSWORD -locations=filesystem:./migrate
+}
+
+# Change to the root of the database directory.
+cd "$( dirname "$0" )"
+
+case "$1" in 
+create)
+	createDb
+	;;
+migrate)
+	migrateDb
+	;;
+*)
+	usage
+	;;
+esac
