@@ -1,8 +1,8 @@
-import createError from 'http-errors';
-import express from 'express';
-import path from 'path';
 import cookieParser from 'cookie-parser';
+import express from 'express';
+import createError from 'http-errors';
 import logger from 'morgan';
+import path from 'path';
 
 import usersRouter from './routes/libraries';
 
@@ -24,6 +24,8 @@ app.use('/libraries', usersRouter);
 app.use(function(req, res, next) {
   next(createError(404));
 });
+
+app.use(express.json());
 
 // error handler
 app.use(

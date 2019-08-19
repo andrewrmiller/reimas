@@ -9,4 +9,11 @@ router.get(
   }
 );
 
+router.post(
+  '/',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    res.send(req.body.name);
+  }
+);
+
 export default router;
