@@ -49,37 +49,27 @@ SERVER_TIMEZONE=America/Los_Angeles
 # The JDBC connection URL for the data
 JDBC_CONNECT_URL="jdbc:mysql://localhost/$DATABASE_NAME?useUnicode=true&useSSL=false&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=$SERVER_TIMEZONE"
 
+# The MySQL CLI command.
+MYSQL="mysql --login-path=$LOGIN_PATH "
+
 createDb() {
 
-	MYSQL="mysql --login-path=$LOGIN_PATH "
 	CREATESCRIPT=~/tmp/create_reimas_db.sql
 	INITIALIZESCRIPT=~/tmp/initialize_reimas_db.sql
 	SRCDIR="$( pwd )"
+
+	# Check to make sure that the database doesn't already exist.
+	if ($MYSQL -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name='$DATABASE_NAME'" | grep $DATABASE_NAME 1>/dev/null); then
+		echo
+		echo ERROR: MySQL database \'$DATABASE_NAME\' already exists.
+		echo
+		return
+	fi
 
 	if [ ! -d ~/tmp ]; then
 	echo 'dir not found'
 	mkdir ~/tmp
 	fi
-
-	echo
-	echo Are you sure that you want to create a new $DATABASE_NAME database?
-	echo
-	echo WARNING: All existing data will be deleted!
-	echo
-
-	OPTIONS="Yes No"
-	select opt in $OPTIONS; do
-		if [ "$opt" = "Yes" ]; then
-			echo Creating database...
-			break
-		elif [ "$opt" = "No" ]; then
-			echo Operation aborted.
-			exit
-		else
-			echo Bad selection.
-			exit
-		fi
-	done
 
 	(echo SET @db_name=\'$DATABASE_NAME\'\;) > $CREATESCRIPT
 	(echo SET @user_name=\'\\\'$USER\\\'@\\\'localhost\\\'\'\;) >> $CREATESCRIPT
@@ -94,6 +84,8 @@ createDb() {
 	# USE statement does not allow a variable name.
 	$MYSQL < $CREATESCRIPT
 	$MYSQL $DATABASE_NAME < $INITIALIZESCRIPT
+
+	migrateDb
 }
 
 
@@ -106,6 +98,31 @@ migrateDb() {
 	flyway migrate -url="$JDBC_CONNECT_URL" -user=$ADMIN_USER -password=$ADMIN_PASSWORD -locations=filesystem:./migrate
 }
 
+deleteDb() {
+
+	echo
+	echo Are you sure that you want to delete the $DATABASE_NAME MySQL database.
+	echo
+	echo WARNING: This operation is irreversible.
+	echo
+
+	OPTIONS="Yes No"
+	select opt in $OPTIONS; do
+		if [ "$opt" = "Yes" ]; then
+			echo Deleting database...
+			break
+		elif [ "$opt" = "No" ]; then
+			echo Operation aborted.
+			exit
+		else
+			echo Bad selection.
+			exit
+		fi
+	done
+
+	$MYSQL -e "DROP DATABASE $DATABASE_NAME"
+}
+
 # Change to the root of the database directory.
 cd "$( dirname "$0" )"
 
@@ -115,6 +132,9 @@ create)
 	;;
 migrate)
 	migrateDb
+	;;
+delete)
+	deleteDb
 	;;
 *)
 	usage
