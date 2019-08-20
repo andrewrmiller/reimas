@@ -1,12 +1,16 @@
 import cookieParser from 'cookie-parser';
+import createDebug from 'debug';
 import express from 'express';
-import createError from 'http-errors';
+import createHttpError from 'http-errors';
 import logger from 'morgan';
 import path from 'path';
+import { HttpStatusCode } from './common/httpConstants';
+import libraryRouter from './routers/LibraryRouter';
+import { DbError, DbErrorCode } from './services/db/DbError';
 
-import usersRouter from './routes/libraries';
+const debug = createDebug('frontend:app');
 
-var app = express();
+const app = express();
 
 // view engine setup
 app.set('views', path.join(__dirname, '../views'));
@@ -18,16 +22,16 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
 
-app.use('/libraries', usersRouter);
+app.use('/libraries', libraryRouter);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-  next(createError(404));
+// Catch all other request here and forward to error handler.
+app.use((req, res, next) => {
+  next(createHttpError(404));
 });
 
 app.use(express.json());
 
-// error handler
+// Top-level error handler.
 app.use(
   (
     err: any,
@@ -35,14 +39,38 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    // set locals, only providing error in development
+    let statusCode: number;
+
+    // If this was a database error, try to map the DbErrorCode
+    // to a meaningful HttpStatus code.
+    if (err instanceof DbError) {
+      switch (err.errorCode) {
+        case DbErrorCode.ItemNotFound:
+          statusCode = HttpStatusCode.NOT_FOUND;
+          break;
+
+        case DbErrorCode.ItemTooLarge:
+        case DbErrorCode.MaximumSizeExceeded:
+        case DbErrorCode.QuotaExceeded:
+          statusCode = HttpStatusCode.BAD_REQUEST;
+
+        default:
+          statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+      }
+    } else {
+      statusCode = err.status || HttpStatusCode.INTERNAL_SERVER_ERROR;
+    }
+
+    // Set locals, only providing error in development.
     res.locals.message = err.message;
     res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-    // render the error page
-    res.status(err.status || 500);
+    // Render the error page.
+    res.status(statusCode);
     res.render('error');
   }
 );
+
+debug('API server ready.');
 
 module.exports = app;

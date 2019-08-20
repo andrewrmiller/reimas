@@ -1,0 +1,312 @@
+import config from 'config';
+import createDebug from 'debug';
+import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
+import { ChangeCase } from '../../common/ChangeCase';
+import IDatabaseConfig from '../../common/IDatabaseConfig';
+import { DbError, DbErrorCode } from './DbError';
+import { IDbLibrary, IDmlResponse } from './dbModels';
+import { ILibrary, ILibraryPatch, INewLibrary } from './models';
+
+const debug = createDebug('frontend:database');
+
+/**
+ * MySQL Reimas database interface.
+ */
+export class MySqlDatabase {
+  private config: IDatabaseConfig;
+  private conn?: mysql.Connection;
+
+  constructor() {
+    this.config = config.get('Database');
+  }
+
+  /**
+   * Connects to the database using configuration information.
+   */
+  public connect() {
+    this.conn = mysql.createConnection({
+      host: this.config.host,
+      user: this.config.user,
+      password: this.config.password,
+      database: this.config.name,
+      // We store dates using the DATETIME type which has no
+      // timezone information in MySQL.  The dates are provided
+      // to MySQL in UTC.  When we get them back from the database
+      // we don't want any timezone translation to occur so we
+      // configure the mysql client with timezone='Z'.
+      timezone: 'Z'
+    });
+
+    this.conn.connect();
+  }
+
+  /**
+   * Disconnects from the database.
+   */
+  public disconnect() {
+    this.conn!.end();
+  }
+
+  public getLibraries() {
+    debug('Retrieving all libraries.');
+    return this.callSelectManyProc<IDbLibrary>('get_libraries', []).then(
+      dbLibraries => {
+        return dbLibraries.map(dbLibrary => {
+          return ChangeCase.toCamelObject(dbLibrary) as ILibrary;
+        });
+      }
+    );
+  }
+
+  public getLibrary(libraryId: string) {
+    debug(`Retrieving library ${libraryId}.`);
+    return this.callSelectOneProc<IDbLibrary>('get_library', [libraryId]).then(
+      dbLibrary => {
+        return ChangeCase.toCamelObject(dbLibrary) as ILibrary;
+      }
+    );
+  }
+
+  public addLibrary(newLibrary: INewLibrary) {
+    debug('Adding a new library.');
+    return this.callChangeProc<IDbLibrary>('add_library', [
+      newLibrary.name,
+      newLibrary.description ? newLibrary.description : null
+    ]).then((library: IDbLibrary) => {
+      return ChangeCase.toCamelObject(library) as ILibrary;
+    });
+  }
+
+  public patchLibrary(libraryId: string, patch: ILibraryPatch) {
+    debug('Patching an existing library.');
+    return this.callSelectOneProc<IDbLibrary>('get_library', [libraryId]).then(
+      dbLibrary => {
+        return this.callChangeProc<IDbLibrary>('update_library', [
+          libraryId,
+          patch.name ? patch.name : dbLibrary.name,
+          patch.description ? patch.description : dbLibrary.description
+        ]).then((library: IDbLibrary) => {
+          return ChangeCase.toCamelObject(library) as ILibrary;
+        });
+      }
+    );
+  }
+
+  public deleteLibrary(libraryId: string) {
+    debug('Deleting an existing library.');
+    return this.callChangeProc<IDbLibrary>('delete_library', [libraryId]).then(
+      (library: IDbLibrary) => {
+        return ChangeCase.toCamelObject(library) as ILibrary;
+      }
+    );
+  }
+
+  /**
+   * Invokes a procedure which selects zero or more items from the database.
+   *
+   * @param procName Name of the procedure to invoke.
+   * @param parameters Parameters to pass to the procedure.
+   */
+  public callSelectManyProc<TResult>(procName: string, parameters: any[]) {
+    this.connect();
+
+    const p = new Promise<TResult[]>((resolve, reject) => {
+      this.invokeStoredProc(
+        procName,
+        parameters,
+        (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
+          if (error) {
+            debug(
+              `callSelectManyProc: Call to ${procName} failed: ${error.message}`
+            );
+            reject(error);
+          } else {
+            try {
+              resolve(results[0] as TResult[]);
+            } catch (error) {
+              debug(
+                `callSelectManyProc: Result processing failed: ${error.message}`
+              );
+              reject(error);
+            }
+          }
+        }
+      );
+    });
+
+    this.disconnect();
+    return p;
+  }
+
+  /**
+   * Invokes a procedure which selects a single item from the database.
+   *
+   * @param procName Name of the procedure to invoke.
+   * @param parameters Parameters to pass to the procedure.
+   */
+  public callSelectOneProc<TResult>(procName: string, parameters: any[]) {
+    this.connect();
+
+    const p = new Promise<TResult>((resolve, reject) => {
+      this.invokeStoredProc(
+        procName,
+        parameters,
+        (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
+          if (error) {
+            debug(
+              `callSelectOneProc: Call to ${procName} failed: ${error.message}`
+            );
+            reject(error);
+          } else {
+            try {
+              if (results[0].length === 0) {
+                reject(
+                  new DbError(DbErrorCode.ItemNotFound, 'Item not found.')
+                );
+              } else {
+                resolve(results[0][0] as TResult);
+              }
+            } catch (error) {
+              debug(
+                `callSelectOneProc: Result processing failed: ${error.message}`
+              );
+              reject(error);
+            }
+          }
+        }
+      );
+    });
+
+    this.disconnect();
+    return p;
+  }
+
+  /**
+   * Invokes a procedure which changes data in the database.
+   *
+   * All DML procedures return two one-row result sets:
+   *     1) Operation result including err_code and err_context.
+   *     2) The data for the element that was added, updated or deleted.
+   *
+   * @param procName Name of the stored procedure to execute.
+   * @param parameters Parameters to provide to the procedure.
+   */
+  public callChangeProc<TResult>(procName: string, parameters: any[]) {
+    this.connect();
+
+    const p = new Promise<TResult>((resolve, reject) => {
+      this.invokeStoredProc(procName, parameters, (error, results, fields) => {
+        if (error) {
+          debug(`callChangeProc: Call to ${procName} failed: ${error.message}`);
+          reject(error);
+        } else {
+          try {
+            // The first one-row result set contains success/failure
+            // information.  If the DML operation failed then the
+            // promise is rejected.
+            const result = results[0][0] as IDmlResponse;
+            if (result.err_code !== DbErrorCode.NoError) {
+              debug(
+                `callChangeProc: Call to ${procName} failed with err_code: ${
+                  result.err_code
+                }`
+              );
+              reject(this.createDbError(result));
+            }
+
+            // The DML operation was successful.  The second one-row result
+            // set contains information about the item that was inserted,
+            // updated or deleted.
+            resolve(results[1][0] as TResult);
+          } catch (error) {
+            debug(`callChangeProc: Result processing failed: ${error.message}`);
+            reject(error);
+          }
+        }
+      });
+    });
+
+    this.disconnect();
+    return p;
+  }
+
+  /**
+   * Executes a stored procedure.
+   *
+   * @param procName Name of the procedure to execute.
+   * @param parameters Parameters to pass to the procedure.
+   * @param callback Function to call with the results.
+   */
+  private invokeStoredProc(
+    procName: string,
+    parameters: any[],
+    callback?: queryCallback
+  ): Query {
+    const placeholders = parameters.length
+      ? '?' + ',?'.repeat(parameters.length - 1)
+      : '';
+    return this.query(
+      `call ${procName}(${placeholders})`,
+      parameters,
+      callback
+    );
+  }
+
+  /**
+   * Executes a database query.
+   *
+   * @param options Query to execute.
+   * @param values Parameter values  to provide to the query.
+   * @param callback Function to call with results.
+   */
+  private query(options: string, values: any, callback?: queryCallback): Query {
+    return this.conn!.query(options, values, callback);
+  }
+
+  /**
+   * Creates a new DbError from a DML response.
+   *
+   * @param response The DML response to convert.
+   */
+  private createDbError(response: IDmlResponse) {
+    let errorMessage: string;
+    switch (response.err_code) {
+      case DbErrorCode.ItemNotFound:
+        errorMessage = 'Item not found.';
+        break;
+
+      case DbErrorCode.DuplicateItemExists:
+        errorMessage = 'Duplicate item already exists.';
+        break;
+
+      case DbErrorCode.QuotaExceeded:
+        errorMessage = 'Quote has been exceeded.';
+        break;
+
+      case DbErrorCode.MaximumSizeExceeded:
+        errorMessage = 'The maximum size has been exceeded.';
+        break;
+
+      case DbErrorCode.ItemTooLarge:
+        errorMessage = 'Item is too large.';
+        break;
+
+      case DbErrorCode.ItemIsExpired:
+        errorMessage = 'Item is expired.';
+        break;
+
+      case DbErrorCode.ItemAlreadyProcessed:
+        errorMessage = 'Item has already been processed.';
+        break;
+
+      case DbErrorCode.UnexpectedError:
+      default:
+        errorMessage = `An unexpected error occurred (Error Code: ${
+          response.err_code
+        }).`;
+        break;
+    }
+
+    return new DbError(response.err_code, errorMessage, response.err_context);
+  }
+}
