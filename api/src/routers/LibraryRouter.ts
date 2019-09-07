@@ -1,7 +1,8 @@
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
-import { DbFactory } from '../services/db/DbFactory';
 import { ILibraryPatch, INewLibrary } from '../services/db/models';
+import { PictureStore } from '../services/PictureStore';
+
 const router = express.Router();
 
 /**
@@ -10,8 +11,7 @@ const router = express.Router();
 router.get(
   '/',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const db = DbFactory.createInstance();
-    db.getLibraries()
+    PictureStore.getLibraries()
       .then(data => {
         res.send(data);
       })
@@ -26,8 +26,7 @@ router.get(
   '/:libraryId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.getLibrary(params.libraryId)
+    PictureStore.getLibrary(params.libraryId)
       .then(data => {
         res.send(data);
       })
@@ -41,8 +40,7 @@ router.get(
 router.post(
   '/',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const db = DbFactory.createInstance();
-    db.addLibrary(req.body as INewLibrary)
+    PictureStore.createLibrary(req.body as INewLibrary)
       .then(data => {
         res.send(data);
       })
@@ -57,8 +55,7 @@ router.patch(
   '/:libraryId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.patchLibrary(params.libraryId, req.body as ILibraryPatch)
+    PictureStore.updateLibrary(params.libraryId, req.body as ILibraryPatch)
       .then(data => {
         res.send(data);
       })
@@ -73,8 +70,7 @@ router.delete(
   '/:libraryId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.deleteLibrary(params.libraryId)
+    PictureStore.deleteLibrary(params.libraryId)
       .then(data => {
         res.send(data);
       })

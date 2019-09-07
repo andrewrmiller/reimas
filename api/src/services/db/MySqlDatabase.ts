@@ -77,6 +77,7 @@ export class MySqlDatabase {
   public addLibrary(newLibrary: INewLibrary) {
     debug('Adding a new library.');
     return this.callChangeProc<IDbLibrary>('add_library', [
+      newLibrary.libraryId,
       newLibrary.name,
       newLibrary.description ? newLibrary.description : null
     ]).then((library: IDbLibrary) => {

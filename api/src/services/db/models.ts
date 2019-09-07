@@ -1,19 +1,49 @@
+/**
+ * @interface INewLibrary
+ *
+ * Information passed to the API to create a new folder.
+ *
+ * @prop libraryId - Unique ID of the library as GUID (optional).
+ * @prop name - Name of the library to create.
+ * @prop description - Description of the library.
+ */
 export interface INewLibrary {
+  libraryId?: string;
   name: string;
   description?: string;
 }
 
+/**
+ * @interface ILibrary
+ *
+ * Representation of a library.
+ *
+ * @prop libraryId - Unique ID of the library.
+ * @prop name - Name of the library.
+ * @prop description - Description of the library.
+ */
 export interface ILibrary {
   libraryId: string;
   name: string;
   description?: string;
 }
 
+/**
+ * @interface ILibraryPatch
+ *
+ * Information passed to the API to update an existing library.
+ *
+ * @prop name - The new name of the library.
+ * @prop description - Updated description for the library.
+ */
 export interface ILibraryPatch {
   name?: string;
   description?: string;
 }
 
+/**
+ * Enumeration of the different types of folders.
+ */
 export enum FolderType {
   // Standard picture folder.  May contain pictures, videos and
   // child picture folders.
