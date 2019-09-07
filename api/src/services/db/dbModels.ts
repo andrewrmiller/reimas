@@ -14,8 +14,28 @@ export interface IDmlResponse {
  * Structure of a library as represented in the database.
  */
 export interface IDbLibrary {
-  library_id: number;
+  library_id: string;
   name: string;
   description: string;
-  url: string;
+}
+
+/**
+ * Structure of a folder as represented in the database.
+ */
+export interface IDbFolder {
+  library_id: string;
+  folder_id: string;
+  name: string;
+  parent_id: string;
+  type: number;
+  root_id: string;
+  path: string;
+  file_count: number;
+  file_size: number;
+  file_size_sm: number;
+  file_size_md: number;
+  file_size_lg: number;
+  data: string;
+  where: string;
+  order_by: string;
 }

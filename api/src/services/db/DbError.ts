@@ -10,6 +10,7 @@ export enum DbErrorCode {
   ItemTooLarge = 5,
   ItemIsExpired = 6,
   ItemAlreadyProcessed = 7,
+  InvalidFieldValue = 8,
   UnexpectedError = 999
 }
 

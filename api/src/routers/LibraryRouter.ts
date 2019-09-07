@@ -5,7 +5,7 @@ import { ILibraryPatch, INewLibrary } from '../services/db/models';
 const router = express.Router();
 
 /**
- * Get a list of all libraries
+ * Gets a list of all libraries
  */
 router.get(
   '/',
@@ -20,7 +20,7 @@ router.get(
 );
 
 /**
- * Get a specific library.
+ * Gets a specific library.
  */
 router.get(
   '/:libraryId',
@@ -36,7 +36,7 @@ router.get(
 );
 
 /**
- * Add a new library.
+ * Adds a new library.
  */
 router.post(
   '/',
@@ -51,7 +51,7 @@ router.post(
 );
 
 /**
- * Update an existing library.
+ * Updates an existing library.
  */
 router.patch(
   '/:libraryId',
@@ -67,7 +67,7 @@ router.patch(
 );
 
 /**
- * Delete an existing library.
+ * Deletes an existing library.
  */
 router.delete(
   '/:libraryId',

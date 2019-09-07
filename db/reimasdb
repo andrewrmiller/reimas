@@ -16,9 +16,8 @@ usage() {
 	echo
 	echo "   create             Create a new Reimas database."
 	echo "   migrate            Migrate a Reimas database to the current version."
-	echo "   clean              Drop all objects in a  Reimas database."
 	echo "   delete             Delete a Remias database."
-	echo "   backup             Backs up a Reimas database."
+	echo "   recreate           Delete the Reimas database then create a new database."
 	echo
 	echo "Requirements:"
 	echo
@@ -113,14 +112,23 @@ deleteDb() {
 			break
 		elif [ "$opt" = "No" ]; then
 			echo Operation aborted.
-			exit
+			return 1
 		else
 			echo Bad selection.
-			exit
+			return 2
 		fi
 	done
 
 	$MYSQL -e "DROP DATABASE $DATABASE_NAME"
+	return 0
+}
+
+recreateDb() {
+	if deleteDb 0 ; then
+		createDb
+	else
+		return 1
+	fi
 }
 
 # Change to the root of the database directory.
@@ -136,6 +144,10 @@ migrate)
 delete)
 	deleteDb
 	;;
+recreate)
+	recreateDb
+	;;
+
 *)
 	usage
 	;;

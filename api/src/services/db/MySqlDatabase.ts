@@ -4,10 +4,17 @@ import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import { ChangeCase } from '../../common/ChangeCase';
 import IDatabaseConfig from '../../common/IDatabaseConfig';
 import { DbError, DbErrorCode } from './DbError';
-import { IDbLibrary, IDmlResponse } from './dbModels';
-import { ILibrary, ILibraryPatch, INewLibrary } from './models';
+import { IDbFolder, IDbLibrary, IDmlResponse } from './dbModels';
+import {
+  IFolder,
+  IFolderPatch,
+  ILibrary,
+  ILibraryPatch,
+  INewFolder,
+  INewLibrary
+} from './models';
 
-const debug = createDebug('frontend:database');
+const debug = createDebug('api:database');
 
 /**
  * MySQL Reimas database interface.
@@ -93,12 +100,73 @@ export class MySqlDatabase {
   }
 
   public deleteLibrary(libraryId: string) {
-    debug('Deleting an existing library.');
+    debug(`Deleting library ${libraryId}.`);
     return this.callChangeProc<IDbLibrary>('delete_library', [libraryId]).then(
       (library: IDbLibrary) => {
         return ChangeCase.toCamelObject(library) as ILibrary;
       }
     );
+  }
+
+  public getFolders(libraryId: string, parentFolderId: string | null) {
+    debug(`Retrieving all top-level folders in library ${libraryId}.`);
+    return this.callSelectManyProc<IDbFolder>('get_folders', [
+      libraryId,
+      parentFolderId
+    ]).then(dbFolders => {
+      return dbFolders.map(dbFolder => {
+        return ChangeCase.toCamelObject(dbFolder) as IFolder;
+      });
+    });
+  }
+
+  public getFolder(libraryId: string, folderId: string) {
+    debug(`Retrieving folder ${folderId} in library ${libraryId}.`);
+    return this.callSelectOneProc<IDbFolder>('get_folder', [
+      libraryId,
+      folderId
+    ]).then(dbFolder => {
+      debug(JSON.stringify(dbFolder));
+      return ChangeCase.toCamelObject(dbFolder) as IFolder;
+    });
+  }
+
+  public addFolder(libraryId: string, newFolder: INewFolder) {
+    debug(`Adding a new folder ${newFolder.name} to library ${libraryId}.`);
+    return this.callChangeProc<IDbFolder>('add_folder', [
+      libraryId,
+      newFolder.name,
+      newFolder.parentId,
+      newFolder.type
+    ]).then((folder: IDbFolder) => {
+      return ChangeCase.toCamelObject(folder) as IFolder;
+    });
+  }
+
+  public patchFolder(libraryId: string, folderId: string, patch: IFolderPatch) {
+    debug(`Patching folder ${folderId} in library ${libraryId}.`);
+    return this.callSelectOneProc<IDbFolder>('get_folder', [
+      libraryId,
+      folderId
+    ]).then(dbFolder => {
+      return this.callChangeProc<IDbFolder>('update_folder', [
+        libraryId,
+        folderId,
+        patch.name ? patch.name : dbFolder.name
+      ]).then((folder: IDbFolder) => {
+        return ChangeCase.toCamelObject(folder) as IFolder;
+      });
+    });
+  }
+
+  public deleteFolder(libraryId: string, folderId: string) {
+    debug(`Deleting folder ${folderId} in library ${libraryId}.`);
+    return this.callChangeProc<IDbFolder>('delete_folder', [
+      libraryId,
+      folderId
+    ]).then((folder: IDbFolder) => {
+      return ChangeCase.toCamelObject(folder) as IFolder;
+    });
   }
 
   /**
@@ -107,7 +175,7 @@ export class MySqlDatabase {
    * @param procName Name of the procedure to invoke.
    * @param parameters Parameters to pass to the procedure.
    */
-  public callSelectManyProc<TResult>(procName: string, parameters: any[]) {
+  private callSelectManyProc<TResult>(procName: string, parameters: any[]) {
     this.connect();
 
     const p = new Promise<TResult[]>((resolve, reject) => {
@@ -144,7 +212,7 @@ export class MySqlDatabase {
    * @param procName Name of the procedure to invoke.
    * @param parameters Parameters to pass to the procedure.
    */
-  public callSelectOneProc<TResult>(procName: string, parameters: any[]) {
+  private callSelectOneProc<TResult>(procName: string, parameters: any[]) {
     this.connect();
 
     const p = new Promise<TResult>((resolve, reject) => {
@@ -191,7 +259,7 @@ export class MySqlDatabase {
    * @param procName Name of the stored procedure to execute.
    * @param parameters Parameters to provide to the procedure.
    */
-  public callChangeProc<TResult>(procName: string, parameters: any[]) {
+  private callChangeProc<TResult>(procName: string, parameters: any[]) {
     this.connect();
 
     const p = new Promise<TResult>((resolve, reject) => {
@@ -207,9 +275,7 @@ export class MySqlDatabase {
             const result = results[0][0] as IDmlResponse;
             if (result.err_code !== DbErrorCode.NoError) {
               debug(
-                `callChangeProc: Call to ${procName} failed with err_code: ${
-                  result.err_code
-                }`
+                `callChangeProc: Call to ${procName} failed with err_code: ${result.err_code}`
               );
               reject(this.createDbError(result));
             }
@@ -299,11 +365,13 @@ export class MySqlDatabase {
         errorMessage = 'Item has already been processed.';
         break;
 
+      case DbErrorCode.InvalidFieldValue:
+        errorMessage = 'Invalid field value.';
+        break;
+
       case DbErrorCode.UnexpectedError:
       default:
-        errorMessage = `An unexpected error occurred (Error Code: ${
-          response.err_code
-        }).`;
+        errorMessage = `An unexpected error occurred (Error Code: ${response.err_code}).`;
         break;
     }
 
