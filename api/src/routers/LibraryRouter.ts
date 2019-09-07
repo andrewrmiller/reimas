@@ -1,6 +1,6 @@
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
-import { ILibraryPatch, INewLibrary } from '../services/db/models';
+import { ILibraryPatch, INewLibrary } from '../services/models';
 import { PictureStore } from '../services/PictureStore';
 
 const router = express.Router();

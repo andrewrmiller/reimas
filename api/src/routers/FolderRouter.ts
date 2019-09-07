@@ -2,8 +2,9 @@ import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import createHttpError from 'http-errors';
-import { DbFactory } from '../services/db/DbFactory';
-import { IFolderPatch, INewFolder } from '../services/db/models';
+import { IFolderPatch, INewFolder } from '../services/models';
+import { PictureStore } from '../services/PictureStore';
+
 const router = express.Router();
 
 const debug = createDebug('api:database');
@@ -34,8 +35,10 @@ router.get(
     }
 
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.getFolders(params.libraryId, parent === '' ? null : parent)
+    PictureStore.getFolders(
+      params.libraryId,
+      parent === '' ? undefined : parent
+    )
       .then(data => {
         res.send(data);
       })
@@ -50,8 +53,7 @@ router.get(
   '/:libraryId/folders/:folderId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.getFolder(params.libraryId, params.folderId)
+    PictureStore.getFolder(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
       })
@@ -66,9 +68,7 @@ router.post(
   '/:libraryId/folders',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    debug(req.url);
-    const db = DbFactory.createInstance();
-    db.addFolder(params.libraryId, req.body as INewFolder)
+    PictureStore.createFolder(params.libraryId, req.body as INewFolder)
       .then(data => {
         res.send(data);
       })
@@ -78,15 +78,16 @@ router.post(
 
 /**
  * Updates an existing folder in a library.
- *
- * UNDONE: Patching a folder's name needs to update paths!  Or we need to jsut get rid of paths.
  */
 router.patch(
   '/:libraryId/folders/:folderId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.patchFolder(params.libraryId, params.folderId, req.body as IFolderPatch)
+    PictureStore.updateFolder(
+      params.libraryId,
+      params.folderId,
+      req.body as IFolderPatch
+    )
       .then(data => {
         res.send(data);
       })
@@ -101,8 +102,7 @@ router.delete(
   '/:libraryId/folders/:folderId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.deleteFolder(params.libraryId, params.folderId)
+    PictureStore.deleteFolder(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
       })
@@ -117,8 +117,7 @@ router.get(
   '/:libraryId/folders/:folderId/subfolders',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const db = DbFactory.createInstance();
-    db.getFolders(params.libraryId, params.folderId)
+    PictureStore.getFolders(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
       })

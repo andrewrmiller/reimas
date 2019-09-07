@@ -3,8 +3,6 @@ import createDebug from 'debug';
 import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import { ChangeCase } from '../../common/ChangeCase';
 import IDatabaseConfig from '../../common/IDatabaseConfig';
-import { DbError, DbErrorCode } from './DbError';
-import { IDbFolder, IDbLibrary, IDmlResponse } from './dbModels';
 import {
   IFolder,
   IFolderPatch,
@@ -12,7 +10,9 @@ import {
   ILibraryPatch,
   INewFolder,
   INewLibrary
-} from './models';
+} from '../models';
+import { DbError, DbErrorCode } from './DbError';
+import { IDbFolder, IDbLibrary, IDmlResponse } from './dbModels';
 
 const debug = createDebug('api:database');
 

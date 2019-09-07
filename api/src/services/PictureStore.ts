@@ -1,8 +1,9 @@
 import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
+import { Paths } from '../common/Paths';
 import { DbFactory } from '../services/db/DbFactory';
-import { ILibraryPatch, INewLibrary } from '../services/db/models';
-import { LocalFileSystem } from '../services/files/LocalFileSystem';
+import { LocalFileSystem } from './files/LocalFileSystem';
+import { IFolderPatch, ILibraryPatch, INewFolder, INewLibrary } from './models';
 
 const debug = createDebug('api:picturestore');
 
@@ -46,12 +47,12 @@ export class PictureStore {
       `Generated ID ${newLibrary.libraryId} for new library ${newLibrary.name}`
     );
 
-    // Create the folder on disk first and if that works add it
-    // to the database.
+    // Create the library folder on disk first.
     return LocalFileSystem.createFolder(newLibrary.libraryId).then(() => {
+      // Now add the library to the database.
       return db.addLibrary(newLibrary).catch(err => {
         // Failed to add it to the database.  Make an attempt to
-        // remove the file system folder that we just created and
+        // remove the file system folder that we just created.
         debug(`ERROR: Create library failed for library ${newLibrary.name}`);
         debug('Folder was created in file system but database insert failed.');
         LocalFileSystem.deleteFolder(newLibrary.name);
@@ -82,11 +83,109 @@ export class PictureStore {
     // Delete the library in the database first.
     return db.deleteLibrary(libraryId).then(result => {
       // Now try to delete the library folder in the file system.
-      return LocalFileSystem.deleteFolder(libraryId).catch(err => {
-        debug(`ERROR: Delete library failed for library ${libraryId}`);
-        debug(`Library was deleted in the database but folder delete failed.`);
-        debug(`Library folder '${libraryId}' may need to be cleaned up.`);
-        throw err;
+      return LocalFileSystem.deleteFolder(libraryId)
+        .then(() => {
+          // Return the result from the database delete.
+          return result;
+        })
+        .catch(err => {
+          debug(`ERROR: Delete library failed for library ${libraryId}`);
+          debug(`Library was deleted in db but file system delete failed.`);
+          debug(`Library folder '${libraryId}' may need to be cleaned up.`);
+          throw err;
+        });
+    });
+  }
+
+  public static getFolders(libraryId: string, parent?: string) {
+    const db = DbFactory.createInstance();
+    return db.getFolders(libraryId, parent ? parent : null);
+  }
+
+  public static getFolder(libraryId: string, folderId: string) {
+    const db = DbFactory.createInstance();
+    return db.getFolder(libraryId, folderId);
+  }
+
+  public static createFolder(libraryId: string, newFolder: INewFolder) {
+    const db = DbFactory.createInstance();
+
+    // Grab some information about the parent folder first.
+    return db.getFolder(libraryId, newFolder.parentId!).then(parent => {
+      // Create the folder in the file system first.
+      const fileSystemPath = `${libraryId}/${parent.path}/${newFolder.name}`;
+      return LocalFileSystem.createFolder(fileSystemPath).then(() => {
+        // Now create the folder in the database.
+        return db.addFolder(libraryId, newFolder).catch(err => {
+          // We failed to create the folder in the file system.  Try to
+          // remove the folder that we created in the database.
+          debug(`ERROR: Create folder failed for folder ${newFolder.name}.`);
+          debug(`Folder was created in the file system but not in db.`);
+          debug(`Attempting to delete the folder in the file systme.`);
+          LocalFileSystem.deleteFolder(fileSystemPath);
+          throw err;
+        });
+      });
+    });
+  }
+
+  /**
+   * Updates an existing folder.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param folderId Unique ID of the folder to update.
+   * @param patch Information to update.
+   */
+  public static updateFolder(
+    libraryId: string,
+    folderId: string,
+    patch: IFolderPatch
+  ) {
+    const db = DbFactory.createInstance();
+
+    return db.getFolder(libraryId, folderId).then(folder => {
+      const fileSystemPath = `${libraryId}/${folder.path}`;
+      return LocalFileSystem.renameFolder(fileSystemPath, patch.name!).then(
+        () => {
+          return db.patchFolder(libraryId, folderId, patch).catch(err => {
+            debug(`ERROR: Patching folder ${folderId} failed.`);
+            const newPath = Paths.replaceLastSubpath(
+              fileSystemPath,
+              patch.name!
+            );
+            debug(`Attempting to revert ${newPath} to ${folder.name}.`);
+            LocalFileSystem.renameFolder(newPath, folder.name);
+            throw err;
+          });
+        }
+      );
+    });
+  }
+
+  /**
+   * Deletes an existing folder.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param folderId Unique ID of the folder to delete.
+   */
+  public static deleteFolder(libraryId: string, folderId: string) {
+    const db = DbFactory.createInstance();
+
+    // Grab the folder info first and then delete the folder in the database.
+    return db.getFolder(libraryId, folderId).then(folder => {
+      return db.deleteFolder(libraryId, folderId).then(result => {
+        // Now try to delete the folder in the file system.
+        return LocalFileSystem.deleteFolder(`${libraryId}/${folder.path}`)
+          .then(() => {
+            // Return the result from the database delete.
+            return result;
+          })
+          .catch(err => {
+            debug(`ERROR: Delete folder failed for folder ${folder.path}.`);
+            debug(`Folder was deleted in db but file system delete failed.`);
+            debug(`Folder may need to be cleaned up.`);
+            throw err;
+          });
       });
     });
   }
