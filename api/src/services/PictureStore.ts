@@ -97,16 +97,36 @@ export class PictureStore {
     });
   }
 
+  /**
+   * Retrieves a list of folders in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param parent Unique ID of the parent folder,
+   *
+   * NOTE: Pass unknown for parent to get list of root folders.
+   */
   public static getFolders(libraryId: string, parent?: string) {
     const db = DbFactory.createInstance();
     return db.getFolders(libraryId, parent ? parent : null);
   }
 
+  /**
+   * Retrieves a specific folder in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param folderId Unique ID of the folder.
+   */
   public static getFolder(libraryId: string, folderId: string) {
     const db = DbFactory.createInstance();
     return db.getFolder(libraryId, folderId);
   }
 
+  /**
+   * Creates a new folder in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param newFolder Information about the new folder.
+   */
   public static createFolder(libraryId: string, newFolder: INewFolder) {
     const db = DbFactory.createInstance();
 
