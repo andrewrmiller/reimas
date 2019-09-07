@@ -5,10 +5,11 @@ import createHttpError from 'http-errors';
 import logger from 'morgan';
 import path from 'path';
 import { HttpStatusCode } from './common/httpConstants';
+import folderRouter from './routers/FolderRouter';
 import libraryRouter from './routers/LibraryRouter';
 import { DbError, DbErrorCode } from './services/db/DbError';
 
-const debug = createDebug('frontend:app');
+const debug = createDebug('api:app');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/libraries', libraryRouter);
+app.use('/libraries', folderRouter);
 
 // Catch all other request here and forward to error handler.
 app.use((req, res, next) => {
@@ -49,9 +51,14 @@ app.use(
           statusCode = HttpStatusCode.NOT_FOUND;
           break;
 
+        case DbErrorCode.DuplicateItemExists:
+          statusCode = HttpStatusCode.CONFLICT;
+          break;
+
         case DbErrorCode.ItemTooLarge:
         case DbErrorCode.MaximumSizeExceeded:
         case DbErrorCode.QuotaExceeded:
+        case DbErrorCode.InvalidFieldValue:
           statusCode = HttpStatusCode.BAD_REQUEST;
 
         default:
