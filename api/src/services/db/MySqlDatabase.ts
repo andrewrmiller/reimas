@@ -188,7 +188,7 @@ export class MySqlDatabase {
 
   public getFiles(libraryId: string, folderId: string) {
     debug(`Retrieving files in folder ${folderId} in library ${libraryId}.`);
-    return this.callSelectManyProc<IDbFolder>('get_files', [
+    return this.callSelectManyProc<IDbFile>('get_files', [
       libraryId,
       folderId
     ]).then(dbFiles => {
@@ -202,7 +202,7 @@ export class MySqlDatabase {
 
   public getFile(libraryId: string, fileId: string) {
     debug(`Retrieving file ${fileId} in library ${libraryId}.`);
-    return this.callSelectOneProc<IDbFolder>('get_file', [
+    return this.callSelectOneProc<IDbFile>('get_file', [
       libraryId,
       fileId
     ]).then(dbFile => {
