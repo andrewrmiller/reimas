@@ -1,9 +1,12 @@
 import createDebug from 'debug';
-import { promises as fs } from 'fs';
+import fs from 'fs';
 import rimraf from 'rimraf';
+import * as util from 'util';
 import { Paths } from '../../common/Paths';
 
 const debug = createDebug('api:localfilesystem');
+const fsPromises = fs.promises;
+const rimrafPromise = util.promisify(rimraf);
 
 const FileSystemRoot = 'libraries';
 
@@ -19,7 +22,7 @@ export class LocalFileSystem {
   public static createFolder(path: string) {
     const folderPath = `${FileSystemRoot}/${path}`;
     debug(`Creating local file system folder ${folderPath}`);
-    return fs.mkdir(folderPath);
+    return fsPromises.mkdir(folderPath);
   }
 
   /**
@@ -32,7 +35,7 @@ export class LocalFileSystem {
     const folderPath = `${FileSystemRoot}/${path}`;
     const newPath = Paths.replaceLastSubpath(folderPath, newName);
     debug(`Renaming local file system folder '${folderPath}' to '${newName}'`);
-    return fs.rename(folderPath, newPath);
+    return fsPromises.rename(folderPath, newPath);
   }
 
   /**
@@ -43,16 +46,26 @@ export class LocalFileSystem {
   public static deleteFolder(path: string) {
     const folderPath = `${FileSystemRoot}/${path}`;
     debug(`Recursively deleting local file system folder ${folderPath}`);
-    // Rimraf gives us recursive delete but no Promise interface
-    // unfortunately so we create the Promise ourselves.
-    return new Promise((resolve, reject) => {
-      rimraf(folderPath, err => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
+    return rimrafPromise(folderPath);
+  }
+
+  /**
+   * Imports a file into a folder under the file system root.
+   *
+   * @param localPath Local path to the file to import.
+   * @param targetPath Relative path for the imported file.
+   *
+   * NOTE: The source file at localPath will be deleted after
+   * the file is imported or if an error occurs.
+   */
+  public static importFile(localPath: string, targetPath: string) {
+    const target = `${FileSystemRoot}/${targetPath}`;
+    debug(`Importing ${localPath} as ${target}`);
+    return fsPromises
+      .copyFile(localPath, target, fs.constants.COPYFILE_EXCL)
+      .finally(() => {
+        debug(`Deleting ${localPath}`);
+        fsPromises.unlink(localPath);
       });
-    });
   }
 }

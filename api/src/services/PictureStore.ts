@@ -1,11 +1,21 @@
 import createDebug from 'debug';
+import sizeOf from 'image-size';
+import * as util from 'util';
 import { v1 as createGuid } from 'uuid';
 import { Paths } from '../common/Paths';
 import { DbFactory } from '../services/db/DbFactory';
 import { LocalFileSystem } from './files/LocalFileSystem';
-import { IFolderPatch, ILibraryPatch, INewFolder, INewLibrary } from './models';
+import {
+  IFilePatch,
+  IFolderPatch,
+  ILibraryPatch,
+  INewFile,
+  INewFolder,
+  INewLibrary
+} from './models';
 
 const debug = createDebug('api:picturestore');
+const sizeOfPromise = util.promisify(sizeOf);
 
 /**
  * Service which wraps the database and the file system to
@@ -208,5 +218,88 @@ export class PictureStore {
           });
       });
     });
+  }
+
+  public static getFiles(libraryId: string, folderId: string) {
+    // TODO: Implement this.
+    return new Promise((resolve, reject) => {
+      resolve({ folderId });
+    });
+  }
+
+  public static getFile(
+    libraryId: string,
+    folderId: string,
+    pictureId: string
+  ) {
+    // TODO: Implement this.
+    return new Promise((resolve, reject) => {
+      resolve({ folderId });
+    });
+  }
+
+  /**
+   * Imports a file into a folder in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param folderId Unique ID of the parent folder.
+   * @param localPath Local path of the file to import.
+   * @param filename Target name of the file in the library.
+   * @param mimeType Mime type of the file.
+   * @param fileSize Size of the file in bytes.
+   */
+  public static importFile(
+    libraryId: string,
+    folderId: string,
+    localPath: string,
+    filename: string,
+    mimeType: string,
+    fileSize: number
+  ) {
+    const db = DbFactory.createInstance();
+
+    return sizeOfPromise(localPath).then(imageInfo => {
+      return db.getFolder(libraryId, folderId).then(folder => {
+        return LocalFileSystem.importFile(
+          localPath,
+          `${libraryId}/${folder.path}/${filename}`
+        ).then(() => {
+          // File has been impmorted into the file system.  Now
+          // create a row in the database with the file's metadata.
+          return db.addFile(libraryId, folderId, {
+            name: filename,
+            mimeType,
+            isVideo: PictureStore.isVideo(mimeType),
+            height: imageInfo.height,
+            width: imageInfo.width,
+            fileSize,
+            isProcessing: true
+          } as INewFile);
+        });
+      });
+    });
+  }
+
+  public static updateFile(
+    libraryId: string,
+    pictureId: string,
+    patch: IFilePatch
+  ) {
+    // TODO: Implement this.
+    return new Promise((resolve, reject) => {
+      resolve({ pictureId });
+    });
+  }
+
+  public static deleteFile(libraryId: string, pictureId: string) {
+    // TODO: Implement this
+    return new Promise((resolve, reject) => {
+      resolve({ pictureId });
+    });
+  }
+
+  private static isVideo(mimeType: string) {
+    // TODO: Implement this.
+    return false;
   }
 }

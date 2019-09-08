@@ -130,3 +130,71 @@ export interface INewFolder {
 export interface IFolderPatch {
   name?: string;
 }
+
+/**
+ * @interface IFile
+ *
+ * Representation of a file.
+ *
+ * @prop libraryId - Unique ID of the parent library.
+ * @prop folderId - Unique ID of the parent folder.
+ * @prop fileId - Unique ID of the file.
+ * @prop name - Name of the file.
+ * @prop mimeType - Type of file.
+ * @prop isVideo - True if this is a video.
+ * @prop height - Height of the picture in pixels.
+ * @prop width - Width of the picture in pixels
+ * @prop importedOn - Date that the file was imported.
+ * @prop takenOn - Date when the picture was taken.
+ * @prop modifiedOn - Date when the file was last modified.
+ * @prop rating - Rating of the picture.
+ * @prop title - Title of the picture.
+ * @prop subject - Subject of the picture.
+ * @prop comments - Comments about the picture.
+ * @prop fileSize - Size of the picture in bytes.
+ * @prop fileSizeSm - Size of the small thumbnail in bytes.
+ * @prop fileSizeMd - Szie of the medium thumbnail in bytes.
+ * @prop fileSizeLg - Size of the large thumbnail in bytes.
+ * @prop fileSizeBackup - Szie of the backup picture in bytes.
+ * @prop isProcessing - True if we are currently processing this picture.
+ */
+export interface IFile {
+  libraryId: string;
+  folderId: string;
+  fileId: string;
+  name: string;
+  mimeType: string;
+  isVideo: boolean;
+  height: number;
+  width: number;
+  importedOn: string;
+  takenOn?: string;
+  modifiedOn?: string;
+  rating?: number;
+  title?: string;
+  subject?: string;
+  comments?: string;
+  fileSize: number;
+  fileSizeSm?: number;
+  fileSizeMd?: number;
+  fileSizeLg?: number;
+  fileSizeBackup?: number;
+  isProcessing: number;
+}
+
+export interface INewFile {
+  name: string;
+  mimeType: string;
+  isVideo: boolean;
+  height: number;
+  width: number;
+  fileSize: number;
+  isProcessing: boolean;
+}
+
+export interface IFilePatch {
+  name?: string;
+  rating?: number;
+  title?: string;
+  subject?: string;
+}

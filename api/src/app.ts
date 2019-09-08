@@ -5,6 +5,7 @@ import createHttpError from 'http-errors';
 import logger from 'morgan';
 import path from 'path';
 import { HttpStatusCode } from './common/httpConstants';
+import fileRouter from './routers/FileRouter';
 import folderRouter from './routers/FolderRouter';
 import libraryRouter from './routers/LibraryRouter';
 import { DbError, DbErrorCode } from './services/db/DbError';
@@ -25,6 +26,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/libraries', libraryRouter);
 app.use('/libraries', folderRouter);
+app.use('/libraries', fileRouter);
 
 // Catch all other request here and forward to error handler.
 app.use((req, res, next) => {

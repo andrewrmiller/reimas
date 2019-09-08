@@ -4,15 +4,17 @@ import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import { ChangeCase } from '../../common/ChangeCase';
 import IDatabaseConfig from '../../common/IDatabaseConfig';
 import {
+  IFile,
   IFolder,
   IFolderPatch,
   ILibrary,
   ILibraryPatch,
+  INewFile,
   INewFolder,
   INewLibrary
 } from '../models';
 import { DbError, DbErrorCode } from './DbError';
-import { IDbFolder, IDbLibrary, IDmlResponse } from './dbModels';
+import { IDbFile, IDbFolder, IDbLibrary, IDmlResponse } from './dbModels';
 
 const debug = createDebug('api:database');
 
@@ -167,6 +169,25 @@ export class MySqlDatabase {
       folderId
     ]).then((folder: IDbFolder) => {
       return ChangeCase.toCamelObject(folder) as IFolder;
+    });
+  }
+
+  public addFile(libraryId: string, folderId: string, newFile: INewFile) {
+    debug(`Adding a new file ${newFile.name} to library ${libraryId}.`);
+    return this.callChangeProc<IDbFile>('add_file', [
+      libraryId,
+      folderId,
+      newFile.name,
+      newFile.mimeType,
+      newFile.isVideo,
+      newFile.height,
+      newFile.width,
+      newFile.fileSize,
+      newFile.isProcessing
+    ]).then((file: IDbFile) => {
+      return ChangeCase.toCamelObject(
+        this.convertBitFields(file, ['is_video', 'is_processing'])
+      ) as IFile;
     });
   }
 
@@ -377,5 +398,30 @@ export class MySqlDatabase {
     }
 
     return new DbError(response.err_code, errorMessage, response.err_context);
+  }
+
+  /**
+   * Converts the object returned for MySQL bit fields into a
+   * more consumable boolean.
+   *
+   * https://stackoverflow.com/questions/34414659
+   *
+   * @param jsonObject JSON object returned from MySQL.
+   * @param bitFields Names of the bit fields to convert.
+   */
+  private convertBitFields(
+    jsonObject: { [key: string]: any },
+    bitFields: string[]
+  ) {
+    const newObject = {
+      ...jsonObject
+    };
+
+    for (const bitField of bitFields) {
+      newObject[bitField] = (jsonObject[bitField].lastIndexOf(1) !==
+        -1) as boolean;
+    }
+
+    return newObject;
   }
 }

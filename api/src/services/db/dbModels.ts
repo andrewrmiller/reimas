@@ -39,3 +39,30 @@ export interface IDbFolder {
   where: string;
   order_by: string;
 }
+
+/**
+ * Structure of a file as represented in the database.
+ */
+export interface IDbFile {
+  library_id: string;
+  folder_id: string;
+  file_id: string;
+  name: string;
+  mime_type: string;
+  is_video: boolean;
+  height: number;
+  width: number;
+  imported_on: string;
+  taken_on?: string;
+  modified_on?: string;
+  rating?: number;
+  title?: string;
+  subject?: string;
+  comments?: string;
+  file_size: number;
+  file_size_sm?: number;
+  file_size_md?: number;
+  file_size_lg?: number;
+  file_size_backup?: number;
+  is_processing: number;
+}

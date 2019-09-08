@@ -7,7 +7,7 @@ import { PictureStore } from '../services/PictureStore';
 
 const router = express.Router();
 
-const debug = createDebug('api:database');
+const debug = createDebug('api:routers');
 
 /*
  * Note that folders are always contained in a library, so this router
@@ -19,7 +19,8 @@ const debug = createDebug('api:database');
  *
  * The `parent` query string parameter must be provided to specify
  * which collection of folders to retrieve.  To retrieve the collection
- * of root folders in the library, use `?parent=`.
+ * of root folders in the library (i.e. "All Pictures", "Search Folders", etc.),
+ * use `?parent=`.
  */
 router.get(
   '/:libraryId/folders',
