@@ -66,3 +66,16 @@ export interface IDbFile {
   file_size_backup?: number;
   is_processing: number;
 }
+
+/**
+ * Structure which contains information essential to
+ * retrieving the contents of a file.
+ */
+export interface IDbFileContentInfo {
+  library_id: string;
+  folder_id: string;
+  file_id: string;
+  name: string;
+  mime_type: string;
+  path: string;
+}

@@ -6,6 +6,7 @@ import IDatabaseConfig from '../../common/IDatabaseConfig';
 import {
   IFile,
   IFileAdd,
+  IFileContentInfo,
   IFolder,
   IFolderAdd,
   IFolderUpdate,
@@ -14,9 +15,17 @@ import {
   ILibraryUpdate
 } from '../models';
 import { DbError, DbErrorCode } from './DbError';
-import { IDbFile, IDbFolder, IDbLibrary, IDmlResponse } from './dbModels';
+import {
+  IDbFile,
+  IDbFileContentInfo,
+  IDbFolder,
+  IDbLibrary,
+  IDmlResponse
+} from './dbModels';
 
 const debug = createDebug('api:database');
+
+const FileBitFields = ['is_video', 'is_processing'];
 
 /**
  * MySQL Reimas database interface.
@@ -112,7 +121,9 @@ export class MySqlDatabase {
   }
 
   public getFolders(libraryId: string, parentFolderId: string | null) {
-    debug(`Retrieving all top-level folders in library ${libraryId}.`);
+    debug(
+      `Retrieving folders in library ${libraryId} with parent=${parentFolderId}.`
+    );
     return this.callSelectManyProc<IDbFolder>('get_folders', [
       libraryId,
       parentFolderId
@@ -129,7 +140,6 @@ export class MySqlDatabase {
       libraryId,
       folderId
     ]).then(dbFolder => {
-      debug(JSON.stringify(dbFolder));
       return ChangeCase.toCamelObject(dbFolder) as IFolder;
     });
   }
@@ -176,6 +186,44 @@ export class MySqlDatabase {
     });
   }
 
+  public getFiles(libraryId: string, folderId: string) {
+    debug(`Retrieving files in folder ${folderId} in library ${libraryId}.`);
+    return this.callSelectManyProc<IDbFolder>('get_files', [
+      libraryId,
+      folderId
+    ]).then(dbFiles => {
+      return dbFiles.map(dbFile => {
+        return ChangeCase.toCamelObject(
+          this.convertBitFields(dbFile, FileBitFields)
+        ) as IFile;
+      });
+    });
+  }
+
+  public getFile(libraryId: string, fileId: string) {
+    debug(`Retrieving file ${fileId} in library ${libraryId}.`);
+    return this.callSelectOneProc<IDbFolder>('get_file', [
+      libraryId,
+      fileId
+    ]).then(dbFile => {
+      return ChangeCase.toCamelObject(
+        this.convertBitFields(dbFile, FileBitFields)
+      ) as IFile;
+    });
+  }
+
+  public getFileContentInfo(libraryId: string, fileId: string) {
+    debug(
+      `Retrieving file content info for ${fileId} in library ${libraryId}.`
+    );
+    return this.callSelectOneProc<IDbFileContentInfo>('get_file_content_info', [
+      libraryId,
+      fileId
+    ]).then(dbFileContentInfo => {
+      return ChangeCase.toCamelObject(dbFileContentInfo) as IFileContentInfo;
+    });
+  }
+
   public addFile(libraryId: string, folderId: string, add: IFileAdd) {
     debug(`Adding a new file ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFile>('add_file', [
@@ -190,7 +238,7 @@ export class MySqlDatabase {
       add.isProcessing
     ]).then((file: IDbFile) => {
       return ChangeCase.toCamelObject(
-        this.convertBitFields(file, ['is_video', 'is_processing'])
+        this.convertBitFields(file, FileBitFields)
       ) as IFile;
     });
   }

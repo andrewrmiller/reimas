@@ -50,6 +50,17 @@ export class LocalFileSystem {
   }
 
   /**
+   * Reads the contents of a file in the file system.
+   *
+   * @param path Relative path to the file.
+   */
+  public static readFile(path: string) {
+    const filePath = `${FileSystemRoot}/${path}`;
+    debug(`Reading file ${filePath}`);
+    return fsPromises.readFile(filePath);
+  }
+
+  /**
    * Imports a file into a folder under the file system root.
    *
    * @param localPath Local path to the file to import.

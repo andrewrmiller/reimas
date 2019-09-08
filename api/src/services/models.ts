@@ -198,3 +198,12 @@ export interface IFileUpdate {
   title?: string;
   subject?: string;
 }
+
+export interface IFileContentInfo {
+  libraryId: string;
+  folderId: string;
+  fileId: string;
+  name: string;
+  mimeType: string;
+  path: string;
+}

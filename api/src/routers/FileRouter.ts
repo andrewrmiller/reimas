@@ -33,24 +33,6 @@ router.get(
 );
 
 /**
- * Gets the contents of a specific file in a library folder.
- */
-router.get(
-  '/:libraryId/folders/:folderId/files/:pictureId',
-  (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const params = req.params as ParamsDictionary;
-
-    // TODO: What about metadata vs. picture?
-
-    PictureStore.getFile(params.libraryId, params.folderId, params.pictureId)
-      .then(data => {
-        res.send(data);
-      })
-      .catch(next);
-  }
-);
-
-/**
  * Adds one or more pictures to a folder in a library.
  */
 router.post(
@@ -82,15 +64,46 @@ router.post(
 );
 
 /**
- * Updates an existing picture in a library.
+ * Gets the attributes of a specific file in a library folder.
+ */
+router.get(
+  '/:libraryId/files/:fileId',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    PictureStore.getFile(params.libraryId, params.fileId)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Gets the contents of a specific file in a library folder.
+ */
+router.get(
+  '/:libraryId/files/:fileId/contents',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    PictureStore.getFileContents(params.libraryId, params.fileId)
+      .then(contents => {
+        res.contentType(contents.mimeType);
+        res.send(contents.buffer);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Updates an existing file in a library.
  */
 router.patch(
-  '/:libraryId/folders/:folderId/pictures/:pictureId',
+  '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
     PictureStore.updateFile(
       params.libraryId,
-      params.pictureId,
+      params.fileId,
       req.body as IFileUpdate
     )
       .then(data => {
@@ -101,13 +114,13 @@ router.patch(
 );
 
 /**
- * Deletes an existing picture in a library.
+ * Deletes an existing file in a library.
  */
 router.delete(
-  '/:libraryId/folders/:folderId/pictures/:pictureId',
+  '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.deleteFile(params.libraryId, params.pictureId)
+    PictureStore.deleteFile(params.libraryId, params.fileId)
       .then(data => {
         res.send(data);
       })

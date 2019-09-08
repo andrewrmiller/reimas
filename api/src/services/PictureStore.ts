@@ -218,21 +218,45 @@ export class PictureStore {
     });
   }
 
+  /**
+   * Retrieves a list of files in a library folder.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param folderId Unique ID of the parent folder.
+   */
   public static getFiles(libraryId: string, folderId: string) {
-    // TODO: Implement this.
-    return new Promise((resolve, reject) => {
-      resolve({ folderId });
-    });
+    const db = DbFactory.createInstance();
+    return db.getFiles(libraryId, folderId);
   }
 
-  public static getFile(
-    libraryId: string,
-    folderId: string,
-    pictureId: string
-  ) {
-    // TODO: Implement this.
-    return new Promise((resolve, reject) => {
-      resolve({ folderId });
+  /**
+   * Retrieves the metadata for a specific file in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   */
+  public static getFile(libraryId: string, fileId: string) {
+    const db = DbFactory.createInstance();
+    return db.getFile(libraryId, fileId);
+  }
+
+  /**
+   * Retrieves the contents for a specific file in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   */
+  public static getFileContents(libraryId: string, fileId: string) {
+    const db = DbFactory.createInstance();
+    return db.getFileContentInfo(libraryId, fileId).then(contentInfo => {
+      return LocalFileSystem.readFile(`${libraryId}/${contentInfo.path}`).then(
+        buffer => {
+          return {
+            buffer,
+            mimeType: contentInfo.mimeType
+          };
+        }
+      );
     });
   }
 
@@ -280,19 +304,19 @@ export class PictureStore {
 
   public static updateFile(
     libraryId: string,
-    pictureId: string,
+    fileId: string,
     update: IFileUpdate
   ) {
     // TODO: Implement this.
     return new Promise((resolve, reject) => {
-      resolve({ pictureId });
+      resolve({ fileId });
     });
   }
 
-  public static deleteFile(libraryId: string, pictureId: string) {
+  public static deleteFile(libraryId: string, fileId: string) {
     // TODO: Implement this
     return new Promise((resolve, reject) => {
-      resolve({ pictureId });
+      resolve({ fileId });
     });
   }
 
