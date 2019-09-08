@@ -1,6 +1,6 @@
 # What is Reimas?
 
-Reimas (pronounced "rayMAHS") is a **RE**mote **IM**Age **S**torage storage. It provides the following features:
+Reimas (pronounced "rayMAHS") is a **RE**mote **IM**Age **S**torage service. It provides the following features:
 
 - Simple API for storing, retrieving and maniupulating photos and videos
 - Ability to store uploaded files in the file system or AWS S3
