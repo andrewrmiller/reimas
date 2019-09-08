@@ -6,12 +6,12 @@ import { Paths } from '../common/Paths';
 import { DbFactory } from '../services/db/DbFactory';
 import { LocalFileSystem } from './files/LocalFileSystem';
 import {
-  IFilePatch,
-  IFolderPatch,
-  ILibraryPatch,
-  INewFile,
-  INewFolder,
-  INewLibrary
+  IFileAdd,
+  IFileUpdate,
+  IFolderAdd,
+  IFolderUpdate,
+  ILibraryAdd,
+  ILibraryUpdate
 } from './models';
 
 const debug = createDebug('api:picturestore');
@@ -41,31 +41,29 @@ export class PictureStore {
   }
 
   /**
-   * Creates a new library.
+   * Adds a new library to the service.
    *
-   * @param newLibrary Library creation information.
+   * @param add Library creation information.
    */
 
-  public static createLibrary(newLibrary: INewLibrary) {
+  public static addLibrary(add: ILibraryAdd) {
     const db = DbFactory.createInstance();
 
     // Create a GUID and use that as the unique ID of the folder
     // and also the name of the folder in the file system.  This avoids
     // naming conflicts in the filesystem.
-    newLibrary.libraryId = createGuid();
-    debug(
-      `Generated ID ${newLibrary.libraryId} for new library ${newLibrary.name}`
-    );
+    add.libraryId = createGuid();
+    debug(`Generated ID ${add.libraryId} for new library ${add.name}`);
 
     // Create the library folder on disk first.
-    return LocalFileSystem.createFolder(newLibrary.libraryId).then(() => {
+    return LocalFileSystem.createFolder(add.libraryId).then(() => {
       // Now add the library to the database.
-      return db.addLibrary(newLibrary).catch(err => {
+      return db.addLibrary(add).catch(err => {
         // Failed to add it to the database.  Make an attempt to
         // remove the file system folder that we just created.
-        debug(`ERROR: Create library failed for library ${newLibrary.name}`);
+        debug(`ERROR: Create library failed for library ${add.name}`);
         debug('Folder was created in file system but database insert failed.');
-        LocalFileSystem.deleteFolder(newLibrary.name);
+        LocalFileSystem.deleteFolder(add.name);
         throw err;
       });
     });
@@ -75,11 +73,11 @@ export class PictureStore {
    * Updates an existing library.
    *
    * @param libraryId Unique ID of the library to update.
-   * @param patch Information to update on the library.
+   * @param update Information to update on the library.
    */
-  public static updateLibrary(libraryId: string, patch: ILibraryPatch) {
+  public static updateLibrary(libraryId: string, update: ILibraryUpdate) {
     const db = DbFactory.createInstance();
-    return db.patchLibrary(libraryId, patch);
+    return db.updateLibrary(libraryId, update);
   }
 
   /**
@@ -132,24 +130,24 @@ export class PictureStore {
   }
 
   /**
-   * Creates a new folder in a library.
+   * Adds a new folder to an existing library.
    *
    * @param libraryId Unique ID of the parent library.
-   * @param newFolder Information about the new folder.
+   * @param add Information about the new folder.
    */
-  public static createFolder(libraryId: string, newFolder: INewFolder) {
+  public static addFolder(libraryId: string, add: IFolderAdd) {
     const db = DbFactory.createInstance();
 
     // Grab some information about the parent folder first.
-    return db.getFolder(libraryId, newFolder.parentId!).then(parent => {
+    return db.getFolder(libraryId, add.parentId!).then(parent => {
       // Create the folder in the file system first.
-      const fileSystemPath = `${libraryId}/${parent.path}/${newFolder.name}`;
+      const fileSystemPath = `${libraryId}/${parent.path}/${add.name}`;
       return LocalFileSystem.createFolder(fileSystemPath).then(() => {
         // Now create the folder in the database.
-        return db.addFolder(libraryId, newFolder).catch(err => {
+        return db.addFolder(libraryId, add).catch(err => {
           // We failed to create the folder in the file system.  Try to
           // remove the folder that we created in the database.
-          debug(`ERROR: Create folder failed for folder ${newFolder.name}.`);
+          debug(`ERROR: Create folder failed for folder ${add.name}.`);
           debug(`Folder was created in the file system but not in db.`);
           debug(`Attempting to delete the folder in the file systme.`);
           LocalFileSystem.deleteFolder(fileSystemPath);
@@ -164,24 +162,24 @@ export class PictureStore {
    *
    * @param libraryId Unique ID of the parent library.
    * @param folderId Unique ID of the folder to update.
-   * @param patch Information to update.
+   * @param update Information to update.
    */
   public static updateFolder(
     libraryId: string,
     folderId: string,
-    patch: IFolderPatch
+    update: IFolderUpdate
   ) {
     const db = DbFactory.createInstance();
 
     return db.getFolder(libraryId, folderId).then(folder => {
       const fileSystemPath = `${libraryId}/${folder.path}`;
-      return LocalFileSystem.renameFolder(fileSystemPath, patch.name!).then(
+      return LocalFileSystem.renameFolder(fileSystemPath, update.name!).then(
         () => {
-          return db.patchFolder(libraryId, folderId, patch).catch(err => {
+          return db.updateFolder(libraryId, folderId, update).catch(err => {
             debug(`ERROR: Patching folder ${folderId} failed.`);
             const newPath = Paths.replaceLastSubpath(
               fileSystemPath,
-              patch.name!
+              update.name!
             );
             debug(`Attempting to revert ${newPath} to ${folder.name}.`);
             LocalFileSystem.renameFolder(newPath, folder.name);
@@ -274,7 +272,7 @@ export class PictureStore {
             width: imageInfo.width,
             fileSize,
             isProcessing: true
-          } as INewFile);
+          } as IFileAdd);
         });
       });
     });
@@ -283,7 +281,7 @@ export class PictureStore {
   public static updateFile(
     libraryId: string,
     pictureId: string,
-    patch: IFilePatch
+    update: IFileUpdate
   ) {
     // TODO: Implement this.
     return new Promise((resolve, reject) => {

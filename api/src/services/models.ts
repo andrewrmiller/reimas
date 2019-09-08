@@ -1,19 +1,4 @@
 /**
- * @interface INewLibrary
- *
- * Information passed to the API to create a new folder.
- *
- * @prop libraryId - Unique ID of the library as GUID (optional).
- * @prop name - Name of the library to create.
- * @prop description - Description of the library.
- */
-export interface INewLibrary {
-  libraryId?: string;
-  name: string;
-  description?: string;
-}
-
-/**
  * @interface ILibrary
  *
  * Representation of a library.
@@ -29,14 +14,29 @@ export interface ILibrary {
 }
 
 /**
- * @interface ILibraryPatch
+ * @interface ILibraryAdd
+ *
+ * Information passed to the API to create a new folder.
+ *
+ * @prop libraryId - Unique ID of the library as GUID (optional).
+ * @prop name - Name of the library to create.
+ * @prop description - Description of the library.
+ */
+export interface ILibraryAdd {
+  libraryId?: string;
+  name: string;
+  description?: string;
+}
+
+/**
+ * @interface ILibraryUpdate
  *
  * Information passed to the API to update an existing library.
  *
  * @prop name - The new name of the library.
  * @prop description - Updated description for the library.
  */
-export interface ILibraryPatch {
+export interface ILibraryUpdate {
   name?: string;
   description?: string;
 }
@@ -105,7 +105,7 @@ export interface IFolder {
 }
 
 /**
- * @interface INewFolder
+ * @interface IFolderAdd
  *
  * Information passed to the API to create a new folder.
  *
@@ -113,7 +113,7 @@ export interface IFolder {
  * @prop name - Name of the folder (e.g. 'Summer BBQ').  Must be unique within the parent.
  * @prop type - The type of folder.
  */
-export interface INewFolder {
+export interface IFolderAdd {
   // Set parentId to null to create a top level folder.
   parentId: string | null;
   name: string;
@@ -121,13 +121,13 @@ export interface INewFolder {
 }
 
 /**
- * @interface IFolderPatch
+ * @interface IFolderUpdate
  *
  * Information passed to the API to update an existing folder.
  *
  * @prop name - The new name of the folder.  Must be unique within the parent.
  */
-export interface IFolderPatch {
+export interface IFolderUpdate {
   name?: string;
 }
 
@@ -182,7 +182,7 @@ export interface IFile {
   isProcessing: number;
 }
 
-export interface INewFile {
+export interface IFileAdd {
   name: string;
   mimeType: string;
   isVideo: boolean;
@@ -192,7 +192,7 @@ export interface INewFile {
   isProcessing: boolean;
 }
 
-export interface IFilePatch {
+export interface IFileUpdate {
   name?: string;
   rating?: number;
   title?: string;

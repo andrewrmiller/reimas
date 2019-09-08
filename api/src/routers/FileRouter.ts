@@ -3,7 +3,7 @@ import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import createHttpError from 'http-errors';
 import multer from 'multer';
-import { IFile, IFilePatch, INewFile } from '../services/models';
+import { IFile, IFileAdd, IFileUpdate } from '../services/models';
 import { PictureStore } from '../services/PictureStore';
 
 const upload = multer({ dest: 'uploads/' });
@@ -91,7 +91,7 @@ router.patch(
     PictureStore.updateFile(
       params.libraryId,
       params.pictureId,
-      req.body as IFilePatch
+      req.body as IFileUpdate
     )
       .then(data => {
         res.send(data);

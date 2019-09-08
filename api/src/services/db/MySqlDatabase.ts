@@ -5,13 +5,13 @@ import { ChangeCase } from '../../common/ChangeCase';
 import IDatabaseConfig from '../../common/IDatabaseConfig';
 import {
   IFile,
+  IFileAdd,
   IFolder,
-  IFolderPatch,
+  IFolderAdd,
+  IFolderUpdate,
   ILibrary,
-  ILibraryPatch,
-  INewFile,
-  INewFolder,
-  INewLibrary
+  ILibraryAdd,
+  ILibraryUpdate
 } from '../models';
 import { DbError, DbErrorCode } from './DbError';
 import { IDbFile, IDbFolder, IDbLibrary, IDmlResponse } from './dbModels';
@@ -76,7 +76,7 @@ export class MySqlDatabase {
     );
   }
 
-  public addLibrary(newLibrary: INewLibrary) {
+  public addLibrary(newLibrary: ILibraryAdd) {
     debug('Adding a new library.');
     return this.callChangeProc<IDbLibrary>('add_library', [
       newLibrary.libraryId,
@@ -87,14 +87,14 @@ export class MySqlDatabase {
     });
   }
 
-  public patchLibrary(libraryId: string, patch: ILibraryPatch) {
-    debug('Patching an existing library.');
+  public updateLibrary(libraryId: string, update: ILibraryUpdate) {
+    debug('Updating an existing library.');
     return this.callSelectOneProc<IDbLibrary>('get_library', [libraryId]).then(
       dbLibrary => {
         return this.callChangeProc<IDbLibrary>('update_library', [
           libraryId,
-          patch.name ? patch.name : dbLibrary.name,
-          patch.description ? patch.description : dbLibrary.description
+          update.name ? update.name : dbLibrary.name,
+          update.description ? update.description : dbLibrary.description
         ]).then((library: IDbLibrary) => {
           return ChangeCase.toCamelObject(library) as ILibrary;
         });
@@ -134,20 +134,24 @@ export class MySqlDatabase {
     });
   }
 
-  public addFolder(libraryId: string, newFolder: INewFolder) {
-    debug(`Adding a new folder ${newFolder.name} to library ${libraryId}.`);
+  public addFolder(libraryId: string, add: IFolderAdd) {
+    debug(`Adding a new folder ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFolder>('add_folder', [
       libraryId,
-      newFolder.name,
-      newFolder.parentId,
-      newFolder.type
+      add.name,
+      add.parentId,
+      add.type
     ]).then((folder: IDbFolder) => {
       return ChangeCase.toCamelObject(folder) as IFolder;
     });
   }
 
-  public patchFolder(libraryId: string, folderId: string, patch: IFolderPatch) {
-    debug(`Patching folder ${folderId} in library ${libraryId}.`);
+  public updateFolder(
+    libraryId: string,
+    folderId: string,
+    update: IFolderUpdate
+  ) {
+    debug(`Updating folder ${folderId} in library ${libraryId}.`);
     return this.callSelectOneProc<IDbFolder>('get_folder', [
       libraryId,
       folderId
@@ -155,7 +159,7 @@ export class MySqlDatabase {
       return this.callChangeProc<IDbFolder>('update_folder', [
         libraryId,
         folderId,
-        patch.name ? patch.name : dbFolder.name
+        update.name ? update.name : dbFolder.name
       ]).then((folder: IDbFolder) => {
         return ChangeCase.toCamelObject(folder) as IFolder;
       });
@@ -172,18 +176,18 @@ export class MySqlDatabase {
     });
   }
 
-  public addFile(libraryId: string, folderId: string, newFile: INewFile) {
-    debug(`Adding a new file ${newFile.name} to library ${libraryId}.`);
+  public addFile(libraryId: string, folderId: string, add: IFileAdd) {
+    debug(`Adding a new file ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFile>('add_file', [
       libraryId,
       folderId,
-      newFile.name,
-      newFile.mimeType,
-      newFile.isVideo,
-      newFile.height,
-      newFile.width,
-      newFile.fileSize,
-      newFile.isProcessing
+      add.name,
+      add.mimeType,
+      add.isVideo,
+      add.height,
+      add.width,
+      add.fileSize,
+      add.isProcessing
     ]).then((file: IDbFile) => {
       return ChangeCase.toCamelObject(
         this.convertBitFields(file, ['is_video', 'is_processing'])

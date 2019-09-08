@@ -2,7 +2,7 @@ import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import createHttpError from 'http-errors';
-import { IFolderPatch, INewFolder } from '../services/models';
+import { IFolderAdd, IFolderUpdate } from '../services/models';
 import { PictureStore } from '../services/PictureStore';
 
 const router = express.Router();
@@ -69,7 +69,7 @@ router.post(
   '/:libraryId/folders',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.createFolder(params.libraryId, req.body as INewFolder)
+    PictureStore.addFolder(params.libraryId, req.body as IFolderAdd)
       .then(data => {
         res.send(data);
       })
@@ -87,7 +87,7 @@ router.patch(
     PictureStore.updateFolder(
       params.libraryId,
       params.folderId,
-      req.body as IFolderPatch
+      req.body as IFolderUpdate
     )
       .then(data => {
         res.send(data);

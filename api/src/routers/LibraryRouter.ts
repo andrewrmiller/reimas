@@ -1,6 +1,6 @@
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
-import { ILibraryPatch, INewLibrary } from '../services/models';
+import { ILibraryAdd, ILibraryUpdate } from '../services/models';
 import { PictureStore } from '../services/PictureStore';
 
 const router = express.Router();
@@ -40,7 +40,7 @@ router.get(
 router.post(
   '/',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    PictureStore.createLibrary(req.body as INewLibrary)
+    PictureStore.addLibrary(req.body as ILibraryAdd)
       .then(data => {
         res.send(data);
       })
@@ -55,7 +55,7 @@ router.patch(
   '/:libraryId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.updateLibrary(params.libraryId, req.body as ILibraryPatch)
+    PictureStore.updateLibrary(params.libraryId, req.body as ILibraryUpdate)
       .then(data => {
         res.send(data);
       })
