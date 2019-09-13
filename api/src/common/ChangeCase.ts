@@ -3,15 +3,21 @@
  */
 export class ChangeCase {
   /**
-   * Change the case of an object's properties from snake case to camel case.
+   * Produce a clone of the provided object where snake_case property
+   * names are converted to camelCase.
+   *
+   * Note that null values are not included in the clone.
    *
    * @param o The object to convert.
    */
   public static toCamelObject(o: { [key: string]: any }) {
     const newObject: { [key: string]: any } = {};
     Object.keys(o).forEach(k => {
-      const newKey = ChangeCase.toCamelString(k);
-      newObject[newKey] = o[k];
+      // Null values are excluded from the generated object.
+      if (o[k] !== null) {
+        const newKey = ChangeCase.toCamelString(k);
+        newObject[newKey] = o[k];
+      }
     });
 
     return newObject;

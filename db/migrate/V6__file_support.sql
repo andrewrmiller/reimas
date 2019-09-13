@@ -9,6 +9,13 @@ ALTER TABLE files MODIFY COLUMN imported_on DATETIME NOT NULL;
 ALTER TABLE files MODIFY COLUMN file_size INT(11) NOT NULL;
 ALTER TABLE files MODIFY COLUMN is_processing BIT(1) NOT NULL;
 
+-- Add a uniqueness constraint on file name within a folder.
+ALTER TABLE files
+  ADD CONSTRAINT ux_files_folder_id_name 
+  UNIQUE (library_id, folder_id, name);
+
+-- Create an index to make finding a given file faster.
+CREATE INDEX ix_files_library_id_file_id ON files(library_id, file_id);
 
 DELIMITER $$
 
@@ -37,7 +44,7 @@ proc:BEGIN
   END;
 
   SET @file_id = uuid();
-  SET @imported_on = NOW();
+  SET @imported_on = UTC_TIMESTAMP();
 
   INSERT INTO
     files(
@@ -106,7 +113,16 @@ BEGIN
     height,
     width,
     imported_on,
+    taken_on,
+    modified_on,
+    rating,
+    title,
+    subject,
+    comments,
     file_size,
+    file_size_sm,
+    file_size_lg,
+    file_size_backup,
     is_processing
 	FROM
 		files
@@ -136,7 +152,16 @@ BEGIN
     height,
     width,
     imported_on,
+    taken_on,
+    modified_on,
+    rating,
+    title,
+    subject,
+    comments,
     file_size,
+    file_size_sm,
+    file_size_lg,
+    file_size_backup,
     is_processing
 	FROM
 		files
@@ -159,7 +184,8 @@ BEGIN
 		expand_guid(fi.library_id) AS library_id,
 		expand_guid(fi.folder_id) AS folder_id,
     expand_guid(fi.file_id) AS file_id,
-		fi.mime_type,
+		fi.mime_type as mime_type,
+    fi.name AS name,
     CASE 
       WHEN LENGTH(fo.`path`) > 0 THEN CONCAT(fo.`path`, '/', fi.name)
       ELSE fi.name
@@ -170,6 +196,103 @@ BEGIN
     fi.library_id = compress_guid(p_library_id) AND
     fi.file_id = compress_guid(p_file_id);
 
+END$$
+
+
+
+/*
+ * Create a procedure to create a new folder in a library.
+ */
+DROP PROCEDURE IF EXISTS `update_file`$$
+
+CREATE PROCEDURE `update_file`(
+          IN p_library_id VARCHAR(36), 
+          IN p_file_id VARCHAR(36), 
+          IN p_name VARCHAR(80),
+          IN p_rating TINYINT(4),
+          IN p_title VARCHAR(80),
+          IN p_subject VARCHAR(80))
+BEGIN
+
+  SET @library_id_compressed = compress_guid(p_library_id);
+  SET @file_id_compressed = compress_guid(p_file_id);
+  
+  UPDATE
+    files 
+  SET
+    name = p_name,
+    rating = p_rating,
+    title = p_title,
+    subject = p_subject
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+	SELECT
+		CASE 
+			WHEN @affected_rows = 0 THEN 1	/* Not Found */
+			ELSE 0 
+		END
+			AS err_code,
+		NULL AS err_context;
+
+  SELECT
+		expand_guid(library_id) AS library_id,
+		expand_guid(folder_id) AS folder_id,
+    expand_guid(file_id) AS file_id,
+		name,
+		mime_type,
+    is_video,
+    height,
+    width,
+    imported_on,
+    taken_on,
+    modified_on,
+    rating,
+    title,
+    subject,
+    comments,
+    file_size,
+    file_size_sm,
+    file_size_lg,
+    file_size_backup,
+    is_processing
+	FROM
+		files
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+END $$
+
+/*
+ * Create a procedure to delete an existing file.
+ */
+DROP PROCEDURE IF EXISTS `delete_file`$$
+
+CREATE PROCEDURE `delete_file`(IN p_library_id VARCHAR(36), IN p_file_id VARCHAR(36))
+BEGIN
+
+	DELETE FROM
+		files
+	WHERE
+		library_id = compress_guid(p_library_id) AND
+    file_id = compress_guid(p_file_id);
+        
+	SELECT ROW_COUNT() INTO @affected_rows;
+
+	SELECT
+		CASE 
+			WHEN @affected_rows = 0 THEN 1	/* Not Found */
+			ELSE 0 
+		END
+			AS err_code,
+			NULL as err_context;
+
+	SELECT
+			p_library_id AS library_id,
+      p_file_id AS file_id;
+	
 END$$
 
 

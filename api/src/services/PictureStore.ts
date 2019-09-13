@@ -1,7 +1,15 @@
 import createDebug from 'debug';
+import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
 import * as util from 'util';
 import { v1 as createGuid } from 'uuid';
+import {
+  PictureExtension,
+  PictureMimeType,
+  VideoExtension,
+  VideoMimeType
+} from '../common/FileTypes';
+import { HttpStatusCode } from '../common/httpConstants';
 import { Paths } from '../common/Paths';
 import { DbFactory } from '../services/db/DbFactory';
 import { LocalFileSystem } from './files/LocalFileSystem';
@@ -16,6 +24,12 @@ import {
 
 const debug = createDebug('api:picturestore');
 const sizeOfPromise = util.promisify(sizeOf);
+
+enum FormatSupportStatus {
+  NotSupported = 0,
+  IsSupportedPicture = 1,
+  IsSupportedVideo = 2
+}
 
 /**
  * Service which wraps the database and the file system to
@@ -173,20 +187,21 @@ export class PictureStore {
 
     return db.getFolder(libraryId, folderId).then(folder => {
       const fileSystemPath = `${libraryId}/${folder.path}`;
-      return LocalFileSystem.renameFolder(fileSystemPath, update.name!).then(
-        () => {
-          return db.updateFolder(libraryId, folderId, update).catch(err => {
-            debug(`ERROR: Patching folder ${folderId} failed.`);
-            const newPath = Paths.replaceLastSubpath(
-              fileSystemPath,
-              update.name!
-            );
-            debug(`Attempting to revert ${newPath} to ${folder.name}.`);
-            LocalFileSystem.renameFolder(newPath, folder.name);
-            throw err;
-          });
-        }
-      );
+      return LocalFileSystem.renameFolderOrFile(
+        fileSystemPath,
+        update.name!
+      ).then(() => {
+        return db.updateFolder(libraryId, folderId, update).catch(err => {
+          debug(`ERROR: Patching folder ${folderId} failed.`);
+          const newPath = Paths.replaceLastSubpath(
+            fileSystemPath,
+            update.name!
+          );
+          debug(`Attempting to revert ${newPath} to ${folder.name}.`);
+          LocalFileSystem.renameFolderOrFile(newPath, folder.name);
+          throw err;
+        });
+      });
     });
   }
 
@@ -248,12 +263,12 @@ export class PictureStore {
    */
   public static getFileContents(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
-    return db.getFileContentInfo(libraryId, fileId).then(contentInfo => {
-      return LocalFileSystem.readFile(`${libraryId}/${contentInfo.path}`).then(
+    return db.getFileContentInfo(libraryId, fileId).then(info => {
+      return LocalFileSystem.readFile(`${libraryId}/${info.path}`).then(
         buffer => {
           return {
             buffer,
-            mimeType: contentInfo.mimeType
+            mimeType: info.mimeType
           };
         }
       );
@@ -280,48 +295,215 @@ export class PictureStore {
   ) {
     const db = DbFactory.createInstance();
 
-    return sizeOfPromise(localPath).then(imageInfo => {
-      return db.getFolder(libraryId, folderId).then(folder => {
-        return LocalFileSystem.importFile(
-          localPath,
-          `${libraryId}/${folder.path}/${filename}`
-        ).then(() => {
-          // File has been impmorted into the file system.  Now
-          // create a row in the database with the file's metadata.
-          return db.addFile(libraryId, folderId, {
-            name: filename,
-            mimeType,
-            isVideo: PictureStore.isVideo(mimeType),
-            height: imageInfo.height,
-            width: imageInfo.width,
-            fileSize,
-            isProcessing: true
-          } as IFileAdd);
+    return sizeOfPromise(localPath)
+      .then(imageInfo => {
+        // File was recognized as an image file.  See if we support it.
+        const supportStatus = PictureStore.getExtSupportStatus(
+          imageInfo.type.toLowerCase()
+        );
+
+        if (supportStatus === FormatSupportStatus.NotSupported) {
+          throw createHttpError(
+            HttpStatusCode.BAD_REQUEST,
+            `Invalid file type: ${imageInfo.type}`
+          );
+        }
+
+        return db.getFolder(libraryId, folderId).then(folder => {
+          return LocalFileSystem.importFile(
+            localPath,
+            `${libraryId}/${folder.path}/${filename}`
+          ).then(filenameUsed => {
+            // File has been impmorted into the file system.  Now
+            // create a row in the database with the file's metadata.
+            return db.addFile(libraryId, folderId, {
+              name: filenameUsed,
+              mimeType,
+              isVideo: supportStatus === FormatSupportStatus.IsSupportedVideo,
+              height: imageInfo.height,
+              width: imageInfo.width,
+              fileSize,
+              isProcessing: true
+            } as IFileAdd);
+          });
         });
+      })
+      .catch(err => {
+        // File was not recognized as an image file.
+        throw createHttpError(
+          HttpStatusCode.BAD_REQUEST,
+          `Unrecognized file type.`
+        );
       });
-    });
   }
 
+  /**
+   * Updates a file in a library folder.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file to update.
+   * @param update Information to update on the file.
+   */
   public static updateFile(
     libraryId: string,
     fileId: string,
     update: IFileUpdate
   ) {
-    // TODO: Implement this.
-    return new Promise((resolve, reject) => {
-      resolve({ fileId });
-    });
+    const db = DbFactory.createInstance();
+
+    // If name is changing, rename file on disk first, then update
+    // the database. Othwerise just update the database since all
+    // other updates are metadata only.
+    if (update.name) {
+      return db.getFileContentInfo(libraryId, fileId).then(info => {
+        if (!PictureStore.areExtensionsEqual(info.name, update.name!)) {
+          throw createHttpError(
+            HttpStatusCode.BAD_REQUEST,
+            'Invalid operation.  File extensions must match.'
+          );
+        }
+
+        const fileSystemPath = `${libraryId}/${info.path}`;
+        return LocalFileSystem.renameFolderOrFile(
+          fileSystemPath,
+          update.name!
+        ).then(() => {
+          return db.updateFile(libraryId, fileId, update).catch(err => {
+            debug(`ERROR: Patching file ${fileId} failed.`);
+            const newPath = Paths.replaceLastSubpath(
+              fileSystemPath,
+              update.name!
+            );
+            debug(`Attempting to revert ${newPath} to ${info.name}.`);
+            LocalFileSystem.renameFolderOrFile(newPath, info.name);
+            throw err;
+          });
+        });
+      });
+    } else {
+      return db.updateFile(libraryId, fileId, update);
+    }
   }
 
   public static deleteFile(libraryId: string, fileId: string) {
-    // TODO: Implement this
-    return new Promise((resolve, reject) => {
-      resolve({ fileId });
+    const db = DbFactory.createInstance();
+
+    // Grab the folder info first and then delete the folder in the database.
+    return db.getFileContentInfo(libraryId, fileId).then(file => {
+      return db.deleteFile(libraryId, fileId).then(result => {
+        // Now try to delete the folder in the file system.
+        return LocalFileSystem.deleteFolder(`${libraryId}/${file.path}`)
+          .then(() => {
+            // Return the result from the database delete.
+            return result;
+          })
+          .catch(err => {
+            debug(`ERROR: Delete file failed for folder ${file.path}.`);
+            debug(`File was deleted in db but file system delete failed.`);
+            debug(`File may need to be cleaned up.`);
+            throw err;
+          });
+      });
     });
   }
 
-  private static isVideo(mimeType: string) {
-    // TODO: Implement this.
-    return false;
+  /**
+   * Returns a value which indicates if the specified mime
+   * type is supported by the service.
+   *
+   * @param mimeType The type of file to check.
+   */
+  private static getSupportStatus(mimeType: string) {
+    if (PictureStore.isSupportedPicture(mimeType)) {
+      return FormatSupportStatus.IsSupportedPicture;
+    } else if (PictureStore.isSupportedVideo(mimeType)) {
+      return FormatSupportStatus.IsSupportedVideo;
+    } else {
+      debug(`Rejecting invalid file type: ${mimeType}`);
+      return FormatSupportStatus.NotSupported;
+    }
+  }
+
+  private static isSupportedPicture(mimeType: string) {
+    return (
+      mimeType === PictureMimeType.Jpeg ||
+      mimeType === PictureMimeType.Png ||
+      mimeType === PictureMimeType.Gif ||
+      mimeType === PictureMimeType.Tif ||
+      mimeType === PictureMimeType.Tiff
+    );
+  }
+
+  private static isSupportedVideo(mimeType: string) {
+    return (
+      mimeType === VideoMimeType.MP4 ||
+      mimeType === VideoMimeType.MOV ||
+      mimeType === VideoMimeType.WMV ||
+      mimeType === VideoMimeType.AVI
+    );
+  }
+
+  /**
+   * Returns the extension portion of the given filename.
+   *
+   * @param file Filename to inspect.
+   */
+  private static getFileExtension(file: string) {
+    const index = file.lastIndexOf('.');
+    if (index < 0) {
+      throw createHttpError(HttpStatusCode.BAD_REQUEST, 'Invalid argument');
+    }
+
+    return file.substr(index);
+  }
+
+  /**
+   * Returns true if the extensions on the two files are the same.
+   *
+   * @param file1 First file to compare.
+   * @param file2 Second file to compare.
+   */
+  private static areExtensionsEqual(file1: string, file2: string) {
+    return (
+      PictureStore.getFileExtension(file1).toLowerCase() ===
+      PictureStore.getFileExtension(file2).toLowerCase()
+    );
+  }
+
+  /**
+   * Returns a value which indicates if the specified extension
+   * is supported by the service.
+   *
+   * @param ext The type of file to check.
+   */
+  private static getExtSupportStatus(ext: string) {
+    if (PictureStore.isExtSupportedPicture(ext)) {
+      return FormatSupportStatus.IsSupportedPicture;
+    } else if (PictureStore.isExtSupportedVideo(ext)) {
+      return FormatSupportStatus.IsSupportedVideo;
+    } else {
+      debug(`Rejecting invalid file type: ${ext}`);
+      return FormatSupportStatus.NotSupported;
+    }
+  }
+
+  private static isExtSupportedPicture(ext: string) {
+    return (
+      ext === PictureExtension.Jpeg ||
+      ext === PictureExtension.Jpg ||
+      ext === PictureExtension.Png ||
+      ext === PictureExtension.Gif ||
+      ext === PictureExtension.Tif ||
+      ext === PictureExtension.Tiff
+    );
+  }
+
+  private static isExtSupportedVideo(ext: string) {
+    return (
+      ext === VideoExtension.MP4 ||
+      ext === VideoExtension.MOV ||
+      ext === VideoExtension.WMV ||
+      ext === VideoExtension.AVI
+    );
   }
 }

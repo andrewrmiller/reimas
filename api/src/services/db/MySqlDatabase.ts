@@ -7,6 +7,7 @@ import {
   IFile,
   IFileAdd,
   IFileContentInfo,
+  IFileUpdate,
   IFolder,
   IFolderAdd,
   IFolderUpdate,
@@ -240,6 +241,37 @@ export class MySqlDatabase {
       return ChangeCase.toCamelObject(
         this.convertBitFields(file, FileBitFields)
       ) as IFile;
+    });
+  }
+
+  public updateFile(libraryId: string, fileId: string, update: IFileUpdate) {
+    debug(`Updating file ${fileId} in library ${libraryId}.`);
+    return this.callSelectOneProc<IDbFile>('get_file', [
+      libraryId,
+      fileId
+    ]).then(dbFile => {
+      return this.callChangeProc<IDbFile>('update_file', [
+        libraryId,
+        fileId,
+        update.name ? update.name : dbFile.name,
+        update.rating ? update.rating : dbFile.rating,
+        update.title ? update.title : dbFile.title,
+        update.subject ? update.subject : dbFile.subject
+      ]).then((dbFileUpdated: IDbFile) => {
+        return ChangeCase.toCamelObject(
+          this.convertBitFields(dbFileUpdated, FileBitFields)
+        ) as IFile;
+      });
+    });
+  }
+
+  public deleteFile(libraryId: string, fileId: string) {
+    debug(`Deleting file ${fileId} in library ${libraryId}.`);
+    return this.callChangeProc<IDbFile>('delete_file', [
+      libraryId,
+      fileId
+    ]).then((file: IDbFile) => {
+      return ChangeCase.toCamelObject(file) as IFile;
     });
   }
 
