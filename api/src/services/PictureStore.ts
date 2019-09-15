@@ -1,3 +1,4 @@
+import amqp from 'amqplib';
 import createDebug from 'debug';
 import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
@@ -14,6 +15,7 @@ import { Paths } from '../common/Paths';
 import { DbFactory } from '../services/db/DbFactory';
 import { LocalFileSystem } from './files/LocalFileSystem';
 import {
+  IFile,
   IFileAdd,
   IFileUpdate,
   IFolderAdd,
@@ -30,6 +32,9 @@ enum FormatSupportStatus {
   IsSupportedPicture = 1,
   IsSupportedVideo = 2
 }
+
+const RabbitUrl = 'amqp://localhost';
+const JobsChannelName = 'reimas_jobs';
 
 /**
  * Service which wraps the database and the file system to
@@ -316,24 +321,31 @@ export class PictureStore {
           ).then(filenameUsed => {
             // File has been impmorted into the file system.  Now
             // create a row in the database with the file's metadata.
-            return db.addFile(libraryId, folderId, {
-              name: filenameUsed,
-              mimeType,
-              isVideo: supportStatus === FormatSupportStatus.IsSupportedVideo,
-              height: imageInfo.height,
-              width: imageInfo.width,
-              fileSize,
-              isProcessing: true
-            } as IFileAdd);
+            return db
+              .addFile(libraryId, folderId, {
+                name: filenameUsed,
+                mimeType,
+                isVideo: supportStatus === FormatSupportStatus.IsSupportedVideo,
+                height: imageInfo.height,
+                width: imageInfo.width,
+                fileSize,
+                isProcessing: true
+              } as IFileAdd)
+              .then(file => {
+                return PictureStore.queueFileJobs(file);
+              });
           });
         });
       })
       .catch(err => {
-        // File was not recognized as an image file.
-        throw createHttpError(
-          HttpStatusCode.BAD_REQUEST,
-          `Unrecognized file type.`
-        );
+        if (err.status) {
+          throw err;
+        } else {
+          throw createHttpError(
+            HttpStatusCode.INTERNAL_SERVER_ERROR,
+            err.message
+          );
+        }
       });
   }
 
@@ -405,6 +417,29 @@ export class PictureStore {
           });
       });
     });
+  }
+
+  private static queueFileJobs(file: IFile) {
+    debug('Connecting to RabbitMQ server.');
+    return amqp
+      .connect(RabbitUrl)
+      .then(conn => {
+        debug('Creating channel');
+        return conn.createChannel().then(ch => {
+          debug('asserting queue');
+          return ch.assertQueue(JobsChannelName).then(() => {
+            debug('Publishing thumbnail creation jobs.');
+            ch.sendToQueue(JobsChannelName, Buffer.from('tn-sm'));
+            ch.sendToQueue(JobsChannelName, Buffer.from('tn-md'));
+            ch.sendToQueue(JobsChannelName, Buffer.from('tn-lg'));
+            return file;
+          });
+        });
+      })
+      .catch(err => {
+        debug('Error while communicating with RabbitMQ: ' + err);
+        throw err;
+      });
   }
 
   /**

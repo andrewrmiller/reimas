@@ -1,0 +1,62 @@
+#!/bin/sh
+
+# rctl - rctl controls the Reimas image storage layer.
+
+usage() {
+	echo
+	echo "rctl - Reimas image storage layer control utility."
+	echo
+	echo "Usage:"
+	echo
+	echo "   rctl <command>"
+	echo 
+	echo "Available commands:"
+	echo
+	echo "   start              Starts the Reimas services."
+  echo "   stop               Stops the Reimas services"
+	echo
+	echo
+}
+
+
+CONTAINER_PREFIX=reimas
+RABBIT_MQ_HOST=$CONTAINER_PREFIX-rabbit
+RABBIT_MQ_CONTAINER=$RABBIT_MQ_HOST-1
+
+startServices() {
+  echo Starting storage layer containers...
+  docker run -d --hostname $RABBIT_MQ_HOST --name $RABBIT_MQ_CONTAINER -p5672:5672 -p 15672:15672 rabbitmq:3-management
+  echo Containers started.
+}
+
+stopServices() {
+  echo Stopping storage layer containers...
+  docker stop $RABBIT_MQ_CONTAINER
+  docker rm $RABBIT_MQ_CONTAINER
+  echo Containers stopped.
+}
+
+viewServices () {
+  echo Storage Layer Containers
+  echo ----------------------------------
+  docker ps | grep -E "CONTAINER ID|$CONTAINER_PREFIX"
+}
+
+# Change to the directory where rctl is stored.
+cd "$( dirname "$0" )"
+
+case "$1" in 
+start)
+	startServices
+	;;
+stop)
+	stopServices
+	;;
+view)
+  viewServices
+  ;;
+
+*)
+	usage
+	;;
+esac
