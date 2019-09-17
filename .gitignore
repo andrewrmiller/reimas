@@ -61,8 +61,8 @@ typings/
 .next
 
 # Application working/data directories
-api/uploads
-api/libraries
+pkg/api/uploads
+pkg/api/libraries
 
 # Dev notes.
 current.md

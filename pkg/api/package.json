@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "./node_modules/typescript/bin/tsc",
+    "build": "../node_modules/typescript/bin/tsc",
     "start": "npm run build && node ./bin/www"
   },
   "dependencies": {
