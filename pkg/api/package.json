@@ -4,13 +4,16 @@
   "private": true,
   "scripts": {
     "build": "../node_modules/typescript/bin/tsc",
-    "start": "npm run build && node ./bin/www"
+    "api": "npm run build && node ./bin/www",
+    "workers": "cd ../workers && npm start",
+    "start": "concurrently \"npm run workers\" \"npm run api\""
   },
   "dependencies": {
     "amqplib": "^0.5.5",
+    "common": "0.1.0",
+    "concurrently": "^4.1.2",
     "config": "^3.2.2",
     "cookie-parser": "~1.4.4",
-    "common": "0.1.0",
     "debug": "^2.6.9",
     "express": "~4.16.1",
     "hbs": "~4.0.4",
