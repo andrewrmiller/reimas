@@ -1,8 +1,8 @@
 import config from 'config';
 import createDebug from 'debug';
 import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
-import { ChangeCase } from '../../common/ChangeCase';
-import IDatabaseConfig from '../../common/IDatabaseConfig';
+import { ChangeCase } from '../../ChangeCase';
+import IDatabaseConfig from '../../IDatabaseConfig';
 import {
   IFile,
   IFileAdd,

@@ -1,5 +1,4 @@
 import amqp from 'amqplib';
-import { JobsChannelName } from 'common';
 import createDebug from 'debug';
 import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
@@ -10,10 +9,11 @@ import {
   PictureMimeType,
   VideoExtension,
   VideoMimeType
-} from '../common/FileTypes';
-import { HttpStatusCode } from '../common/httpConstants';
-import { Paths } from '../common/Paths';
-import { DbFactory } from '../services/db/DbFactory';
+} from '../FileTypes';
+import { HttpStatusCode } from '../httpConstants';
+import { Paths } from '../Paths';
+import { JobsChannelName } from '../workers';
+import { DbFactory } from './db/DbFactory';
 import { LocalFileSystem } from './files/LocalFileSystem';
 import {
   IFile,

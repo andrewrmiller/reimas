@@ -1,4 +1,5 @@
 import amqp from 'amqplib';
+import { JobsChannelName } from 'common';
 import createDebug from 'debug';
 
 const debug = createDebug('workers:workers');
@@ -6,7 +7,6 @@ let amqpConn: amqp.Connection | undefined;
 let amqpChan: amqp.Channel | undefined;
 
 const RabbitUrl = 'amqp://localhost';
-const JobsChannelName = 'reimas_jobs';
 
 /**
  * Connects to the RabbitMQ server.  If successful then starts

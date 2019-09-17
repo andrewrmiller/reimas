@@ -1,9 +1,8 @@
+import { IFolderAdd, IFolderUpdate, PictureStore } from 'common';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import createHttpError from 'http-errors';
-import { IFolderAdd, IFolderUpdate } from '../services/models';
-import { PictureStore } from '../services/PictureStore';
 
 const router = express.Router();
 

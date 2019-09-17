@@ -3,8 +3,8 @@ import fs from 'fs';
 import createHttpError from 'http-errors';
 import rimraf from 'rimraf';
 import * as util from 'util';
-import { HttpStatusCode } from '../../common/httpConstants';
-import { Paths } from '../../common/Paths';
+import { HttpStatusCode } from '../../httpConstants';
+import { Paths } from '../../Paths';
 
 const debug = createDebug('api:localfilesystem');
 const fsPromises = fs.promises;
