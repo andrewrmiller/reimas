@@ -25,7 +25,7 @@ import {
   ILibraryUpdate
 } from './models';
 
-const debug = createDebug('api:picturestore');
+const debug = createDebug('storage:picturestore');
 const sizeOfPromise = util.promisify(sizeOf);
 
 enum FormatSupportStatus {

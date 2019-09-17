@@ -6,7 +6,7 @@ import * as util from 'util';
 import { HttpStatusCode } from '../../httpConstants';
 import { Paths } from '../../Paths';
 
-const debug = createDebug('api:localfilesystem');
+const debug = createDebug('storage:localfilesystem');
 const fsPromises = fs.promises;
 const rimrafPromise = util.promisify(rimraf);
 
@@ -37,22 +37,20 @@ export class LocalFileSystem {
     const currentPath = `${FileSystemRoot}/${path}`;
     const newPath = Paths.replaceLastSubpath(currentPath, newName);
 
-    // Does the target file or folder exist?
-    return fsPromises
-      .access(newPath)
-      .catch(err => {
-        // The file does not exist.  OK to rename.
-        debug(
-          `Renaming local file system item '${currentPath}' to '${newName}'`
-        );
-        return fsPromises.rename(currentPath, newPath);
-      })
-      .then(() => {
-        throw createHttpError(
-          HttpStatusCode.CONFLICT,
-          'A file already exists with that name.'
-        );
-      });
+    try {
+      // Check to see if the target folder or file exists.
+      fs.accessSync(newPath);
+    } catch (err) {
+      // The file does not exist.  OK to rename.
+      debug(`Renaming local file system item '${currentPath}' to '${newName}'`);
+      return fsPromises.rename(currentPath, newPath);
+    }
+
+    // The file exists so the rename must fail.
+    throw createHttpError(
+      HttpStatusCode.CONFLICT,
+      'A folder or file already exists with that name.'
+    );
   }
 
   /**
