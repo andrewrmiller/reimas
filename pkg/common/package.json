@@ -1,0 +1,19 @@
+{
+  "name": "common",
+  "version": "0.1.0",
+  "description": "",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "../node_modules/typescript/bin/tsc",
+    "start": "npm run build && node ./build/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "typescript": "^3.6.3"
+  },
+  "devDependencies": {
+    "ts-node": "^8.4.1",
+    "tslint": "^5.20.0"
+  }
+}

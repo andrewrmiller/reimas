@@ -1,7 +1,14 @@
 {
   "private": true,
   "workspaces": [
+    "common",
     "workers",
     "api"
-  ]
+  ],
+  "scripts": {
+    "build": "npm run build-common && npm run build-workers && npm run build-api",
+    "build-common": "npm run build --prefix common",
+    "build-workers": "npm run build --prefix workers",
+    "build-api": "npm run build --prefix api"
+  }
 }

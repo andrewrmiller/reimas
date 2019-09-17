@@ -1,4 +1,5 @@
 import amqp from 'amqplib';
+import { JobsChannelName } from 'common';
 import createDebug from 'debug';
 import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
@@ -34,7 +35,6 @@ enum FormatSupportStatus {
 }
 
 const RabbitUrl = 'amqp://localhost';
-const JobsChannelName = 'reimas_jobs';
 
 /**
  * Service which wraps the database and the file system to

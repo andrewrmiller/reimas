@@ -10,6 +10,7 @@
     "amqplib": "^0.5.5",
     "config": "^3.2.2",
     "cookie-parser": "~1.4.4",
+    "common": "0.1.0",
     "debug": "^2.6.9",
     "express": "~4.16.1",
     "hbs": "~4.0.4",
