@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "../node_modules/typescript/bin/tsc",
+    "build": "../node_modules/tslint/bin/tslint --project tsconfig.json && ../node_modules/typescript/bin/tsc",
     "api": "npm run build && node ./bin/www",
     "workers": "cd ../workers && npm start",
     "start": "concurrently \"npm run workers\" \"npm run api\""

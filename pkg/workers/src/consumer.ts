@@ -1,8 +1,9 @@
 import amqp from 'amqplib';
-import { JobsChannelName } from 'common';
+import { IResizePictureMsg, JobsChannelName } from 'common';
 import createDebug from 'debug';
+import { resizePicture } from './resizePicture';
 
-const debug = createDebug('workers:workers');
+const debug = createDebug('workers:consumer');
 let amqpConn: amqp.Connection | undefined;
 let amqpChan: amqp.Channel | undefined;
 
@@ -105,8 +106,8 @@ function processMessage(
   msg: amqp.ConsumeMessage,
   callback: (ok: boolean) => void
 ) {
-  debug('Message processed ' + msg.content.toString());
-  callback(true);
+  const message = JSON.parse(msg.content.toString()) as IResizePictureMsg;
+  resizePicture(message, callback);
 }
 
 /**

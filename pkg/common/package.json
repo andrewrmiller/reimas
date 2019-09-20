@@ -1,11 +1,12 @@
 {
   "name": "common",
   "version": "0.1.0",
+  "private": true,
   "description": "",
   "main": "build/index.js",
+  "typings": "build/index.d.ts",
   "scripts": {
-    "build": "../node_modules/typescript/bin/tsc",
-    "start": "npm run build && node ./build/index.ts"
+    "build": "../node_modules/tslint/bin/tslint --project tsconfig.json && ../node_modules/typescript/bin/tsc"
   },
   "author": "",
   "license": "ISC",

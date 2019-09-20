@@ -11,6 +11,7 @@ import {
   VideoMimeType
 } from '../FileTypes';
 import { HttpStatusCode } from '../httpConstants';
+import { IResizePictureMsg } from '../messages';
 import { Paths } from '../Paths';
 import { JobsChannelName } from '../workers';
 import { DbFactory } from './db/DbFactory';
@@ -429,9 +430,9 @@ export class PictureStore {
           debug('asserting queue');
           return ch.assertQueue(JobsChannelName).then(() => {
             debug('Publishing thumbnail creation jobs.');
-            ch.sendToQueue(JobsChannelName, Buffer.from('tn-sm'));
-            ch.sendToQueue(JobsChannelName, Buffer.from('tn-md'));
-            ch.sendToQueue(JobsChannelName, Buffer.from('tn-lg'));
+            PictureStore.postResizeMessage(ch, file.fileId, 'sm');
+            PictureStore.postResizeMessage(ch, file.fileId, 'md');
+            PictureStore.postResizeMessage(ch, file.fileId, 'lg');
             return file;
           });
         });
@@ -440,6 +441,19 @@ export class PictureStore {
         debug('Error while communicating with RabbitMQ: ' + err);
         throw err;
       });
+  }
+
+  private static postResizeMessage(
+    ch: amqp.Channel,
+    fileId: string,
+    size: string
+  ) {
+    const message: IResizePictureMsg = {
+      fileId,
+      size
+    };
+
+    ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)));
   }
 
   /**
