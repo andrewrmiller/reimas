@@ -7,4 +7,5 @@ export * from './Paths';
 export * from './storage/db/DbError';
 export * from './storage/models';
 export * from './storage/PictureStore';
+export * from './thumbnails';
 export * from './workers';

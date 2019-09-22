@@ -1,28 +1,34 @@
+import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
 import createHttpError from 'http-errors';
 import rimraf from 'rimraf';
 import * as util from 'util';
 import { HttpStatusCode } from '../../httpConstants';
+import { IFileSystemConfig } from '../../IFileSystemConfig';
 import { Paths } from '../../Paths';
 
 const debug = createDebug('storage:localfilesystem');
 const fsPromises = fs.promises;
 const rimrafPromise = util.promisify(rimraf);
 
-const FileSystemRoot = 'libraries';
-
 /**
  * Local file system interface for picture and video storage.
  */
 export class LocalFileSystem {
+  private config: IFileSystemConfig;
+
+  constructor() {
+    this.config = config.get('FileSystem');
+  }
+
   /**
    * Creates a new folder under the file system root.
    *
    * @param path Relative path to the folder.
    */
-  public static createFolder(path: string) {
-    const folderPath = `${FileSystemRoot}/${path}`;
+  public createFolder(path: string) {
+    const folderPath = `${this.config.root}/${path}`;
     debug(`Creating local file system folder ${folderPath}`);
     return fsPromises.mkdir(folderPath);
   }
@@ -33,8 +39,8 @@ export class LocalFileSystem {
    * @param path Relative path to the folder.
    * @param newName The new name for the folder.
    */
-  public static renameFolderOrFile(path: string, newName: string) {
-    const currentPath = `${FileSystemRoot}/${path}`;
+  public renameFolderOrFile(path: string, newName: string) {
+    const currentPath = `${this.config.root}/${path}`;
     const newPath = Paths.replaceLastSubpath(currentPath, newName);
 
     try {
@@ -58,8 +64,8 @@ export class LocalFileSystem {
    *
    * @param path Relative path to the folder.
    */
-  public static deleteFolder(path: string) {
-    const folderPath = `${FileSystemRoot}/${path}`;
+  public deleteFolder(path: string) {
+    const folderPath = `${this.config.root}/${path}`;
     debug(`Recursively deleting local file system folder ${folderPath}`);
     return rimrafPromise(folderPath);
   }
@@ -69,8 +75,8 @@ export class LocalFileSystem {
    *
    * @param path Relative path to the file.
    */
-  public static readFile(path: string) {
-    const filePath = `${FileSystemRoot}/${path}`;
+  public readFile(path: string) {
+    const filePath = `${this.config.root}/${path}`;
     debug(`Reading file ${filePath}`);
     return fsPromises.readFile(filePath);
   }
@@ -85,12 +91,12 @@ export class LocalFileSystem {
    * NOTE: The source file at localPath will be deleted after
    * the file is imported or if an error occurs.
    */
-  public static importFile(
+  public importFile(
     localPath: string,
     targetPath: string,
     suffix?: number
   ): Promise<string> {
-    let target = `${FileSystemRoot}/${targetPath}`;
+    let target = `${this.config.root}/${targetPath}`;
 
     // If a numeric suffix has been provided, update the target
     // path to include that suffix.
@@ -115,7 +121,7 @@ export class LocalFileSystem {
         if (newSuffix >= 999) {
           throw createHttpError(HttpStatusCode.BAD_REQUEST, 'Too many files.');
         }
-        return LocalFileSystem.importFile(localPath, targetPath, newSuffix);
+        return this.importFile(localPath, targetPath, newSuffix);
       });
   }
 
@@ -124,9 +130,18 @@ export class LocalFileSystem {
    *
    * @param path Relative path to the file.
    */
-  public static deleteFile(path: string) {
-    const filePath = `${FileSystemRoot}/${path}`;
+  public deleteFile(path: string) {
+    const filePath = `${this.config.root}/${path}`;
     debug(`Deleting file ${filePath}`);
     return fsPromises.unlink(filePath);
+  }
+
+  /**
+   * Returns the full path to a file in the library.
+   *
+   * @param path Relative path to the file.
+   */
+  public getFilePath(path: string) {
+    return `${this.config.root}/${path}`;
   }
 }

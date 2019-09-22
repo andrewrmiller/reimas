@@ -13,9 +13,10 @@ import {
 import { HttpStatusCode } from '../httpConstants';
 import { IResizePictureMsg } from '../messages';
 import { Paths } from '../Paths';
+import { ThumbnailSize } from '../thumbnails';
 import { JobsChannelName } from '../workers';
 import { DbFactory } from './db/DbFactory';
-import { LocalFileSystem } from './files/LocalFileSystem';
+import { FileSystemFactory } from './files/FileSystemFactory';
 import {
   IFile,
   IFileAdd,
@@ -68,6 +69,7 @@ export class PictureStore {
 
   public static addLibrary(add: ILibraryAdd) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     // Create a GUID and use that as the unique ID of the folder
     // and also the name of the folder in the file system.  This avoids
@@ -76,14 +78,14 @@ export class PictureStore {
     debug(`Generated ID ${add.libraryId} for new library ${add.name}`);
 
     // Create the library folder on disk first.
-    return LocalFileSystem.createFolder(add.libraryId).then(() => {
+    return fs.createFolder(add.libraryId).then(() => {
       // Now add the library to the database.
       return db.addLibrary(add).catch(err => {
         // Failed to add it to the database.  Make an attempt to
         // remove the file system folder that we just created.
         debug(`ERROR: Create library failed for library ${add.name}`);
         debug('Folder was created in file system but database insert failed.');
-        LocalFileSystem.deleteFolder(add.name);
+        fs.deleteFolder(add.name);
         throw err;
       });
     });
@@ -107,11 +109,13 @@ export class PictureStore {
    */
   public static deleteLibrary(libraryId: string) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     // Delete the library in the database first.
     return db.deleteLibrary(libraryId).then(result => {
       // Now try to delete the library folder in the file system.
-      return LocalFileSystem.deleteFolder(libraryId)
+      return fs
+        .deleteFolder(libraryId)
         .then(() => {
           // Return the result from the database delete.
           return result;
@@ -157,12 +161,13 @@ export class PictureStore {
    */
   public static addFolder(libraryId: string, add: IFolderAdd) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     // Grab some information about the parent folder first.
     return db.getFolder(libraryId, add.parentId!).then(parent => {
       // Create the folder in the file system first.
       const fileSystemPath = `${libraryId}/${parent.path}/${add.name}`;
-      return LocalFileSystem.createFolder(fileSystemPath).then(() => {
+      return fs.createFolder(fileSystemPath).then(() => {
         // Now create the folder in the database.
         return db.addFolder(libraryId, add).catch(err => {
           // We failed to create the folder in the file system.  Try to
@@ -170,7 +175,7 @@ export class PictureStore {
           debug(`ERROR: Create folder failed for folder ${add.name}.`);
           debug(`Folder was created in the file system but not in db.`);
           debug(`Attempting to delete the folder in the file systme.`);
-          LocalFileSystem.deleteFolder(fileSystemPath);
+          fs.deleteFolder(fileSystemPath);
           throw err;
         });
       });
@@ -190,13 +195,11 @@ export class PictureStore {
     update: IFolderUpdate
   ) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     return db.getFolder(libraryId, folderId).then(folder => {
       const fileSystemPath = `${libraryId}/${folder.path}`;
-      return LocalFileSystem.renameFolderOrFile(
-        fileSystemPath,
-        update.name!
-      ).then(() => {
+      return fs.renameFolderOrFile(fileSystemPath, update.name!).then(() => {
         return db.updateFolder(libraryId, folderId, update).catch(err => {
           debug(`ERROR: Patching folder ${folderId} failed.`);
           const newPath = Paths.replaceLastSubpath(
@@ -204,7 +207,7 @@ export class PictureStore {
             update.name!
           );
           debug(`Attempting to revert ${newPath} to ${folder.name}.`);
-          LocalFileSystem.renameFolderOrFile(newPath, folder.name);
+          fs.renameFolderOrFile(newPath, folder.name);
           throw err;
         });
       });
@@ -219,12 +222,14 @@ export class PictureStore {
    */
   public static deleteFolder(libraryId: string, folderId: string) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     // Grab the folder info first and then delete the folder in the database.
     return db.getFolder(libraryId, folderId).then(folder => {
       return db.deleteFolder(libraryId, folderId).then(result => {
         // Now try to delete the folder in the file system.
-        return LocalFileSystem.deleteFolder(`${libraryId}/${folder.path}`)
+        return fs
+          .deleteFolder(`${libraryId}/${folder.path}`)
           .then(() => {
             // Return the result from the database delete.
             return result;
@@ -237,6 +242,14 @@ export class PictureStore {
           });
       });
     });
+  }
+
+  /**
+   * Gets a value which indicates if the local file system is
+   * being used for file storage.
+   */
+  public static isLocalFileSystem() {
+    return true;
   }
 
   /**
@@ -269,15 +282,15 @@ export class PictureStore {
    */
   public static getFileContents(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
+
     return db.getFileContentInfo(libraryId, fileId).then(info => {
-      return LocalFileSystem.readFile(`${libraryId}/${info.path}`).then(
-        buffer => {
-          return {
-            buffer,
-            mimeType: info.mimeType
-          };
-        }
-      );
+      return fs.readFile(`${libraryId}/${info.path}`).then(buffer => {
+        return {
+          buffer,
+          mimeType: info.mimeType
+        };
+      });
     });
   }
 
@@ -300,6 +313,7 @@ export class PictureStore {
     fileSize: number
   ) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     return sizeOfPromise(localPath)
       .then(imageInfo => {
@@ -316,26 +330,26 @@ export class PictureStore {
         }
 
         return db.getFolder(libraryId, folderId).then(folder => {
-          return LocalFileSystem.importFile(
-            localPath,
-            `${libraryId}/${folder.path}/${filename}`
-          ).then(filenameUsed => {
-            // File has been impmorted into the file system.  Now
-            // create a row in the database with the file's metadata.
-            return db
-              .addFile(libraryId, folderId, {
-                name: filenameUsed,
-                mimeType,
-                isVideo: supportStatus === FormatSupportStatus.IsSupportedVideo,
-                height: imageInfo.height,
-                width: imageInfo.width,
-                fileSize,
-                isProcessing: true
-              } as IFileAdd)
-              .then(file => {
-                return PictureStore.queueFileJobs(file);
-              });
-          });
+          return fs
+            .importFile(localPath, `${libraryId}/${folder.path}/${filename}`)
+            .then(filenameUsed => {
+              // File has been impmorted into the file system.  Now
+              // create a row in the database with the file's metadata.
+              return db
+                .addFile(libraryId, folderId, {
+                  name: filenameUsed,
+                  mimeType,
+                  isVideo:
+                    supportStatus === FormatSupportStatus.IsSupportedVideo,
+                  height: imageInfo.height,
+                  width: imageInfo.width,
+                  fileSize,
+                  isProcessing: true
+                } as IFileAdd)
+                .then(file => {
+                  return PictureStore.queueFileJobs(file);
+                });
+            });
         });
       })
       .catch(err => {
@@ -363,6 +377,7 @@ export class PictureStore {
     update: IFileUpdate
   ) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     // If name is changing, rename file on disk first, then update
     // the database. Othwerise just update the database since all
@@ -377,10 +392,7 @@ export class PictureStore {
         }
 
         const fileSystemPath = `${libraryId}/${info.path}`;
-        return LocalFileSystem.renameFolderOrFile(
-          fileSystemPath,
-          update.name!
-        ).then(() => {
+        return fs.renameFolderOrFile(fileSystemPath, update.name!).then(() => {
           return db.updateFile(libraryId, fileId, update).catch(err => {
             debug(`ERROR: Patching file ${fileId} failed.`);
             const newPath = Paths.replaceLastSubpath(
@@ -388,7 +400,7 @@ export class PictureStore {
               update.name!
             );
             debug(`Attempting to revert ${newPath} to ${info.name}.`);
-            LocalFileSystem.renameFolderOrFile(newPath, info.name);
+            fs.renameFolderOrFile(newPath, info.name);
             throw err;
           });
         });
@@ -400,12 +412,14 @@ export class PictureStore {
 
   public static deleteFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
 
     // Grab the folder info first and then delete the folder in the database.
     return db.getFileContentInfo(libraryId, fileId).then(file => {
       return db.deleteFile(libraryId, fileId).then(result => {
         // Now try to delete the folder in the file system.
-        return LocalFileSystem.deleteFolder(`${libraryId}/${file.path}`)
+        return fs
+          .deleteFolder(`${libraryId}/${file.path}`)
           .then(() => {
             // Return the result from the database delete.
             return result;
@@ -420,6 +434,28 @@ export class PictureStore {
     });
   }
 
+  /**
+   * Retrieves the path to the file in the local file system.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   */
+  public static getLocalFilePath(libraryId: string, fileId: string) {
+    const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
+
+    debug(`Getting local path to file ${fileId} in library ${libraryId}`);
+    return db
+      .getFileContentInfo(libraryId, fileId)
+      .then(info => {
+        return fs.getFilePath(`${libraryId}/${info.path}`);
+      })
+      .catch(err => {
+        debug(`Error: getLocalFilePath: ${err}`);
+        throw err;
+      });
+  }
+
   private static queueFileJobs(file: IFile) {
     debug('Connecting to RabbitMQ server.');
     return amqp
@@ -430,9 +466,24 @@ export class PictureStore {
           debug('asserting queue');
           return ch.assertQueue(JobsChannelName).then(() => {
             debug('Publishing thumbnail creation jobs.');
-            PictureStore.postResizeMessage(ch, file.fileId, 'sm');
-            PictureStore.postResizeMessage(ch, file.fileId, 'md');
-            PictureStore.postResizeMessage(ch, file.fileId, 'lg');
+            PictureStore.postResizeMessage(
+              ch,
+              file.libraryId,
+              file.fileId,
+              ThumbnailSize.Small
+            );
+            PictureStore.postResizeMessage(
+              ch,
+              file.libraryId,
+              file.fileId,
+              ThumbnailSize.Medium
+            );
+            PictureStore.postResizeMessage(
+              ch,
+              file.libraryId,
+              file.fileId,
+              ThumbnailSize.Large
+            );
             return file;
           });
         });
@@ -445,10 +496,12 @@ export class PictureStore {
 
   private static postResizeMessage(
     ch: amqp.Channel,
+    libraryId: string,
     fileId: string,
-    size: string
+    size: ThumbnailSize
   ) {
     const message: IResizePictureMsg = {
+      libraryId,
       fileId,
       size
     };

@@ -79,7 +79,8 @@ function handleMessageReceived(msg: amqp.ConsumeMessage | null) {
     processMessage(msg, (ok: boolean) => {
       try {
         // Channel may have gone down while the message was
-        // being processed.
+        // being processed.  In this case the message will
+        // be requeued.
         if (!amqpChan) {
           return;
         }
@@ -87,7 +88,8 @@ function handleMessageReceived(msg: amqp.ConsumeMessage | null) {
         if (ok) {
           amqpChan.ack(msg);
         } else {
-          amqpChan.reject(msg, true);
+          // We retry once on failure.
+          amqpChan.nack(msg, true, !msg.fields.redelivered);
         }
       } catch (err) {
         errorHandler(err);

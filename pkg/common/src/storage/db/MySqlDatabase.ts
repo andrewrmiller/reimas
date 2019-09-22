@@ -2,7 +2,7 @@ import config from 'config';
 import createDebug from 'debug';
 import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import { ChangeCase } from '../../ChangeCase';
-import IDatabaseConfig from '../../IDatabaseConfig';
+import { IDatabaseConfig } from '../../IDatabaseConfig';
 import {
   IFile,
   IFileAdd,
@@ -24,7 +24,7 @@ import {
   IDmlResponse
 } from './dbModels';
 
-const debug = createDebug('api:database');
+const debug = createDebug('storage:database');
 
 const FileBitFields = ['is_video', 'is_processing'];
 

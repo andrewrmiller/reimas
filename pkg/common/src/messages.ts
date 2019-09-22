@@ -1,4 +1,7 @@
+import { ThumbnailSize } from './thumbnails';
+
 export interface IResizePictureMsg {
+  libraryId: string;
   fileId: string;
-  size: string;
+  size: ThumbnailSize;
 }
