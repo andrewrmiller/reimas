@@ -1,5 +1,10 @@
 import amqp from 'amqplib';
-import { IResizePictureMsg, JobsChannelName } from 'common';
+import {
+  IMessage,
+  IResizePictureMsg,
+  JobsChannelName,
+  MessageType
+} from 'common';
 import createDebug from 'debug';
 import { resizePicture } from './resizePicture';
 
@@ -108,8 +113,20 @@ function processMessage(
   msg: amqp.ConsumeMessage,
   callback: (ok: boolean) => void
 ) {
-  const message = JSON.parse(msg.content.toString()) as IResizePictureMsg;
-  resizePicture(message, callback);
+  const message = JSON.parse(msg.content.toString()) as IMessage;
+
+  switch (message.type) {
+    case MessageType.ResizePicture:
+      resizePicture(message as IResizePictureMsg, callback);
+      break;
+
+    case MessageType.RecalcFolder:
+      // TODO: recalcFolder(message as IRecalcFolderMsg, callback);
+      break;
+
+    default:
+      throw new Error('Uknown message type found in queue.');
+  }
 }
 
 /**

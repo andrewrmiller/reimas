@@ -3,6 +3,7 @@ import createDebug from 'debug';
 import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import { ChangeCase } from '../../ChangeCase';
 import { IDatabaseConfig } from '../../IDatabaseConfig';
+import { ThumbnailSize } from '../../thumbnails';
 import {
   IFile,
   IFileAdd,
@@ -262,6 +263,27 @@ export class MySqlDatabase {
           this.convertBitFields(dbFileUpdated, FileBitFields)
         ) as IFile;
       });
+    });
+  }
+
+  public updateFileThumbnail(
+    libraryId: string,
+    fileId: string,
+    thumbSize: ThumbnailSize,
+    fileSize: number
+  ) {
+    debug(
+      `Updating ${thumbSize} thumbnail on ${fileId} in library ${libraryId}.`
+    );
+    return this.callChangeProc<IDbFile>('update_file_thumbnail', [
+      libraryId,
+      fileId,
+      thumbSize,
+      fileSize
+    ]).then((dbFileUpdated: IDbFile) => {
+      return ChangeCase.toCamelObject(
+        this.convertBitFields(dbFileUpdated, FileBitFields)
+      ) as IFile;
     });
   }
 

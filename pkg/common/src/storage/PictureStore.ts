@@ -11,7 +11,7 @@ import {
   VideoMimeType
 } from '../FileTypes';
 import { HttpStatusCode } from '../httpConstants';
-import { IResizePictureMsg } from '../messages';
+import { IRecalcFolderMsg, IResizePictureMsg, MessageType } from '../messages';
 import { Paths } from '../Paths';
 import { ThumbnailSize } from '../thumbnails';
 import { JobsChannelName } from '../workers';
@@ -347,7 +347,7 @@ export class PictureStore {
                   isProcessing: true
                 } as IFileAdd)
                 .then(file => {
-                  return PictureStore.queueFileJobs(file);
+                  return PictureStore.enqueueFileJobs(file);
                 });
             });
         });
@@ -362,6 +362,68 @@ export class PictureStore {
           );
         }
       });
+  }
+
+  /**
+   * Imports a thumbnail for an existing file in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   * @param thumbSize Size of the thumbnail (sm, md or lg).
+   * @param fileSize Size of the thumbnail file in bytes.
+   */
+  public static importThumbnail(
+    libraryId: string,
+    fileId: string,
+    thumbSize: ThumbnailSize,
+    localPath: string,
+    fileSize: number
+  ) {
+    debug(
+      `Importing ${thumbSize} thumbnail for file ${fileId} in library ${libraryId}.`
+    );
+
+    const db = DbFactory.createInstance();
+    const fs = FileSystemFactory.createInstance();
+
+    return db.getFileContentInfo(libraryId, fileId).then(fileInfo => {
+      const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
+      const thumbnailFolder = `${libraryId}/${pictureFolder}/tn_${thumbSize}`;
+      const thumbnailFilename = Paths.changeFileExtension(
+        fileInfo.name,
+        PictureExtension.Jpg
+      );
+
+      return fs
+        .createFolder(thumbnailFolder)
+        .then(() => {
+          return fs
+            .importFile(localPath, `${thumbnailFolder}/${thumbnailFilename}`)
+            .then(filenameUsed => {
+              // File has been impmorted into the file system.  Now
+              // create a row in the database with the file's metadata.
+              return db
+                .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
+                .then(file => {
+                  return PictureStore.enqueueRecalcFolderJob(
+                    libraryId,
+                    fileInfo.folderId
+                  );
+                });
+            });
+        })
+        .catch(err => {
+          if (err.status) {
+            throw err;
+          } else {
+            debug(`Error importing thumbnail: ${err}`);
+            throw createHttpError(
+              HttpStatusCode.INTERNAL_SERVER_ERROR,
+              err.message
+            );
+          }
+        });
+    });
   }
 
   /**
@@ -441,10 +503,11 @@ export class PictureStore {
    * @param fileId Unique ID of the file.
    */
   public static getLocalFilePath(libraryId: string, fileId: string) {
+    debug(`Getting local path to file ${fileId} in library ${libraryId}`);
+
     const db = DbFactory.createInstance();
     const fs = FileSystemFactory.createInstance();
 
-    debug(`Getting local path to file ${fileId} in library ${libraryId}`);
     return db
       .getFileContentInfo(libraryId, fileId)
       .then(info => {
@@ -456,42 +519,46 @@ export class PictureStore {
       });
   }
 
-  private static queueFileJobs(file: IFile) {
-    debug('Connecting to RabbitMQ server.');
-    return amqp
-      .connect(RabbitUrl)
-      .then(conn => {
-        debug('Creating channel');
-        return conn.createChannel().then(ch => {
-          debug('asserting queue');
-          return ch.assertQueue(JobsChannelName).then(() => {
-            debug('Publishing thumbnail creation jobs.');
-            PictureStore.postResizeMessage(
-              ch,
-              file.libraryId,
-              file.fileId,
-              ThumbnailSize.Small
-            );
-            PictureStore.postResizeMessage(
-              ch,
-              file.libraryId,
-              file.fileId,
-              ThumbnailSize.Medium
-            );
-            PictureStore.postResizeMessage(
-              ch,
-              file.libraryId,
-              file.fileId,
-              ThumbnailSize.Large
-            );
-            return file;
-          });
-        });
-      })
-      .catch(err => {
-        debug('Error while communicating with RabbitMQ: ' + err);
-        throw err;
-      });
+  private static enqueueRecalcFolderJob(libraryId: string, folderId: string) {
+    PictureStore.enqueue(ch => {
+      debug('Publishing recalc folder message.');
+      const message: IRecalcFolderMsg = {
+        type: MessageType.RecalcFolder,
+        libraryId,
+        folderId
+      };
+      if (
+        !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
+      ) {
+        throw new Error('Failed to enqueue recalc folder message.');
+      }
+      return null;
+    });
+  }
+
+  private static enqueueFileJobs(file: IFile) {
+    return PictureStore.enqueue(ch => {
+      debug('Publishing thumbnail creation jobs.');
+      PictureStore.postResizeMessage(
+        ch,
+        file.libraryId,
+        file.fileId,
+        ThumbnailSize.Small
+      );
+      PictureStore.postResizeMessage(
+        ch,
+        file.libraryId,
+        file.fileId,
+        ThumbnailSize.Medium
+      );
+      PictureStore.postResizeMessage(
+        ch,
+        file.libraryId,
+        file.fileId,
+        ThumbnailSize.Large
+      );
+      return file;
+    });
   }
 
   private static postResizeMessage(
@@ -501,12 +568,35 @@ export class PictureStore {
     size: ThumbnailSize
   ) {
     const message: IResizePictureMsg = {
+      type: MessageType.ResizePicture,
       libraryId,
       fileId,
       size
     };
 
-    ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)));
+    if (
+      !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
+    ) {
+      throw new Error('Failed to enqueue resize picture message.');
+    }
+  }
+
+  private static enqueue(callback: (ch: amqp.Channel) => any) {
+    debug('Connecting to RabbitMQ server...');
+    return amqp
+      .connect(RabbitUrl)
+      .then(conn => {
+        debug('Creating RabbitMQ channel and asserting the queue...');
+        return conn.createChannel().then(ch => {
+          return ch.assertQueue(JobsChannelName).then(() => {
+            return callback(ch);
+          });
+        });
+      })
+      .catch(err => {
+        debug('Error while communicating with RabbitMQ: ' + err);
+        throw err;
+      });
   }
 
   /**

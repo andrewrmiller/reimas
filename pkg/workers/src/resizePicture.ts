@@ -42,18 +42,25 @@ export function resizePicture(
 
       debug(`Resizing '${localFilePath}' to '${resizedFilePath}'`);
       const dims = ThumbnailDimensions[message.size];
-      sharp(localFilePath)
+      return sharp(localFilePath)
         .resize(dims.width, dims.height, { fit: 'inside' })
         .toFile(resizedFilePath, (err, info) => {
           if (err) {
             debug(`Error: Resize error: ${err}`);
             callback(false);
           } else {
-            callback(true);
+            return PictureStore.importThumbnail(
+              message.libraryId,
+              message.fileId,
+              message.size,
+              resizedFilePath,
+              info.size
+            ).then(() => {
+              callback(true);
+              return null;
+            });
           }
         });
-
-      return null;
     })
     .catch(err => {
       debug(`Error: ${err}`);

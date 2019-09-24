@@ -25,4 +25,14 @@ export class Paths {
     subpaths.push(Paths.addFilenameSuffix(filename, suffix));
     return subpaths.join('/');
   }
+
+  public static deleteLastSubpath(path: string) {
+    const index = path.lastIndexOf('/');
+    return path.substr(0, index);
+  }
+
+  public static changeFileExtension(filename: string, newExtension: string) {
+    const index = filename.lastIndexOf('.');
+    return filename.substr(0, index + 1) + newExtension;
+  }
 }
