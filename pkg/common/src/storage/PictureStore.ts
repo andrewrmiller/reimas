@@ -492,13 +492,14 @@ export class PictureStore {
     const db = DbFactory.createInstance();
     const fs = FileSystemFactory.createInstance();
 
-    // Grab the folder info first and then delete the folder in the database.
+    // Grab the file info first and then delete the file in the database.
     return db.getFileContentInfo(libraryId, fileId).then(file => {
       return db.deleteFile(libraryId, fileId).then(result => {
-        // Now try to delete the folder in the file system.
+        // Now try to delete the file in the file system.
         return fs
-          .deleteFolder(`${libraryId}/${file.path}`)
+          .deleteFile(`${libraryId}/${file.path}`)
           .then(() => {
+            PictureStore.enqueueRecalcFolderJob(file.libraryId, file.folderId);
             // Return the result from the database delete.
             return result;
           })
