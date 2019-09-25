@@ -188,6 +188,15 @@ export class MySqlDatabase {
     });
   }
 
+  public recalcFolder(libraryId: string, folderId: string) {
+    return this.callChangeProc<IDbFolder>('recalc_folder', [
+      libraryId,
+      folderId
+    ]).then((folder: IDbFolder) => {
+      return ChangeCase.toCamelObject(folder) as IFolder;
+    });
+  }
+
   public getFiles(libraryId: string, folderId: string) {
     debug(`Retrieving files in folder ${folderId} in library ${libraryId}.`);
     return this.callSelectManyProc<IDbFile>('get_files', [

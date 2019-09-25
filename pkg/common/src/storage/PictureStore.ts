@@ -245,6 +245,22 @@ export class PictureStore {
   }
 
   /**
+   * Recalculates the statistics on a folder.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param folderId Unique ID of the folder.
+   */
+  public static recalcFolder(libraryId: string, folderId: string) {
+    const db = DbFactory.createInstance();
+    return db.recalcFolder(libraryId, folderId).then(folder => {
+      if (folder.parentId) {
+        PictureStore.enqueueRecalcFolderJob(folder.libraryId, folder.parentId);
+      }
+      return folder;
+    });
+  }
+
+  /**
    * Gets a value which indicates if the local file system is
    * being used for file storage.
    */

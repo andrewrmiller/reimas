@@ -228,6 +228,8 @@ BEGIN
     library_id = @library_id_compressed AND
     file_id = @file_id_compressed;
 
+	SELECT ROW_COUNT() INTO @affected_rows;
+
 	SELECT
 		CASE 
 			WHEN @affected_rows = 0 THEN 1	/* Not Found */

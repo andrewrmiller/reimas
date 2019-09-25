@@ -55,10 +55,15 @@ export function resizePicture(
               message.size,
               resizedFilePath,
               info.size
-            ).then(() => {
-              callback(true);
-              return null;
-            });
+            )
+              .then(() => {
+                callback(true);
+                return null;
+              })
+              .catch(importErr => {
+                debug(`Error: ${importErr}`);
+                callback(false);
+              });
           }
         });
     })

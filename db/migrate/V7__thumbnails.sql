@@ -29,6 +29,8 @@ BEGIN
   PREPARE stmt FROM @sql;
   EXECUTE stmt USING @file_size, @library_id_compressed, @file_id_compressed;
 
+	SELECT ROW_COUNT() INTO @affected_rows;
+
 	SELECT
 		CASE 
 			WHEN @affected_rows = 0 THEN 1	/* Not Found */

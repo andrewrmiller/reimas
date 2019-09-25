@@ -1,11 +1,13 @@
 import amqp from 'amqplib';
 import {
   IMessage,
+  IRecalcFolderMsg,
   IResizePictureMsg,
   JobsChannelName,
   MessageType
 } from 'common';
 import createDebug from 'debug';
+import { recalcFolder } from './recalcFolder';
 import { resizePicture } from './resizePicture';
 
 const debug = createDebug('workers:consumer');
@@ -61,7 +63,7 @@ function startWorker() {
         debug('RabbitMQ channel closed.');
       });
 
-      ch.prefetch(10);
+      ch.prefetch(1);
 
       return ch.assertQueue(JobsChannelName, { durable: true }).then(ok => {
         return ch
@@ -121,7 +123,7 @@ function processMessage(
       break;
 
     case MessageType.RecalcFolder:
-      // TODO: recalcFolder(message as IRecalcFolderMsg, callback);
+      recalcFolder(message as IRecalcFolderMsg, callback);
       break;
 
     default:

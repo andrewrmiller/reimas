@@ -30,7 +30,16 @@ export class LocalFileSystem {
   public createFolder(path: string) {
     const folderPath = `${this.config.root}/${path}`;
     debug(`Creating local file system folder ${folderPath}`);
-    return fsPromises.mkdir(folderPath);
+    try {
+      fs.accessSync(folderPath);
+
+      // Folder already exists.  We're done.
+      return new Promise((resolve, reject) => {
+        resolve();
+      });
+    } catch (err) {
+      return fsPromises.mkdir(folderPath);
+    }
   }
 
   /**
