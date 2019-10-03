@@ -28,7 +28,7 @@ export class Paths {
 
   public static deleteLastSubpath(path: string) {
     const index = path.lastIndexOf('/');
-    return path.substr(0, index);
+    return index >= 0 ? path.substr(0, index) : '';
   }
 
   public static changeFileExtension(filename: string, newExtension: string) {

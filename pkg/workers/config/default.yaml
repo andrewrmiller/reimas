@@ -4,5 +4,8 @@ Database:
   password: =eJ+MVukg2#L%55e
   name: reimas
 FileSystem:
-  root: ../api/libraries
-  
+  type: local
+  localFileSystem:
+    root: ./libraries
+  s3FileSystem:
+    bucket: reimas-localdev  

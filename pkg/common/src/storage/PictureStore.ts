@@ -1,7 +1,9 @@
 import amqp from 'amqplib';
 import createDebug from 'debug';
+import fs from 'fs';
 import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
+import { path as buildTempPath } from 'temp';
 import * as util from 'util';
 import { v1 as createGuid } from 'uuid';
 import {
@@ -69,7 +71,7 @@ export class PictureStore {
 
   public static addLibrary(add: ILibraryAdd) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     // Create a GUID and use that as the unique ID of the folder
     // and also the name of the folder in the file system.  This avoids
@@ -78,14 +80,14 @@ export class PictureStore {
     debug(`Generated ID ${add.libraryId} for new library ${add.name}`);
 
     // Create the library folder on disk first.
-    return fs.createFolder(add.libraryId).then(() => {
+    return fileSystem.createFolder(add.libraryId).then(() => {
       // Now add the library to the database.
       return db.addLibrary(add).catch(err => {
         // Failed to add it to the database.  Make an attempt to
         // remove the file system folder that we just created.
         debug(`ERROR: Create library failed for library ${add.name}`);
         debug('Folder was created in file system but database insert failed.');
-        fs.deleteFolder(add.name);
+        fileSystem.deleteFolder(add.name);
         throw err;
       });
     });
@@ -109,12 +111,12 @@ export class PictureStore {
    */
   public static deleteLibrary(libraryId: string) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     // Delete the library in the database first.
     return db.deleteLibrary(libraryId).then(result => {
       // Now try to delete the library folder in the file system.
-      return fs
+      return fileSystem
         .deleteFolder(libraryId)
         .then(() => {
           // Return the result from the database delete.
@@ -161,21 +163,26 @@ export class PictureStore {
    */
   public static addFolder(libraryId: string, add: IFolderAdd) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     // Grab some information about the parent folder first.
     return db.getFolder(libraryId, add.parentId!).then(parent => {
       // Create the folder in the file system first.
-      const fileSystemPath = `${libraryId}/${parent.path}/${add.name}`;
-      return fs.createFolder(fileSystemPath).then(() => {
+      const folderId = createGuid();
+      const fileSystemPath = PictureStore.buildLibraryPath(
+        libraryId,
+        parent.path,
+        folderId
+      );
+      return fileSystem.createFolder(fileSystemPath).then(() => {
         // Now create the folder in the database.
-        return db.addFolder(libraryId, add).catch(err => {
+        return db.addFolder(libraryId, folderId, add).catch(err => {
           // We failed to create the folder in the file system.  Try to
           // remove the folder that we created in the database.
           debug(`ERROR: Create folder failed for folder ${add.name}.`);
           debug(`Folder was created in the file system but not in db.`);
           debug(`Attempting to delete the folder in the file systme.`);
-          fs.deleteFolder(fileSystemPath);
+          fileSystem.deleteFolder(fileSystemPath);
           throw err;
         });
       });
@@ -195,21 +202,10 @@ export class PictureStore {
     update: IFolderUpdate
   ) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
-
     return db.getFolder(libraryId, folderId).then(folder => {
-      const fileSystemPath = `${libraryId}/${folder.path}`;
-      return fs.renameFolderOrFile(fileSystemPath, update.name!).then(() => {
-        return db.updateFolder(libraryId, folderId, update).catch(err => {
-          debug(`ERROR: Patching folder ${folderId} failed.`);
-          const newPath = Paths.replaceLastSubpath(
-            fileSystemPath,
-            update.name!
-          );
-          debug(`Attempting to revert ${newPath} to ${folder.name}.`);
-          fs.renameFolderOrFile(newPath, folder.name);
-          throw err;
-        });
+      return db.updateFolder(libraryId, folderId, update).catch(err => {
+        debug(`ERROR: Patching folder ${folderId} failed.`);
+        throw err;
       });
     });
   }
@@ -222,13 +218,13 @@ export class PictureStore {
    */
   public static deleteFolder(libraryId: string, folderId: string) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     // Grab the folder info first and then delete the folder in the database.
     return db.getFolder(libraryId, folderId).then(folder => {
       return db.deleteFolder(libraryId, folderId).then(result => {
         // Now try to delete the folder in the file system.
-        return fs
+        return fileSystem
           .deleteFolder(`${libraryId}/${folder.path}`)
           .then(() => {
             // Return the result from the database delete.
@@ -265,7 +261,8 @@ export class PictureStore {
    * being used for file storage.
    */
   public static isLocalFileSystem() {
-    return true;
+    const fileSystem = FileSystemFactory.createInstance();
+    return fileSystem.isLocalFileSystem();
   }
 
   /**
@@ -291,23 +288,62 @@ export class PictureStore {
   }
 
   /**
-   * Retrieves the contents for a specific file in a library.
+   * Retrieves the content info for a specific file in a library.
    *
    * @param libraryId Unique ID of the parent library.
    * @param fileId Unique ID of the file.
    */
-  public static getFileContents(libraryId: string, fileId: string) {
+  public static getFileContentInfo(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    return db.getFileContentInfo(libraryId, fileId);
+  }
 
-    return db.getFileContentInfo(libraryId, fileId).then(info => {
-      return fs.readFile(`${libraryId}/${info.path}`).then(buffer => {
-        return {
-          buffer,
-          mimeType: info.mimeType
-        };
-      });
-    });
+  /**
+   * Returns a read-only stream of a file in the file system.
+   *
+   * @param path Relative path to the file.
+   */
+  public static getFileStream(libraryId: string, path: string) {
+    const fileSystem = FileSystemFactory.createInstance();
+    return fileSystem.getFileStream(`${libraryId}/${path}`);
+  }
+
+  /**
+   * Downloads a file to a temporary file in the local file system.
+   *
+   * @param libraryId Unique ID of the library.
+   * @param fileId Unique ID of the file to download.
+   */
+  public static downloadTempFile(libraryId: string, fileId: string) {
+    return PictureStore.getFileContentInfo(libraryId, fileId).then(
+      contentInfo => {
+        // Generate a temporary path and filename.
+        const tempPath = buildTempPath({
+          suffix: contentInfo.name
+        });
+
+        return new Promise<string>((resolve, reject) => {
+          debug(
+            `Downloading ${contentInfo.path} to temporary file ${tempPath}`
+          );
+          const writeStream = fs.createWriteStream(tempPath);
+          const readStream = PictureStore.getFileStream(
+            libraryId,
+            contentInfo.path
+          );
+
+          readStream.on('end', () => {
+            resolve(tempPath);
+          });
+
+          readStream.on('error', readError => {
+            reject(readError);
+          });
+
+          readStream.pipe(writeStream);
+        });
+      }
+    );
   }
 
   /**
@@ -329,9 +365,15 @@ export class PictureStore {
     fileSize: number
   ) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     return sizeOfPromise(localPath)
+      .catch(err => {
+        throw createHttpError(
+          HttpStatusCode.BAD_REQUEST,
+          `Unrecognized picture or video file: ${filename}`
+        );
+      })
       .then(imageInfo => {
         // File was recognized as an image file.  See if we support it.
         const supportStatus = PictureStore.getExtSupportStatus(
@@ -345,38 +387,44 @@ export class PictureStore {
           );
         }
 
-        return db.getFolder(libraryId, folderId).then(folder => {
-          return fs
-            .importFile(localPath, `${libraryId}/${folder.path}/${filename}`)
-            .then(filenameUsed => {
-              // File has been impmorted into the file system.  Now
-              // create a row in the database with the file's metadata.
-              return db
-                .addFile(libraryId, folderId, {
-                  name: filenameUsed,
-                  mimeType,
-                  isVideo:
-                    supportStatus === FormatSupportStatus.IsSupportedVideo,
-                  height: imageInfo.height,
-                  width: imageInfo.width,
-                  fileSize,
-                  isProcessing: true
-                } as IFileAdd)
-                .then(file => {
-                  return PictureStore.enqueueFileJobs(file);
-                });
-            });
-        });
-      })
-      .catch(err => {
-        if (err.status) {
-          throw err;
-        } else {
-          throw createHttpError(
-            HttpStatusCode.INTERNAL_SERVER_ERROR,
-            err.message
-          );
-        }
+        return db
+          .getFolder(libraryId, folderId)
+          .then(folder => {
+            const fileId = createGuid();
+            return fileSystem
+              .importFile(
+                localPath,
+                PictureStore.buildLibraryPath(libraryId, folder.path, fileId)
+              )
+              .then(filenameUsed => {
+                // File has been impmorted into the file system.  Now
+                // create a row in the database with the file's metadata.
+                return db
+                  .addFile(libraryId, folderId, fileId, {
+                    name: filename,
+                    mimeType,
+                    isVideo:
+                      supportStatus === FormatSupportStatus.IsSupportedVideo,
+                    height: imageInfo.height,
+                    width: imageInfo.width,
+                    fileSize,
+                    isProcessing: true
+                  } as IFileAdd)
+                  .then(file => {
+                    return PictureStore.enqueueFileJobs(file);
+                  });
+              });
+          })
+          .catch(err => {
+            if (err.status) {
+              throw err;
+            } else {
+              throw createHttpError(
+                HttpStatusCode.INTERNAL_SERVER_ERROR,
+                err.message
+              );
+            }
+          });
       });
   }
 
@@ -400,33 +448,38 @@ export class PictureStore {
     );
 
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     return db.getFileContentInfo(libraryId, fileId).then(fileInfo => {
       const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
-      const thumbnailFolder = `${libraryId}/${pictureFolder}/tn_${thumbSize}`;
-      const thumbnailFilename = Paths.changeFileExtension(
-        fileInfo.name,
-        PictureExtension.Jpg
+      const thumbnailFolder = PictureStore.buildLibraryPath(
+        libraryId,
+        pictureFolder,
+        `tn_${thumbSize}`
       );
 
-      return fs
+      return fileSystem
         .createFolder(thumbnailFolder)
         .then(() => {
-          return fs
-            .importFile(localPath, `${thumbnailFolder}/${thumbnailFilename}`)
-            .then(filenameUsed => {
-              // File has been impmorted into the file system.  Now
-              // create a row in the database with the file's metadata.
-              return db
-                .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
-                .then(file => {
-                  return PictureStore.enqueueRecalcFolderJob(
-                    libraryId,
-                    fileInfo.folderId
-                  );
-                });
-            });
+          const fileSystemPath = `${thumbnailFolder}/${fileId}`;
+          return fileSystem.importFile(localPath, fileSystemPath).then(() => {
+            // File has been impmorted into the file system.  Now
+            // create a row in the database with the file's metadata.
+            return db
+              .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
+              .then(file => {
+                return PictureStore.enqueueRecalcFolderJob(
+                  libraryId,
+                  fileInfo.folderId
+                );
+              })
+              .catch(dbErr => {
+                // We failed to update the database.  Make sure we clean
+                // up the file that we created in the file system.
+                fileSystem.deleteFile(fileSystemPath);
+                throw dbErr;
+              });
+          });
         })
         .catch(err => {
           if (err.status) {
@@ -455,7 +508,6 @@ export class PictureStore {
     update: IFileUpdate
   ) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
 
     // If name is changing, rename file on disk first, then update
     // the database. Othwerise just update the database since all
@@ -469,19 +521,7 @@ export class PictureStore {
           );
         }
 
-        const fileSystemPath = `${libraryId}/${info.path}`;
-        return fs.renameFolderOrFile(fileSystemPath, update.name!).then(() => {
-          return db.updateFile(libraryId, fileId, update).catch(err => {
-            debug(`ERROR: Patching file ${fileId} failed.`);
-            const newPath = Paths.replaceLastSubpath(
-              fileSystemPath,
-              update.name!
-            );
-            debug(`Attempting to revert ${newPath} to ${info.name}.`);
-            fs.renameFolderOrFile(newPath, info.name);
-            throw err;
-          });
-        });
+        return db.updateFile(libraryId, fileId, update);
       });
     } else {
       return db.updateFile(libraryId, fileId, update);
@@ -490,14 +530,43 @@ export class PictureStore {
 
   public static deleteFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     // Grab the file info first and then delete the file in the database.
     return db.getFileContentInfo(libraryId, fileId).then(file => {
       return db.deleteFile(libraryId, fileId).then(result => {
-        // Now try to delete the file in the file system.
-        return fs
+        // Now try to delete the file in the file system
+        // along with any thumbnails that have been created.
+        const fileDir = Paths.deleteLastSubpath(file.path);
+        return fileSystem
           .deleteFile(`${libraryId}/${file.path}`)
+          .then(() => {
+            return fileSystem.deleteFile(
+              PictureStore.buildLibraryPath(
+                libraryId,
+                fileDir,
+                `tn_sm/${file.fileId}`
+              )
+            );
+          })
+          .then(() => {
+            return fileSystem.deleteFile(
+              PictureStore.buildLibraryPath(
+                libraryId,
+                fileDir,
+                `tn_md/${file.fileId}`
+              )
+            );
+          })
+          .then(() => {
+            return fileSystem.deleteFile(
+              PictureStore.buildLibraryPath(
+                libraryId,
+                fileDir,
+                `tn_lg/${file.fileId}`
+              )
+            );
+          })
           .then(() => {
             PictureStore.enqueueRecalcFolderJob(file.libraryId, file.folderId);
             // Return the result from the database delete.
@@ -523,17 +592,36 @@ export class PictureStore {
     debug(`Getting local path to file ${fileId} in library ${libraryId}`);
 
     const db = DbFactory.createInstance();
-    const fs = FileSystemFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
 
     return db
       .getFileContentInfo(libraryId, fileId)
       .then(info => {
-        return fs.getFilePath(`${libraryId}/${info.path}`);
+        return fileSystem.getLocalFilePath(`${libraryId}/${info.path}`);
       })
       .catch(err => {
         debug(`Error: getLocalFilePath: ${err}`);
         throw err;
       });
+  }
+
+  /**
+   * Builds a path to a file or folder in a library.
+   *
+   * @param libraryId Unique ID of the library.
+   * @param parentFolderPath Relative path to the parent folder.
+   * @param itemName Name of the file or folder.
+   */
+  private static buildLibraryPath(
+    libraryId: string,
+    parentFolderPath: string,
+    itemName: string
+  ) {
+    // Files at the root of All Pictures are stored directly
+    // under the library folder.
+    return parentFolderPath && parentFolderPath.length > 0
+      ? `${libraryId}/${parentFolderPath}/${itemName}`
+      : `${libraryId}/${itemName}`;
   }
 
   private static enqueueRecalcFolderJob(libraryId: string, folderId: string) {

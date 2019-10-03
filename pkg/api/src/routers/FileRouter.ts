@@ -83,10 +83,15 @@ router.get(
   '/:libraryId/files/:fileId/contents',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.getFileContents(params.libraryId, params.fileId)
+    PictureStore.getFileContentInfo(params.libraryId, params.fileId)
       .then(contents => {
+        const stream = PictureStore.getFileStream(
+          params.libraryId,
+          contents.path
+        );
+        stream.on('error', next);
         res.contentType(contents.mimeType);
-        res.send(contents.buffer);
+        stream.pipe(res);
       })
       .catch(next);
   }

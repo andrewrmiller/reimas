@@ -146,10 +146,11 @@ export class MySqlDatabase {
     });
   }
 
-  public addFolder(libraryId: string, add: IFolderAdd) {
+  public addFolder(libraryId: string, folderId: string, add: IFolderAdd) {
     debug(`Adding a new folder ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFolder>('add_folder', [
       libraryId,
+      folderId,
       add.name,
       add.parentId,
       add.type
@@ -235,11 +236,17 @@ export class MySqlDatabase {
     });
   }
 
-  public addFile(libraryId: string, folderId: string, add: IFileAdd) {
+  public addFile(
+    libraryId: string,
+    folderId: string,
+    fileId: string,
+    add: IFileAdd
+  ) {
     debug(`Adding a new file ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFile>('add_file', [
       libraryId,
       folderId,
+      fileId,
       add.name,
       add.mimeType,
       add.isVideo,

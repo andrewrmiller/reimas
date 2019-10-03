@@ -5,9 +5,11 @@ import {
   ThumbnailDimensions
 } from 'common';
 import createDebug from 'debug';
+import fs from 'fs';
 import sharp from 'sharp';
-import { path } from 'temp';
+import { path as buildTempPath } from 'temp';
 
+const fsPromises = fs.promises;
 const debug = createDebug('workers:resizePicture');
 
 export function resizePicture(
@@ -16,9 +18,12 @@ export function resizePicture(
 ) {
   debug(`Resizing file ${message.fileId} to size ${message.size}.`);
 
-  // Use library ID and file ID in message to download file to temp
+  // Use library ID and file ID in message to open the original
+  // file locally.  Note that for some file systems that means
+  // downloading the file first.
   let getLocalFilePromise;
-  if (PictureStore.isLocalFileSystem()) {
+  const isLocalFileSystem = PictureStore.isLocalFileSystem();
+  if (isLocalFileSystem) {
     debug('Using path of file in local file system.');
     getLocalFilePromise = PictureStore.getLocalFilePath(
       message.libraryId,
@@ -26,16 +31,17 @@ export function resizePicture(
     );
   } else {
     debug('Downloading original file for resizing.');
-    getLocalFilePromise = new Promise<string>((resolve, reject) => {
-      resolve('TODO: Download the file to a temporary location');
-    });
+    getLocalFilePromise = PictureStore.downloadTempFile(
+      message.libraryId,
+      message.fileId
+    );
   }
 
   getLocalFilePromise
     .then(localFilePath => {
       // Generate a temporary filename for the thumbnail.  Note that thumbnails
       // are always stored as JPEG regardless of the input file format.
-      const resizedFilePath = path({
+      const resizedFilePath = buildTempPath({
         prefix: message.size,
         suffix: `.${PictureExtension.Jpg}`
       });
@@ -53,6 +59,12 @@ export function resizePicture(
             resizedFilePath,
             info.size
           ).then(() => {
+            // If we downloaded a temporary file, make sure we clean up.
+            if (!isLocalFileSystem) {
+              fsPromises.unlink(localFilePath).catch(unlinkErr => {
+                debug(`Error deleting temporary file: ${unlinkErr}`);
+              });
+            }
             callback(true);
             return null;
           });
