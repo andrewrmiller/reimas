@@ -6,6 +6,6 @@ Database:
 FileSystem:
   type: local
   localFileSystem:
-    root: ./libraries
+    root: ../api/libraries
   s3FileSystem:
     bucket: reimas-localdev  
