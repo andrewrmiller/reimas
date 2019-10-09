@@ -31,6 +31,11 @@ export class Paths {
     return index >= 0 ? path.substr(0, index) : '';
   }
 
+  public static getFileExtension(filename: string) {
+    const index = filename.lastIndexOf('.');
+    return filename.substr(index + 1);
+  }
+
   public static changeFileExtension(filename: string, newExtension: string) {
     const index = filename.lastIndexOf('.');
     return filename.substr(0, index + 1) + newExtension;

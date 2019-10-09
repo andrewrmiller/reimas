@@ -35,6 +35,7 @@ export interface IDbFolder {
   file_size_sm: number;
   file_size_md: number;
   file_size_lg: number;
+  file_size_cnv_video: number;
   data: string;
   where: string;
   order_by: string;
@@ -63,6 +64,7 @@ export interface IDbFile {
   file_size_sm?: number;
   file_size_md?: number;
   file_size_lg?: number;
+  file_size_cnv_video?: number;
   file_size_backup?: number;
   is_processing: number;
 }

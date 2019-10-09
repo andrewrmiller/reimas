@@ -178,6 +178,7 @@ export interface IFile {
   fileSizeSm?: number;
   fileSizeMd?: number;
   fileSizeLg?: number;
+  fileSizeCnvVideo?: number;
   fileSizeBackup?: number;
   isProcessing: number;
 }

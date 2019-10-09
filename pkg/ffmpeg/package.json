@@ -1,0 +1,10 @@
+{
+  "name": "@types/ffmpeg",
+  "version": "1.0.1",
+  "description": "TypeScript definitions for node-ffmpeg",
+  "main": "",
+  "types": "index",
+  "scripts": {},
+  "dependencies": {},
+  "typeScriptVersion": "2.1"
+}

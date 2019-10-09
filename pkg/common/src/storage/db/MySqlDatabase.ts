@@ -303,6 +303,25 @@ export class MySqlDatabase {
     });
   }
 
+  public updateFileConvertedVideo(
+    libraryId: string,
+    fileId: string,
+    fileSize: number
+  ) {
+    debug(
+      `Updating converted video size on ${fileId} in library ${libraryId}.`
+    );
+    return this.callChangeProc<IDbFile>('update_file_cnv_video', [
+      libraryId,
+      fileId,
+      fileSize
+    ]).then((dbFileUpdated: IDbFile) => {
+      return ChangeCase.toCamelObject(
+        this.convertBitFields(dbFileUpdated, FileBitFields)
+      ) as IFile;
+    });
+  }
+
   public deleteFile(libraryId: string, fileId: string) {
     debug(`Deleting file ${fileId} in library ${libraryId}.`);
     return this.callChangeProc<IDbFile>('delete_file', [

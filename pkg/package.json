@@ -1,6 +1,7 @@
 {
   "private": true,
   "workspaces": [
+    "ffmpeg",
     "common",
     "workers",
     "api"

@@ -1,5 +1,6 @@
 import amqp from 'amqplib';
 import createDebug from 'debug';
+import ffmpeg, { Video } from 'ffmpeg';
 import fs from 'fs';
 import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
@@ -13,7 +14,12 @@ import {
   VideoMimeType
 } from '../FileTypes';
 import { HttpStatusCode } from '../httpConstants';
-import { IRecalcFolderMsg, IResizePictureMsg, MessageType } from '../messages';
+import {
+  IProcessPictureMsg,
+  IProcessVideoMsg,
+  IRecalcFolderMsg,
+  MessageType
+} from '../messages';
 import { Paths } from '../Paths';
 import { ThumbnailSize } from '../thumbnails';
 import { JobsChannelName } from '../workers';
@@ -367,7 +373,26 @@ export class PictureStore {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
 
-    return sizeOfPromise(localPath)
+    const fileExtension = Paths.getFileExtension(filename).toLowerCase();
+    const supportStatus = PictureStore.getExtSupportStatus(fileExtension);
+
+    if (supportStatus === FormatSupportStatus.NotSupported) {
+      throw createHttpError(
+        HttpStatusCode.BAD_REQUEST,
+        `Invalid file type: ${fileExtension}`
+      );
+    }
+
+    let getSizePromise;
+    if (supportStatus === FormatSupportStatus.IsSupportedPicture) {
+      debug('Getting picture dimensions.');
+      getSizePromise = sizeOfPromise(localPath);
+    } else {
+      debug('Getting video dimensions.');
+      getSizePromise = this.getVideoInfo(localPath);
+    }
+
+    return getSizePromise
       .catch(err => {
         throw createHttpError(
           HttpStatusCode.BAD_REQUEST,
@@ -375,18 +400,6 @@ export class PictureStore {
         );
       })
       .then(imageInfo => {
-        // File was recognized as an image file.  See if we support it.
-        const supportStatus = PictureStore.getExtSupportStatus(
-          imageInfo.type.toLowerCase()
-        );
-
-        if (supportStatus === FormatSupportStatus.NotSupported) {
-          throw createHttpError(
-            HttpStatusCode.BAD_REQUEST,
-            `Invalid file type: ${imageInfo.type}`
-          );
-        }
-
         return db
           .getFolder(libraryId, folderId)
           .then(folder => {
@@ -411,7 +424,7 @@ export class PictureStore {
                     isProcessing: true
                   } as IFileAdd)
                   .then(file => {
-                    return PictureStore.enqueueFileJobs(file);
+                    return PictureStore.enqueueProcessFileJob(file);
                   });
               });
           })
@@ -434,6 +447,7 @@ export class PictureStore {
    * @param libraryId Unique ID of the parent library.
    * @param fileId Unique ID of the file.
    * @param thumbSize Size of the thumbnail (sm, md or lg).
+   * @param localPath Local path to the thumbnail file.
    * @param fileSize Size of the thumbnail file in bytes.
    */
   public static importThumbnail(
@@ -463,8 +477,7 @@ export class PictureStore {
         .then(() => {
           const fileSystemPath = `${thumbnailFolder}/${fileId}`;
           return fileSystem.importFile(localPath, fileSystemPath).then(() => {
-            // File has been impmorted into the file system.  Now
-            // create a row in the database with the file's metadata.
+            // File has been imported into the file system.  Update the database.
             return db
               .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
               .then(file => {
@@ -486,6 +499,71 @@ export class PictureStore {
             throw err;
           } else {
             debug(`Error importing thumbnail: ${err}`);
+            throw createHttpError(
+              HttpStatusCode.INTERNAL_SERVER_ERROR,
+              err.message
+            );
+          }
+        });
+    });
+  }
+
+  /**
+   * Imports a converted video file into a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   * @param localPath Local path to the converted video file.
+   * @param fileSize Size of the converted video file.
+   */
+  public static importConvertedVideo(
+    libraryId: string,
+    fileId: string,
+    localPath: string,
+    fileSize: number
+  ) {
+    debug(
+      `Importing converted video for file ${fileId} in library ${libraryId}.`
+    );
+
+    const db = DbFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
+
+    return db.getFileContentInfo(libraryId, fileId).then(fileInfo => {
+      const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
+      const videoFolder = PictureStore.buildLibraryPath(
+        libraryId,
+        pictureFolder,
+        'cnv'
+      );
+
+      return fileSystem
+        .createFolder(videoFolder)
+        .then(() => {
+          const fileSystemPath = `${videoFolder}/${fileId}`;
+          return fileSystem.importFile(localPath, fileSystemPath).then(() => {
+            // File has been imported into the file system.  Update the database.
+            return db
+              .updateFileConvertedVideo(libraryId, fileId, fileSize)
+              .then(file => {
+                return PictureStore.enqueueRecalcFolderJob(
+                  libraryId,
+                  fileInfo.folderId
+                );
+              })
+              .catch(dbErr => {
+                // We failed to update the database.  Make sure we clean
+                // up the file that we created in the file system.
+                fileSystem.deleteFile(fileSystemPath);
+                throw dbErr;
+              });
+          });
+        })
+        .catch(err => {
+          if (err.status) {
+            throw err;
+          } else {
+            debug(`Error importing converted video: ${err}`);
             throw createHttpError(
               HttpStatusCode.INTERNAL_SERVER_ERROR,
               err.message
@@ -641,49 +719,34 @@ export class PictureStore {
     });
   }
 
-  private static enqueueFileJobs(file: IFile) {
+  private static enqueueProcessFileJob(file: IFile) {
+    let message: IProcessPictureMsg | IProcessVideoMsg;
     return PictureStore.enqueue(ch => {
-      debug('Publishing thumbnail creation jobs.');
-      PictureStore.postResizeMessage(
-        ch,
-        file.libraryId,
-        file.fileId,
-        ThumbnailSize.Small
-      );
-      PictureStore.postResizeMessage(
-        ch,
-        file.libraryId,
-        file.fileId,
-        ThumbnailSize.Medium
-      );
-      PictureStore.postResizeMessage(
-        ch,
-        file.libraryId,
-        file.fileId,
-        ThumbnailSize.Large
-      );
+      if (!file.isVideo) {
+        debug('Publishing thumbnail creation jobs.');
+        message = {
+          type: MessageType.ProcessPicture,
+          libraryId: file.libraryId,
+          fileId: file.fileId
+        } as IProcessPictureMsg;
+      } else {
+        debug('Publishing video conversion job.');
+        message = {
+          type: MessageType.ProcessVideo,
+          libraryId: file.libraryId,
+          fileId: file.fileId,
+          convertToMp4: Paths.getFileExtension(file.name) !== VideoExtension.MP4
+        } as IProcessVideoMsg;
+      }
+
+      if (
+        !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
+      ) {
+        throw new Error('Failed to enqueue process picture/video message.');
+      }
+
       return file;
     });
-  }
-
-  private static postResizeMessage(
-    ch: amqp.Channel,
-    libraryId: string,
-    fileId: string,
-    size: ThumbnailSize
-  ) {
-    const message: IResizePictureMsg = {
-      type: MessageType.ResizePicture,
-      libraryId,
-      fileId,
-      size
-    };
-
-    if (
-      !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
-    ) {
-      throw new Error('Failed to enqueue resize picture message.');
-    }
   }
 
   private static enqueue(callback: (ch: amqp.Channel) => any) {
@@ -702,6 +765,23 @@ export class PictureStore {
         debug('Error while communicating with RabbitMQ: ' + err);
         throw err;
       });
+  }
+
+  /**
+   * Retrieves some information about a video file.
+   *
+   * @param videoPath Local path to the video file.
+   */
+  private static getVideoInfo(videoPath: string) {
+    return new ffmpeg(videoPath).then(video => {
+      const metadata = video.metadata;
+      const resolution = (metadata as any).video.resolution;
+      return {
+        width: metadata.width || resolution.w,
+        height: metadata.height || resolution.h,
+        type: metadata.encoder
+      };
+    });
   }
 
   /**

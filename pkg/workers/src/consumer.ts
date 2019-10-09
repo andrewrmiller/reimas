@@ -1,14 +1,16 @@
 import amqp from 'amqplib';
 import {
   IMessage,
+  IProcessPictureMsg,
+  IProcessVideoMsg,
   IRecalcFolderMsg,
-  IResizePictureMsg,
   JobsChannelName,
   MessageType
 } from 'common';
 import createDebug from 'debug';
+import { processPicture } from './processPicture';
+import { processVideo } from './processVideo';
 import { recalcFolder } from './recalcFolder';
-import { resizePicture } from './resizePicture';
 
 const debug = createDebug('workers:consumer');
 let amqpConn: amqp.Connection | undefined;
@@ -118,8 +120,12 @@ function processMessage(
   const message = JSON.parse(msg.content.toString()) as IMessage;
 
   switch (message.type) {
-    case MessageType.ResizePicture:
-      resizePicture(message as IResizePictureMsg, callback);
+    case MessageType.ProcessPicture:
+      processPicture(message as IProcessPictureMsg, callback);
+      break;
+
+    case MessageType.ProcessVideo:
+      processVideo(message as IProcessVideoMsg, callback);
       break;
 
     case MessageType.RecalcFolder:

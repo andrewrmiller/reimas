@@ -4,7 +4,8 @@ import { ThumbnailSize } from './thumbnails';
  * Enumeration of the types of messages that can be posted to the queue.
  */
 export enum MessageType {
-  ResizePicture,
+  ProcessPicture,
+  ProcessVideo,
   RecalcFolder
 }
 
@@ -16,13 +17,20 @@ export interface IMessage {
 }
 
 /**
- * Message posted when a thumbnail should be generated
- * for a picture in the store.
+ * Message posted when an uploaded picture should be processed.
  */
-export interface IResizePictureMsg extends IMessage {
+export interface IProcessPictureMsg extends IMessage {
   libraryId: string;
   fileId: string;
-  size: ThumbnailSize;
+}
+
+/**
+ * Message posted when an uplooaded video file should be processed.
+ */
+export interface IProcessVideoMsg extends IMessage {
+  libraryId: string;
+  fileId: string;
+  convertToMp4: boolean;
 }
 
 /**

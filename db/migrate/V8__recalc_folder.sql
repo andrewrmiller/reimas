@@ -1,8 +1,7 @@
 DELIMITER $$
 
--- Create a procedure that adds a thumbnail size to an existing file.
 /*
- * Create a procedure to create a new folder in a library.
+ * Create a procedure that recalculates a folder's size.
  */
 DROP PROCEDURE IF EXISTS `recalc_folder`$$
 
