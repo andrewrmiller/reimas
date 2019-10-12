@@ -232,7 +232,9 @@ export class MySqlDatabase {
       libraryId,
       fileId
     ]).then(dbFileContentInfo => {
-      return ChangeCase.toCamelObject(dbFileContentInfo) as IFileContentInfo;
+      return ChangeCase.toCamelObject(
+        this.convertBitFields(dbFileContentInfo, FileBitFields)
+      ) as IFileContentInfo;
     });
   }
 

@@ -41,7 +41,7 @@ export function processPicture(
         });
     })
     .catch(err => {
-      debug(`Error creating thumbnails: $o`, err);
+      debug(`Error creating thumbnails: %o`, err);
       callback(false);
     });
 }

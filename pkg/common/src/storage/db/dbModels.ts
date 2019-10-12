@@ -78,6 +78,8 @@ export interface IDbFileContentInfo {
   folder_id: string;
   file_id: string;
   name: string;
+  is_video: boolean;
   mime_type: string;
   path: string;
+  is_processing: boolean;
 }

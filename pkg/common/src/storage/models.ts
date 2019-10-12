@@ -205,6 +205,8 @@ export interface IFileContentInfo {
   folderId: string;
   fileId: string;
   name: string;
+  isVideo: boolean;
   mimeType: string;
   path: string;
+  isProcessing: boolean;
 }

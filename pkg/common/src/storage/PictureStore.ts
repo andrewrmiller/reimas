@@ -294,14 +294,60 @@ export class PictureStore {
   }
 
   /**
-   * Retrieves the content info for a specific file in a library.
+   * Retrieves a stream of the file contents and also a mime
+   * type for the file stream.  Note that if the file was
+   * converted to a more friendly/compatible format, the returned
+   * stream will be for the converted file, not the original file.
    *
    * @param libraryId Unique ID of the parent library.
    * @param fileId Unique ID of the file.
    */
-  public static getFileContentInfo(libraryId: string, fileId: string) {
+  public static getFileContents(libraryId: string, fileId: string) {
+    debug('Retrieving the contents of file ${fileId} in library ${libraryId');
     const db = DbFactory.createInstance();
-    return db.getFileContentInfo(libraryId, fileId);
+    return db.getFileContentInfo(libraryId, fileId).then(contents => {
+      let filePath = contents.path;
+
+      // If the file is a video and it is not in MP4 format, we retrieve
+      // the converted MP4 video instead of the file itself.
+      if (contents.isVideo && contents.mimeType !== VideoMimeType.MP4) {
+        filePath = Paths.deleteLastSubpath(filePath);
+        filePath = `${filePath}/cnv/${contents.fileId}`;
+      }
+
+      return {
+        stream: PictureStore.getFileStream(libraryId, filePath),
+        mimeType: contents.isVideo ? VideoMimeType.MP4 : contents.mimeType
+      };
+    });
+  }
+
+  /**
+   * Retrieves a stream of the thumbnail for a file
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   * @param size Size of the thumbnail to retrieve.
+   */
+  public static getFileThumbnail(
+    libraryId: string,
+    fileId: string,
+    size: ThumbnailSize
+  ) {
+    debug(
+      `Retrieving the ${size} thumbnail of file ${fileId} in library ${libraryId}`
+    );
+    const db = DbFactory.createInstance();
+    return db.getFileContentInfo(libraryId, fileId).then(contents => {
+      let filePath = contents.path;
+      filePath = Paths.deleteLastSubpath(filePath);
+      filePath = `${filePath}/tn_${size}/${contents.fileId}`;
+
+      return {
+        stream: PictureStore.getFileStream(libraryId, filePath),
+        mimeType: PictureMimeType.Jpeg
+      };
+    });
   }
 
   /**
@@ -321,35 +367,32 @@ export class PictureStore {
    * @param fileId Unique ID of the file to download.
    */
   public static downloadTempFile(libraryId: string, fileId: string) {
-    return PictureStore.getFileContentInfo(libraryId, fileId).then(
-      contentInfo => {
-        // Generate a temporary path and filename.
-        const tempPath = buildTempPath({
-          suffix: contentInfo.name
+    const db = DbFactory.createInstance();
+    return db.getFileContentInfo(libraryId, fileId).then(contentInfo => {
+      // Generate a temporary path and filename.
+      const tempPath = buildTempPath({
+        suffix: contentInfo.name
+      });
+
+      return new Promise<string>((resolve, reject) => {
+        debug(`Downloading ${contentInfo.path} to temporary file ${tempPath}`);
+        const writeStream = fs.createWriteStream(tempPath);
+        const readStream = PictureStore.getFileStream(
+          libraryId,
+          contentInfo.path
+        );
+
+        readStream.on('end', () => {
+          resolve(tempPath);
         });
 
-        return new Promise<string>((resolve, reject) => {
-          debug(
-            `Downloading ${contentInfo.path} to temporary file ${tempPath}`
-          );
-          const writeStream = fs.createWriteStream(tempPath);
-          const readStream = PictureStore.getFileStream(
-            libraryId,
-            contentInfo.path
-          );
-
-          readStream.on('end', () => {
-            resolve(tempPath);
-          });
-
-          readStream.on('error', readError => {
-            reject(readError);
-          });
-
-          readStream.pipe(writeStream);
+        readStream.on('error', readError => {
+          reject(readError);
         });
-      }
-    );
+
+        readStream.pipe(writeStream);
+      });
+    });
   }
 
   /**

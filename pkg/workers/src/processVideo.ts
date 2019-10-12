@@ -42,7 +42,7 @@ export function processVideo(
       callback(true);
     })
     .catch(err => {
-      debug(`Error processing video: $o`, err);
+      debug(`Error processing video: %o`, err);
       callback(false);
     });
 }
@@ -73,13 +73,13 @@ function createVideoThumbnails(message: IProcessVideoMsg, video: Video) {
         if (tempFrameDir) {
           rimraf(tempFrameDir, err => {
             if (err) {
-              debug(`Error cleaning up temporary frame directory: $o`, err);
+              debug(`Error cleaning up temporary frame directory: %o`, err);
             }
           });
         }
       })
       .catch(err => {
-        debug('Error extracting frame from video: $o', err);
+        debug('Error extracting frame from video: %o', err);
         throw err;
       });
   });
@@ -105,7 +105,7 @@ function convertToMp4(message: IProcessVideoMsg, video: Video) {
         );
       })
       .catch(err => {
-        debug(`Error importing converted video: $o`, err);
+        debug(`Error importing converted video: %o`, err);
         fsPromises.unlink(mp4File);
         throw err;
       });

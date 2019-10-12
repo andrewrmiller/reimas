@@ -1,7 +1,6 @@
 ALTER TABLE files ADD COLUMN file_size_cnv_video int(11) DEFAULT NULL AFTER file_size_lg;
 ALTER TABLE folders ADD COLUMN file_size_cnv_video int(11) DEFAULT NULL AFTER file_size_lg;
 
--- UNDONE: Fix up all the other places where we return file_size*
 
 DELIMITER $$
 
@@ -56,6 +55,7 @@ BEGIN
     comments,
     file_size,
     file_size_sm,
+    file_size_md,
     file_size_lg,
     file_size_cnv_video,
     file_size_backup,
@@ -408,6 +408,7 @@ proc:BEGIN
     comments,
     file_size,
     file_size_sm,
+    file_size_md,
     file_size_lg,
     file_size_cnv_video,
     file_size_backup,
@@ -446,6 +447,7 @@ BEGIN
     comments,
     file_size,
     file_size_sm,
+    file_size_md,
     file_size_lg,
     file_size_cnv_video,
     file_size_backup,
@@ -486,6 +488,7 @@ BEGIN
     comments,
     file_size,
     file_size_sm,
+    file_size_md,
     file_size_lg,
     file_size_cnv_video,
     file_size_backup,
@@ -556,6 +559,7 @@ BEGIN
     comments,
     file_size,
     file_size_sm,
+    file_size_md,
     file_size_lg,
     file_size_cnv_video,
     file_size_backup,

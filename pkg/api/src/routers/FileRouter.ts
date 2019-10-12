@@ -1,4 +1,4 @@
-import { IFile, IFileUpdate, PictureStore } from 'common';
+import { IFile, IFileUpdate, PictureStore, ThumbnailSize } from 'common';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
@@ -83,15 +83,32 @@ router.get(
   '/:libraryId/files/:fileId/contents',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.getFileContentInfo(params.libraryId, params.fileId)
+    PictureStore.getFileContents(params.libraryId, params.fileId)
       .then(contents => {
-        const stream = PictureStore.getFileStream(
-          params.libraryId,
-          contents.path
-        );
-        stream.on('error', next);
         res.contentType(contents.mimeType);
-        stream.pipe(res);
+        contents.stream.on('error', next);
+        contents.stream.pipe(res);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Gets a thumbnail for a specific file in a library folder.
+ */
+router.get(
+  '/:libraryId/files/:fileId/thumbnail/:size',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    PictureStore.getFileThumbnail(
+      params.libraryId,
+      params.fileId,
+      params.size as ThumbnailSize
+    )
+      .then(contents => {
+        res.contentType(contents.mimeType);
+        contents.stream.on('error', next);
+        contents.stream.pipe(res);
       })
       .catch(next);
   }
