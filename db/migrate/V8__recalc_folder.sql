@@ -3,8 +3,6 @@ DELIMITER $$
 /*
  * Create a procedure that recalculates a folder's size.
  */
-DROP PROCEDURE IF EXISTS `recalc_folder`$$
-
 CREATE PROCEDURE `recalc_folder`(
           IN p_library_id VARCHAR(36), 
           IN p_folder_id VARCHAR(36))

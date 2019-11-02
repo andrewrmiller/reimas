@@ -31,8 +31,6 @@ END$$
 /*
  * Create a procedure to retrieve all libraries in order.
  */
-DROP PROCEDURE IF EXISTS `get_libraries`$$
-
 CREATE PROCEDURE `get_libraries`()
 BEGIN
 	
@@ -50,8 +48,6 @@ END$$
 /*
  * Create a procedure to get a specific library.
  */
-DROP PROCEDURE IF EXISTS `get_library`$$
-
 CREATE PROCEDURE `get_library`(IN p_library_id VARCHAR(36))
 BEGIN
 
@@ -69,8 +65,6 @@ END$$
 /*
  * Create a procedure to create a new library.
  */
-DROP PROCEDURE IF EXISTS `add_library`$$
-
 CREATE PROCEDURE `add_library`(IN p_name VARCHAR(80), IN p_description LONGTEXT)
 BEGIN
 
@@ -95,8 +89,6 @@ END$$
 /*
  * Create a procedure to udpate an existing library.
  */
-DROP PROCEDURE IF EXISTS `update_library`$$
-
 CREATE PROCEDURE `update_library`(IN p_library_id VARCHAR(36), IN p_name VARCHAR(80), IN p_description LONGTEXT)
 BEGIN
 
@@ -128,8 +120,6 @@ END$$
 /*
  * Create a procedure to delete an existing library.
  */
-DROP PROCEDURE IF EXISTS `delete_library`$$
-
 CREATE PROCEDURE `delete_library`(IN p_library_id VARCHAR(36))
 BEGIN
 

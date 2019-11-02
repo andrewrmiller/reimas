@@ -1,5 +1,5 @@
-ALTER TABLE files ADD COLUMN file_size_cnv_video int(11) DEFAULT NULL AFTER file_size_lg;
-ALTER TABLE folders ADD COLUMN file_size_cnv_video int(11) DEFAULT NULL AFTER file_size_lg;
+ALTER TABLE files ADD COLUMN file_size_cnv_video INT DEFAULT NULL AFTER file_size_lg;
+ALTER TABLE folders ADD COLUMN file_size_cnv_video INT DEFAULT NULL AFTER file_size_lg;
 
 
 DELIMITER $$
@@ -7,12 +7,10 @@ DELIMITER $$
 /*
  * Create a procedure to update the converted video size for a file.
  */
-DROP PROCEDURE IF EXISTS `update_file_cnv_video`$$
-
 CREATE PROCEDURE `update_file_cnv_video`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
-          IN p_file_size INT(11))
+          IN p_file_size INT)
 BEGIN
 
   SET @library_id_compressed = compress_guid(p_library_id);
@@ -354,7 +352,7 @@ CREATE PROCEDURE `update_file`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_name VARCHAR(80),
-          IN p_rating TINYINT(4),
+          IN p_rating TINYINT,
           IN p_title VARCHAR(80),
           IN p_subject VARCHAR(80))
 proc:BEGIN
@@ -510,7 +508,7 @@ CREATE PROCEDURE `update_file_thumbnail`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_thumbnail_size CHAR(2),
-          IN p_file_size INT(11))
+          IN p_file_size INT)
 BEGIN
 
   SET @library_id_compressed = compress_guid(p_library_id);

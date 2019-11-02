@@ -114,8 +114,6 @@ END$$
 /*
  * Create a procedure to retrieve folders under a root ordered by name.
  */
-DROP PROCEDURE IF EXISTS `get_folders`$$
-
 CREATE PROCEDURE `get_folders`(IN p_library_id VARCHAR(36), IN p_parent_id VARCHAR(36))
 BEGIN
 	
@@ -151,8 +149,6 @@ END$$
 /*
  * Create a procedure to retrieve a specific top level folder.
  */
-DROP PROCEDURE IF EXISTS `get_folder`$$
-
 CREATE PROCEDURE `get_folder`(IN p_library_id VARCHAR(36), IN p_folder_id VARCHAR(36))
 BEGIN
 	
@@ -185,8 +181,6 @@ END$$
 /*
  * Create a procedure to create a new folder in a library.
  */
-DROP PROCEDURE IF EXISTS `add_folder`$$
-
 CREATE PROCEDURE `add_folder`(IN p_library_id VARCHAR(36), IN p_name VARCHAR(80), IN p_parent_id VARCHAR(36), IN p_type VARCHAR(20))
 proc:BEGIN
 
@@ -260,8 +254,6 @@ END$$
 /*
  * Create a procedure to create a new folder in a library.
  */
-DROP PROCEDURE IF EXISTS `update_folder`$$
-
 CREATE PROCEDURE `update_folder`(IN p_library_id VARCHAR(36), IN p_folder_id VARCHAR(36), IN p_name VARCHAR(80))
 BEGIN
   	
@@ -354,8 +346,6 @@ END $$
 /*
  * Create a procedure to delete an existing folder.
  */
-DROP PROCEDURE IF EXISTS `delete_folder`$$
-
 CREATE PROCEDURE `delete_folder`(IN p_library_id VARCHAR(36), IN p_folder_id VARCHAR(36))
 BEGIN
 

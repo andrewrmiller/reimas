@@ -185,9 +185,9 @@ CREATE PROCEDURE `add_file`(
                     IN p_name VARCHAR(80), 
                     IN p_mime_type VARCHAR(45), 
                     IN p_is_video BIT(1),
-                    IN p_height INT(11),
-                    IN p_width INT(11),
-                    IN p_file_size INT(11),
+                    IN p_height INT,
+                    IN p_width INT,
+                    IN p_file_size INT,
                     IN p_is_processing BIT(1))
 proc:BEGIN
 
@@ -314,7 +314,7 @@ CREATE PROCEDURE `update_file`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_name VARCHAR(80),
-          IN p_rating TINYINT(4),
+          IN p_rating TINYINT,
           IN p_title VARCHAR(80),
           IN p_subject VARCHAR(80))
 proc:BEGIN

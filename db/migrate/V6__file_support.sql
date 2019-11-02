@@ -6,7 +6,7 @@ ALTER TABLE files CHANGE file_id file_id binary(16);
 -- Make a few columns non-nullable.
 ALTER TABLE files MODIFY COLUMN mime_type VARCHAR(45) NOT NULL;
 ALTER TABLE files MODIFY COLUMN imported_on DATETIME NOT NULL;
-ALTER TABLE files MODIFY COLUMN file_size INT(11) NOT NULL;
+ALTER TABLE files MODIFY COLUMN file_size INT NOT NULL;
 ALTER TABLE files MODIFY COLUMN is_processing BIT(1) NOT NULL;
 
 -- Add a uniqueness constraint on file name within a folder.
@@ -22,17 +22,15 @@ DELIMITER $$
 /*
  * Create a procedure to create a new file in a library.
  */
-DROP PROCEDURE IF EXISTS `add_file`$$
-
 CREATE PROCEDURE `add_file`(
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36),
                     IN p_name VARCHAR(80), 
                     IN p_mime_type VARCHAR(45), 
                     IN p_is_video BIT(1),
-                    IN p_height INT(11),
-                    IN p_width INT(11),
-                    IN p_file_size INT(11),
+                    IN p_height INT,
+                    IN p_width INT,
+                    IN p_file_size INT,
                     IN p_is_processing BIT(1))
 proc:BEGIN
 
@@ -98,8 +96,6 @@ END$$
 /*
  * Create a procedure to retrieve files in a folder.
  */
-DROP PROCEDURE IF EXISTS `get_files`$$
-
 CREATE PROCEDURE `get_files`(IN p_library_id VARCHAR(36), IN p_folder_id VARCHAR(36))
 BEGIN
 	
@@ -137,8 +133,6 @@ END$$
 /*
  * Create a procedure to retrieve a specific file.
  */
-DROP PROCEDURE IF EXISTS `get_file`$$
-
 CREATE PROCEDURE `get_file`(IN p_library_id VARCHAR(36), IN p_file_id VARCHAR(36))
 BEGIN
 	
@@ -175,8 +169,6 @@ END$$
  * Create a procedure to retrieve metadata that is
  * essential to the retrieval of the file's contents.
  */
-DROP PROCEDURE IF EXISTS `get_file_content_info`$$
-
 CREATE PROCEDURE `get_file_content_info`(IN p_library_id VARCHAR(36), IN p_file_id VARCHAR(36))
 BEGIN
 	
@@ -203,13 +195,11 @@ END$$
 /*
  * Create a procedure to create a new folder in a library.
  */
-DROP PROCEDURE IF EXISTS `update_file`$$
-
 CREATE PROCEDURE `update_file`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_name VARCHAR(80),
-          IN p_rating TINYINT(4),
+          IN p_rating TINYINT,
           IN p_title VARCHAR(80),
           IN p_subject VARCHAR(80))
 BEGIN
@@ -270,8 +260,6 @@ END $$
 /*
  * Create a procedure to delete an existing file.
  */
-DROP PROCEDURE IF EXISTS `delete_file`$$
-
 CREATE PROCEDURE `delete_file`(IN p_library_id VARCHAR(36), IN p_file_id VARCHAR(36))
 BEGIN
 

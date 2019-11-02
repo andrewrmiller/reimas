@@ -3,13 +3,11 @@ DELIMITER $$
 /*
  * Create a procedure that updates the size of a thumbnail.
  */
-DROP PROCEDURE IF EXISTS `update_file_thumbnail`$$
-
 CREATE PROCEDURE `update_file_thumbnail`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_thumbnail_size CHAR(2),
-          IN p_file_size INT(11))
+          IN p_file_size INT)
 BEGIN
 
   SET @library_id_compressed = compress_guid(p_library_id);
