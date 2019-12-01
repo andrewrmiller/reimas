@@ -1,3 +1,4 @@
+import { Role } from 'picstrata-client';
 import { DbErrorCode } from './DbError';
 
 /**
@@ -17,6 +18,7 @@ export interface IDbLibrary {
   library_id: string;
   name: string;
   description: string;
+  user_role: Role;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { PictureStore } from 'common';
 import createDebug from 'debug';
+import { SystemUserId } from './constants';
 
 const debug = createDebug('workers:getLocalFilePath');
 
@@ -12,12 +13,13 @@ const debug = createDebug('workers:getLocalFilePath');
  * @param fileId Unique ID of the file.
  */
 export function getLocalFilePath(libraryId: string, fileId: string) {
-  const isLocalFileSystem = PictureStore.isLocalFileSystem();
+  const pictureStore = new PictureStore(SystemUserId);
+  const isLocalFileSystem = pictureStore.isLocalFileSystem();
   if (isLocalFileSystem) {
     debug('Using path of file in local file system.');
-    return PictureStore.getLocalFilePath(libraryId, fileId);
+    return pictureStore.getLocalFilePath(libraryId, fileId);
   } else {
     debug('Downloading original file for processing.');
-    return PictureStore.downloadTempFile(libraryId, fileId);
+    return pictureStore.downloadTempFile(libraryId, fileId);
   }
 }

@@ -8,6 +8,7 @@ import path from 'path';
 import fileRouter from './routers/FileRouter';
 import folderRouter from './routers/FolderRouter';
 import libraryRouter from './routers/LibraryRouter';
+import serviceRouter from './routers/ServiceRouter';
 
 const debug = createDebug('api:app');
 
@@ -26,6 +27,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.use('/libraries', libraryRouter);
 app.use('/libraries', folderRouter);
 app.use('/libraries', fileRouter);
+app.use('/service', serviceRouter);
 
 // Catch all other request here and forward to error handler.
 app.use((req, res, next) => {
@@ -61,6 +63,11 @@ app.use(
         case DbErrorCode.QuotaExceeded:
         case DbErrorCode.InvalidFieldValue:
           statusCode = HttpStatusCode.BAD_REQUEST;
+          break;
+
+        case DbErrorCode.NotAuthorized:
+          statusCode = HttpStatusCode.UNAUTHORIZED;
+          break;
 
         default:
           statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;

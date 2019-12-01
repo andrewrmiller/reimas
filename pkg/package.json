@@ -4,12 +4,18 @@
     "ffmpeg",
     "common",
     "workers",
-    "api"
+    "api",
+    "apitest"
   ],
   "scripts": {
-    "build": "npm run build-common && npm run build-workers && npm run build-api",
+    "build": "npm run build-common && npm run build-workers && npm run build-api && npm run build-apitest",
     "build-common": "npm run build --prefix common",
     "build-workers": "npm run build --prefix workers",
-    "build-api": "npm run build --prefix api"
+    "build-api": "npm run build --prefix api",
+    "build-apitest": "npm run build --prefix api"
+  },
+  "devDependencies": {
+    "tslint": "^5.20.1",
+    "tslint-config-prettier": "^1.18.0"
   }
 }

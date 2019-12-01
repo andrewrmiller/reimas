@@ -2,6 +2,7 @@ import {
   IProcessPictureMsg,
   PictureExtension,
   PictureStore,
+  SystemUserId,
   ThumbnailDimensions,
   ThumbnailSize
 } from 'common';
@@ -21,13 +22,19 @@ export function processPicture(
   debug(
     `Processing picture file ${message.fileId} in library ${message.libraryId}.`
   );
+  const pictureStore = new PictureStore(SystemUserId);
 
   return getLocalFilePath(message.libraryId, message.fileId)
     .then(localFilePath => {
-      return createThumbnails(message.libraryId, message.fileId, localFilePath)
+      return createThumbnails(
+        pictureStore,
+        message.libraryId,
+        message.fileId,
+        localFilePath
+      )
         .then(() => {
           // If we downloaded a temporary file, make sure we clean up.
-          if (!PictureStore.isLocalFileSystem()) {
+          if (!pictureStore.isLocalFileSystem()) {
             fsPromises.unlink(localFilePath).catch(unlinkErr => {
               debug(`Error deleting temporary file: ${unlinkErr}`);
             });
@@ -54,13 +61,21 @@ export function processPicture(
  * @param localFilePath Local path to the source file.
  */
 export function createThumbnails(
+  pictureStore: PictureStore,
   libraryId: string,
   fileId: string,
   localFilePath: string
 ) {
-  return createThumbnail(libraryId, fileId, localFilePath, ThumbnailSize.Small)
+  return createThumbnail(
+    pictureStore,
+    libraryId,
+    fileId,
+    localFilePath,
+    ThumbnailSize.Small
+  )
     .then(() => {
       return createThumbnail(
+        pictureStore,
         libraryId,
         fileId,
         localFilePath,
@@ -69,6 +84,7 @@ export function createThumbnails(
     })
     .then(() => {
       return createThumbnail(
+        pictureStore,
         libraryId,
         fileId,
         localFilePath,
@@ -78,6 +94,7 @@ export function createThumbnails(
 }
 
 function createThumbnail(
+  pictureStore: PictureStore,
   libraryId: string,
   fileId: string,
   localFilePath: string,
@@ -96,7 +113,7 @@ function createThumbnail(
     .resize(dims.width, dims.height, { fit: 'inside' })
     .toFile(resizedFilePath)
     .then(info => {
-      return PictureStore.importThumbnail(
+      return pictureStore.importThumbnail(
         libraryId,
         fileId,
         thumbnailSize,

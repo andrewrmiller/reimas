@@ -1,8 +1,10 @@
-import { IFile, IFileUpdate, PictureStore, ThumbnailSize } from 'common';
+import { PictureStore, ThumbnailSize } from 'common';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import multer from 'multer';
+import { IFile, IFileUpdate } from 'picstrata-client';
+import { getUserIdHeader } from '../common/HttpHeader';
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -22,7 +24,9 @@ router.get(
   '/:libraryId/folders/:folderId/files',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.getFiles(params.libraryId, params.folderId)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .getFiles(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
       })
@@ -39,10 +43,11 @@ router.post(
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
     const importPromises: Array<Promise<IFile>> = [];
+    const pictureStore = new PictureStore(getUserIdHeader(req));
     for (const file of (req.files as any) as Express.Multer.File[]) {
       // NOTE: Uploaded file will be deleted by importFile method.
       importPromises.push(
-        PictureStore.importFile(
+        pictureStore.importFile(
           params.libraryId,
           params.folderId,
           file.path, // Relative path to the file in the uploads dir
@@ -68,7 +73,9 @@ router.get(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.getFile(params.libraryId, params.fileId)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .getFile(params.libraryId, params.fileId)
       .then(data => {
         res.send(data);
       })
@@ -83,7 +90,9 @@ router.get(
   '/:libraryId/files/:fileId/contents',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.getFileContents(params.libraryId, params.fileId)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .getFileContents(params.libraryId, params.fileId)
       .then(contents => {
         res.contentType(contents.mimeType);
         contents.stream.on('error', next);
@@ -100,11 +109,13 @@ router.get(
   '/:libraryId/files/:fileId/thumbnail/:size',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.getFileThumbnail(
-      params.libraryId,
-      params.fileId,
-      params.size as ThumbnailSize
-    )
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .getFileThumbnail(
+        params.libraryId,
+        params.fileId,
+        params.size as ThumbnailSize
+      )
       .then(contents => {
         res.contentType(contents.mimeType);
         contents.stream.on('error', next);
@@ -121,11 +132,9 @@ router.patch(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.updateFile(
-      params.libraryId,
-      params.fileId,
-      req.body as IFileUpdate
-    )
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .updateFile(params.libraryId, params.fileId, req.body as IFileUpdate)
       .then(data => {
         res.send(data);
       })
@@ -140,7 +149,9 @@ router.delete(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.deleteFile(params.libraryId, params.fileId)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .deleteFile(params.libraryId, params.fileId)
       .then(data => {
         res.send(data);
       })

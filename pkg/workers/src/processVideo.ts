@@ -1,4 +1,9 @@
-import { IProcessVideoMsg, PictureStore, VideoExtension } from 'common';
+import {
+  IProcessVideoMsg,
+  PictureStore,
+  SystemUserId,
+  VideoExtension
+} from 'common';
 import createDebug from 'debug';
 import ffmpeg, { Video } from 'ffmpeg';
 import fs from 'fs';
@@ -15,25 +20,28 @@ export function processVideo(
   callback: (ok: boolean) => void
 ) {
   debug(`Converting video file ${message.fileId} to MP4.`);
+  const pictureStore = new PictureStore(SystemUserId);
 
   return getLocalFilePath(message.libraryId, message.fileId)
     .then(localFilePath => {
       debug(`Processing local video file ${localFilePath}.`);
       return new ffmpeg(localFilePath)
         .then(video => {
-          return createVideoThumbnails(message, video).then(() => {
-            if (message.convertToMp4) {
-              return convertToMp4(message, video);
-            } else {
-              debug(
-                `Video ${message.fileId} is already MP4.  No conversion necessary.`
-              );
-              return null;
+          return createVideoThumbnails(pictureStore, message, video).then(
+            () => {
+              if (message.convertToMp4) {
+                return convertToMp4(pictureStore, message, video);
+              } else {
+                debug(
+                  `Video ${message.fileId} is already MP4.  No conversion necessary.`
+                );
+                return null;
+              }
             }
-          });
+          );
         })
         .finally(() => {
-          if (!PictureStore.isLocalFileSystem()) {
+          if (!pictureStore.isLocalFileSystem()) {
             fsPromises.unlink(localFilePath);
           }
         });
@@ -47,7 +55,11 @@ export function processVideo(
     });
 }
 
-function createVideoThumbnails(message: IProcessVideoMsg, video: Video) {
+function createVideoThumbnails(
+  pictureStore: PictureStore,
+  message: IProcessVideoMsg,
+  video: Video
+) {
   const tempFrameDir = buildTempPath({
     prefix: `frame`
   });
@@ -64,6 +76,7 @@ function createVideoThumbnails(message: IProcessVideoMsg, video: Video) {
       .then(frameFiles => {
         debug(`Creating thumbnails from frame file ${frameFiles[0]}.`);
         return createThumbnails(
+          pictureStore,
           message.libraryId,
           message.fileId,
           frameFiles[0]
@@ -85,7 +98,11 @@ function createVideoThumbnails(message: IProcessVideoMsg, video: Video) {
   });
 }
 
-function convertToMp4(message: IProcessVideoMsg, video: Video) {
+function convertToMp4(
+  pictureStore: PictureStore,
+  message: IProcessVideoMsg,
+  video: Video
+) {
   const mp4Path = buildTempPath({
     suffix: `.${VideoExtension.MP4}`
   });
@@ -97,7 +114,7 @@ function convertToMp4(message: IProcessVideoMsg, video: Video) {
     return fsPromises
       .stat(mp4File)
       .then(stats => {
-        return PictureStore.importConvertedVideo(
+        return pictureStore.importConvertedVideo(
           message.libraryId,
           message.fileId,
           mp4File,

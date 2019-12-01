@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "tests",
+    "outDir": "./build",
+    "downlevelIteration": true
+  },
+  "exclude": ["build"]
+}

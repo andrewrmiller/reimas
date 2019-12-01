@@ -29,6 +29,6 @@
     "@types/sharp": "^0.22.2",
     "@types/temp": "^0.8.34",
     "ts-node": "^8.3.0",
-    "tslint": "^5.20.0"
+    "tslint": "^5.20.1"
   }
 }

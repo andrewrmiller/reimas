@@ -1,6 +1,8 @@
-import { ILibraryAdd, ILibraryUpdate, PictureStore } from 'common';
+import { PictureStore } from 'common';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
+import { ILibraryAdd, ILibraryUpdate } from 'picstrata-client';
+import { getUserIdHeader } from '../common/HttpHeader';
 
 const router = express.Router();
 
@@ -10,7 +12,9 @@ const router = express.Router();
 router.get(
   '/',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    PictureStore.getLibraries()
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .getLibraries()
       .then(data => {
         res.send(data);
       })
@@ -25,7 +29,9 @@ router.get(
   '/:libraryId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.getLibrary(params.libraryId)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .getLibrary(params.libraryId)
       .then(data => {
         res.send(data);
       })
@@ -39,7 +45,9 @@ router.get(
 router.post(
   '/',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    PictureStore.addLibrary(req.body as ILibraryAdd)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .addLibrary(req.body as ILibraryAdd)
       .then(data => {
         res.send(data);
       })
@@ -54,7 +62,9 @@ router.patch(
   '/:libraryId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.updateLibrary(params.libraryId, req.body as ILibraryUpdate)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .updateLibrary(params.libraryId, req.body as ILibraryUpdate)
       .then(data => {
         res.send(data);
       })
@@ -69,7 +79,9 @@ router.delete(
   '/:libraryId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    PictureStore.deleteLibrary(params.libraryId)
+    const pictureStore = new PictureStore(getUserIdHeader(req));
+    pictureStore
+      .deleteLibrary(params.libraryId)
       .then(data => {
         res.send(data);
       })

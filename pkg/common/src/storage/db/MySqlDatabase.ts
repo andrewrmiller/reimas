@@ -1,9 +1,6 @@
 import config from 'config';
 import createDebug from 'debug';
 import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
-import { ChangeCase } from '../../ChangeCase';
-import { IDatabaseConfig } from '../../IDatabaseConfig';
-import { ThumbnailSize } from '../../thumbnails';
 import {
   IFile,
   IFileAdd,
@@ -14,8 +11,13 @@ import {
   IFolderUpdate,
   ILibrary,
   ILibraryAdd,
-  ILibraryUpdate
-} from '../models';
+  ILibraryUpdate,
+  IStatistics,
+  Role
+} from 'picstrata-client';
+import { ChangeCase } from '../../ChangeCase';
+import { IDatabaseConfig } from '../../IDatabaseConfig';
+import { ThumbnailSize } from '../../thumbnails';
 import { DbError, DbErrorCode } from './DbError';
 import {
   IDbFile,
@@ -67,9 +69,18 @@ export class MySqlDatabase {
     this.conn!.end();
   }
 
-  public getLibraries() {
-    debug('Retrieving all libraries.');
-    return this.callSelectManyProc<IDbLibrary>('get_libraries', []).then(
+  public getStatistics() {
+    debug('Retrieving database statistics.');
+    return this.callSelectOneProc<IDbLibrary>('get_statistics', []).then(
+      stats => {
+        return ChangeCase.toCamelObject(stats) as IStatistics;
+      }
+    );
+  }
+
+  public getLibraries(userId: string) {
+    debug(`Retrieving all libraries for user ${userId}.`);
+    return this.callSelectManyProc<IDbLibrary>('get_libraries', [userId]).then(
       dbLibraries => {
         return dbLibraries.map(dbLibrary => {
           return ChangeCase.toCamelObject(dbLibrary) as ILibrary;
@@ -78,18 +89,22 @@ export class MySqlDatabase {
     );
   }
 
-  public getLibrary(libraryId: string) {
-    debug(`Retrieving library ${libraryId}.`);
-    return this.callSelectOneProc<IDbLibrary>('get_library', [libraryId]).then(
-      dbLibrary => {
-        return ChangeCase.toCamelObject(dbLibrary) as ILibrary;
-      }
-    );
+  public getLibrary(userId: string, libraryId: string) {
+    debug(`Retrieving library ${libraryId} for user ${userId}.`);
+    return this.callSelectOneProc<IDbLibrary>('get_library', [
+      userId,
+      libraryId
+    ]).then(dbLibrary => {
+      return ChangeCase.toCamelObject(dbLibrary) as ILibrary;
+    });
   }
 
-  public addLibrary(newLibrary: ILibraryAdd) {
-    debug('Adding a new library.');
+  public addLibrary(userId: string, newLibrary: ILibraryAdd) {
+    debug(
+      `Adding a new library: ${newLibrary.name} on behalf of user ${userId}`
+    );
     return this.callChangeProc<IDbLibrary>('add_library', [
+      userId,
       newLibrary.libraryId,
       newLibrary.name,
       newLibrary.description ? newLibrary.description : null
@@ -98,35 +113,74 @@ export class MySqlDatabase {
     });
   }
 
-  public updateLibrary(libraryId: string, update: ILibraryUpdate) {
-    debug('Updating an existing library.');
-    return this.callSelectOneProc<IDbLibrary>('get_library', [libraryId]).then(
-      dbLibrary => {
-        return this.callChangeProc<IDbLibrary>('update_library', [
-          libraryId,
-          update.name ? update.name : dbLibrary.name,
-          update.description ? update.description : dbLibrary.description
-        ]).then((library: IDbLibrary) => {
-          return ChangeCase.toCamelObject(library) as ILibrary;
-        });
-      }
+  public updateLibrary(
+    userId: string,
+    libraryId: string,
+    update: ILibraryUpdate
+  ) {
+    debug(
+      `Updating existing library ${libraryId} on behalf of user ${userId}.`
     );
-  }
-
-  public deleteLibrary(libraryId: string) {
-    debug(`Deleting library ${libraryId}.`);
-    return this.callChangeProc<IDbLibrary>('delete_library', [libraryId]).then(
-      (library: IDbLibrary) => {
+    return this.callSelectOneProc<IDbLibrary>('get_library', [
+      userId,
+      libraryId
+    ]).then(dbLibrary => {
+      return this.callChangeProc<IDbLibrary>('update_library', [
+        userId,
+        libraryId,
+        update.name ? update.name : dbLibrary.name,
+        update.description ? update.description : dbLibrary.description
+      ]).then((library: IDbLibrary) => {
         return ChangeCase.toCamelObject(library) as ILibrary;
-      }
-    );
+      });
+    });
   }
 
-  public getFolders(libraryId: string, parentFolderId: string | null) {
+  public deleteLibrary(userId: string, libraryId: string) {
+    debug(`Deleting library ${libraryId} on behalf of user ${userId}.`);
+    return this.callChangeProc<IDbLibrary>('delete_library', [
+      userId,
+      libraryId
+    ]).then((library: IDbLibrary) => {
+      return ChangeCase.toCamelObject(library) as ILibrary;
+    });
+  }
+
+  public addFolderUser(
+    userId: string,
+    libraryId: string,
+    folderId: string | null,
+    newUserId: string,
+    role: Role
+  ) {
+    debug(
+      `Adding user ${newUserId} to library ${libraryId} with role ${role} on folder ${folderId}.`
+    );
+    return this.callChangeProc<IDbLibrary>('add_folder_user', [
+      userId,
+      libraryId,
+      folderId,
+      newUserId,
+      role
+    ]).then((library: IDbLibrary) => {
+      return ChangeCase.toCamelObject(library) as ILibrary;
+    });
+  }
+
+  // TODO: Implement updateFolderUser method
+
+  // TODO: Implement deleteFolderUser method
+
+  public getFolders(
+    userId: string,
+    libraryId: string,
+    parentFolderId: string | null
+  ) {
     debug(
       `Retrieving folders in library ${libraryId} with parent=${parentFolderId}.`
     );
     return this.callSelectManyProc<IDbFolder>('get_folders', [
+      userId,
       libraryId,
       parentFolderId
     ]).then(dbFolders => {
@@ -136,9 +190,10 @@ export class MySqlDatabase {
     });
   }
 
-  public getFolder(libraryId: string, folderId: string) {
+  public getFolder(userId: string, libraryId: string, folderId: string) {
     debug(`Retrieving folder ${folderId} in library ${libraryId}.`);
     return this.callSelectOneProc<IDbFolder>('get_folder', [
+      userId,
       libraryId,
       folderId
     ]).then(dbFolder => {
@@ -146,9 +201,15 @@ export class MySqlDatabase {
     });
   }
 
-  public addFolder(libraryId: string, folderId: string, add: IFolderAdd) {
+  public addFolder(
+    userId: string,
+    libraryId: string,
+    folderId: string,
+    add: IFolderAdd
+  ) {
     debug(`Adding a new folder ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFolder>('add_folder', [
+      userId,
       libraryId,
       folderId,
       add.name,
@@ -160,16 +221,19 @@ export class MySqlDatabase {
   }
 
   public updateFolder(
+    userId: string,
     libraryId: string,
     folderId: string,
     update: IFolderUpdate
   ) {
     debug(`Updating folder ${folderId} in library ${libraryId}.`);
     return this.callSelectOneProc<IDbFolder>('get_folder', [
+      userId,
       libraryId,
       folderId
     ]).then(dbFolder => {
       return this.callChangeProc<IDbFolder>('update_folder', [
+        userId,
         libraryId,
         folderId,
         update.name ? update.name : dbFolder.name
@@ -179,9 +243,10 @@ export class MySqlDatabase {
     });
   }
 
-  public deleteFolder(libraryId: string, folderId: string) {
+  public deleteFolder(userId: string, libraryId: string, folderId: string) {
     debug(`Deleting folder ${folderId} in library ${libraryId}.`);
     return this.callChangeProc<IDbFolder>('delete_folder', [
+      userId,
       libraryId,
       folderId
     ]).then((folder: IDbFolder) => {
@@ -355,7 +420,22 @@ export class MySqlDatabase {
             reject(error);
           } else {
             try {
-              resolve(results[0] as TResult[]);
+              debug('Number of result sets:' + results.length);
+
+              // The first one-row result set contains success/failure
+              // information.  If the select operation failed (e.g. due
+              // to insufficient permissions) then the promise is rejected.
+              const result = results[0][0] as IDmlResponse;
+              if (result.err_code !== DbErrorCode.NoError) {
+                debug(
+                  `callSelectManyProc: Call to ${procName} failed with err_code: ${result.err_code}`
+                );
+                debug(`and err_context: ${result.err_context}`);
+                reject(this.createDbError(result));
+              }
+
+              // The second result set contains the selected items.
+              resolve(results[1] as TResult[]);
             } catch (error) {
               debug(
                 `callSelectManyProc: Result processing failed: ${error.message}`
@@ -392,12 +472,28 @@ export class MySqlDatabase {
             reject(error);
           } else {
             try {
-              if (results[0].length === 0) {
+              debug('Number of result sets:' + results.length);
+
+              // The first one-row result set contains success/failure
+              // information.  If the select operation failed (e.g. due
+              // to insufficient permissions) then the promise is rejected.
+              const result = results[0][0] as IDmlResponse;
+              if (result.err_code !== DbErrorCode.NoError) {
+                debug(
+                  `callSelectOneProc: Call to ${procName} failed with err_code: ${result.err_code}`
+                );
+                debug(`and err_context: ${result.err_context}`);
+                reject(this.createDbError(result));
+              }
+
+              // The second result set contains the selected item.
+              const dataResult = results[1];
+              if (dataResult.length === 0) {
                 reject(
                   new DbError(DbErrorCode.ItemNotFound, 'Item not found.')
                 );
               } else {
-                resolve(results[0][0] as TResult);
+                resolve(dataResult[0] as TResult);
               }
             } catch (error) {
               debug(
@@ -434,6 +530,8 @@ export class MySqlDatabase {
           reject(error);
         } else {
           try {
+            debug('Number of result sets:' + results.length);
+
             // The first one-row result set contains success/failure
             // information.  If the DML operation failed then the
             // promise is rejected.
@@ -442,6 +540,7 @@ export class MySqlDatabase {
               debug(
                 `callChangeProc: Call to ${procName} failed with err_code: ${result.err_code}`
               );
+              debug(`and err_context: ${result.err_context}`);
               reject(this.createDbError(result));
             }
 
@@ -532,6 +631,10 @@ export class MySqlDatabase {
 
       case DbErrorCode.InvalidFieldValue:
         errorMessage = 'Invalid field value.';
+        break;
+
+      case DbErrorCode.NotAuthorized:
+        errorMessage = 'Not authorized';
         break;
 
       case DbErrorCode.UnexpectedError:

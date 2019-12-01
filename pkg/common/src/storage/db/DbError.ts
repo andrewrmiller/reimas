@@ -11,6 +11,7 @@ export enum DbErrorCode {
   ItemIsExpired = 6,
   ItemAlreadyProcessed = 7,
   InvalidFieldValue = 8,
+  NotAuthorized = 9,
   UnexpectedError = 999
 }
 
