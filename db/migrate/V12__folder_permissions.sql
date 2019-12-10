@@ -258,6 +258,12 @@ BEGIN
             @err_code,
             @err_context);
 
+  -- Grant the system user full access to the library.
+  INSERT INTO
+    folder_user_roles (library_id, folder_id, user_id, role)
+  VALUES
+    (compress_guid(p_library_id), compress_guid(@default_folder_id), compress_guid('11111111-1111-1111-1111-111111111111'), 'owner');
+
   IF (@err_code <> 0) THEN
     ROLLBACK;
   ELSE
@@ -371,7 +377,7 @@ this_proc:BEGIN
   IF (NOT @user_is_participant) THEN
     SELECT 
       1 AS err_code,        /* Not found */
-      'Library does not exist or user is not member.' as err_context;
+      'Library does not exist.' as err_context;
     LEAVE this_proc;
   END IF;
 
@@ -1019,8 +1025,486 @@ BEGIN
     (SELECT COUNT(*) FROM libraries) AS library_count,
     (SELECT COUNT(*) FROM folders) AS folder_count,
     (SELECT COUNT(*) FROM files) AS file_count,
-    (SELECT COUNT(*) FROM folder_user_roles) AS folder_user_role_count;
+    (SELECT COUNT(*) FROM folder_user_roles) AS folder_user_role_count,
+    (SELECT COUNT(*) FROM files WHERE is_processing=1) AS processing_count;
 
+END$$
+
+
+/*
+ * Change get_files so that it accepts a user ID and checks user permissions.
+ */
+DROP PROCEDURE IF EXISTS `get_files`$$
+
+CREATE PROCEDURE `get_files`(
+                    IN p_user_id VARCHAR(36), 
+                    IN p_library_id VARCHAR(36), 
+                    IN p_folder_id VARCHAR(36))
+this_proc:BEGIN
+	
+  SET @library_id_compressed = compress_guid(p_library_id);
+  SET @folder_id_compressed = compress_guid(p_folder_id);
+
+  -- Figure out if the user has permissions on the folder.
+  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  
+  IF (@role IS NULL) THEN
+    SELECT 
+      1 AS err_code,        /* Not found */
+      'Library or folder not found.' as err_context;
+    LEAVE this_proc;
+  END IF;
+  
+  SELECT
+    0 AS err_code,
+    NULL AS err_context;
+    
+	SELECT
+		expand_guid(library_id) AS library_id,
+		expand_guid(folder_id) AS folder_id,
+    expand_guid(file_id) AS file_id,
+		name,
+		mime_type,
+    is_video,
+    height,
+    width,
+    imported_on,
+    taken_on,
+    modified_on,
+    rating,
+    title,
+    subject,
+    comments,
+    file_size,
+    file_size_sm,
+    file_size_md,
+    file_size_lg,
+    file_size_cnv_video,
+    file_size_backup,
+    is_processing
+	FROM
+		files
+  WHERE
+    library_id = @library_id_compressed AND
+    folder_id = @folder_id_compressed
+	ORDER BY
+		name, imported_on;
+
+END$$
+
+
+/*
+ * Change get_file to accept a user ID and return an error result set.
+ */
+DROP PROCEDURE IF EXISTS `get_file`$$
+
+CREATE PROCEDURE `get_file`(
+                    IN p_user_id VARCHAR(36), 
+                    IN p_library_id VARCHAR(36), 
+                    IN p_file_id VARCHAR(36))
+this_proc:BEGIN
+	
+  SET @library_id_compressed = compress_guid(p_library_id);
+  SET @file_id_compressed = compress_guid(p_file_id);
+
+  -- Grab the parent folder ID.  
+  SELECT
+    folder_id INTO @folder_id_compressed
+  FROM
+    files
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+  -- Figure out if the user has permissions on the folder.
+  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  
+  IF (@role IS NULL) THEN
+    SELECT 
+      1 AS err_code,        /* Not found */
+      'File not found.' as err_context;
+    LEAVE this_proc;
+  END IF;
+
+  SELECT
+    0 AS err_code,
+    NULL AS err_context;
+
+	SELECT
+		expand_guid(library_id) AS library_id,
+		expand_guid(folder_id) AS folder_id,
+    expand_guid(file_id) AS file_id,
+		name,
+		mime_type,
+    is_video,
+    height,
+    width,
+    imported_on,
+    taken_on,
+    modified_on,
+    rating,
+    title,
+    subject,
+    comments,
+    file_size,
+    file_size_sm,
+    file_size_lg,
+    file_size_backup,
+    is_processing
+	FROM
+		files
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+END$$
+
+
+/*
+ * Change get_file_content_info to accept a user ID and return an error result set.
+ */
+DROP PROCEDURE IF EXISTS `get_file_content_info`$$
+
+CREATE PROCEDURE `get_file_content_info`(
+                        IN p_user_id VARCHAR(36),
+                        IN p_library_id VARCHAR(36), 
+                        IN p_file_id VARCHAR(36))
+this_proc:BEGIN
+	
+  SET @library_id_compressed = compress_guid(p_library_id);
+  SET @file_id_compressed = compress_guid(p_file_id);
+
+  -- Grab the parent folder ID.  
+  SELECT
+    folder_id INTO @folder_id_compressed
+  FROM
+    files
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+  -- Figure out if the user has permissions on the folder.
+  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+
+  IF (@role IS NULL) THEN
+    SELECT 
+      1 AS err_code,        /* Not found */
+      'File not found.' as err_context;
+    LEAVE this_proc;
+  END IF;
+
+  SELECT
+    0 AS err_code,
+    NULL AS err_context;
+
+	SELECT
+		expand_guid(fi.library_id) AS library_id,
+		expand_guid(fi.folder_id) AS folder_id,
+    expand_guid(fi.file_id) AS file_id,
+		fi.mime_type as mime_type,
+    fi.name AS name,
+    CASE 
+      WHEN LENGTH(fo.`path`) > 0 THEN CONCAT(fo.`path`, '/', p_file_id)
+      ELSE p_file_id
+    END AS `path`,
+    fi.is_video,
+    fi.is_processing
+	FROM
+		files fi INNER JOIN folders fo ON fi.folder_id = fo.folder_id
+  WHERE
+    fi.library_id = @library_id_compressed AND
+    fi.file_id = @file_id_compressed;
+
+END$$
+
+
+/*
+ * Change add_file to accept a user ID.
+ */
+DROP PROCEDURE IF EXISTS `add_file`$$
+
+CREATE PROCEDURE `add_file`(
+                    IN p_user_id VARCHAR(36),
+                    IN p_library_id VARCHAR(36), 
+                    IN p_folder_id VARCHAR(36),
+                    IN p_file_id VARCHAR(36), 
+                    IN p_name VARCHAR(80), 
+                    IN p_mime_type VARCHAR(45), 
+                    IN p_is_video BIT(1),
+                    IN p_height INT,
+                    IN p_width INT,
+                    IN p_file_size INT,
+                    IN p_is_processing BIT(1))
+this_proc:BEGIN
+
+  DECLARE EXIT HANDLER FOR 1062
+  BEGIN
+    SELECT 
+      2 AS err_code,
+      'Duplicate item exists' AS err_context;
+  END;
+
+  SET @library_id_compressed = compress_guid(p_library_id);
+  SET @folder_id_compressed = compress_guid(p_folder_id);
+
+  -- Figure out if the user has permissions on the folder.
+  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+
+  IF (@role IS NULL) THEN
+    SELECT
+      1 AS err_code,      /* Not found */
+      'Library or folder does not exist.' AS err_context;
+    LEAVE this_proc;
+  END IF;
+
+  IF (@role = 'reader') THEN
+    SELECT
+      9 AS err_code,      /* Not authorized */
+      'User is not authorized to add files to this folder.' AS err_context;
+    LEAVE this_proc;
+  END IF;
+
+  -- Check for existing files with the same name.
+  SET @suffix = 1;
+  SET @idx = CHAR_LENGTH(p_name) - LOCATE('.', REVERSE(p_name)) + 1;
+  SET @base = LEFT(p_name, @idx - 1);
+  SET @ext = SUBSTRING(p_name, @idx);
+  SET @name = p_name;
+  SELECT 
+    p_file_id INTO @existing 
+  FROM
+    files
+  WHERE 
+    library_id = @library_id_compressed AND
+    folder_id = @folder_id_compressed AND
+    name = @name;
+  find_existing_file: WHILE @existing IS NOT NULL AND @suffix <= 999 DO 
+    SET @suffix = @suffix + 1;
+    SET @existing = NULL;
+    SET @name = CONCAT(@base, ' (', CONVERT(@suffix, CHAR), ')', @ext);
+    SELECT 
+      p_file_id INTO @existing 
+    FROM
+      files
+    WHERE 
+      library_id = @library_id_compressed AND
+      folder_id = @folder_id_compressed AND
+      name = @name;
+  END WHILE find_existing_file;
+
+  SET @imported_on = UTC_TIMESTAMP();
+
+  INSERT INTO
+    files(
+      library_id,
+      folder_id,
+      file_id,
+      name,
+      mime_type,
+      is_video,
+      height,
+      width,
+      imported_on,
+      file_size,
+      is_processing
+    )
+  VALUES 
+    (
+      @library_id_compressed,
+      @folder_id_compressed,
+      compress_guid(p_file_id),
+      @name,
+      p_mime_type,
+      p_is_video,
+      p_height,
+      p_width,
+      @imported_on,
+      p_file_size,
+      p_is_processing
+    );
+
+	SELECT
+    0 AS err_code,
+    NULL as err_context;
+
+  SELECT
+		p_library_id AS library_id,
+		p_folder_id AS folder_id,
+    p_file_id AS file_id,
+		@name AS name,
+    p_mime_type AS mime_type,
+    p_is_video AS is_video,
+    p_height AS height,
+    p_width AS width,
+    @imported_on AS imported_on,
+    p_file_size AS file_size,
+    p_is_processing AS is_processing;
+
+END$$
+
+
+/*
+ * Change update_file to accept a user ID.
+ */
+DROP PROCEDURE IF EXISTS `update_file`$$
+
+CREATE PROCEDURE `update_file`(
+          IN p_user_id VARCHAR(36),
+          IN p_library_id VARCHAR(36), 
+          IN p_file_id VARCHAR(36), 
+          IN p_name VARCHAR(80),
+          IN p_rating TINYINT,
+          IN p_title VARCHAR(80),
+          IN p_subject VARCHAR(80))
+this_proc:BEGIN
+
+  DECLARE EXIT HANDLER FOR 1062
+  BEGIN
+    SELECT 
+      2 AS err_code,
+      'Duplicate item exists' AS err_context;
+  END;
+
+  SET @library_id_compressed = compress_guid(p_library_id);
+  SET @file_id_compressed = compress_guid(p_file_id);
+
+  -- Grab the parent folder ID.  
+  SELECT
+    folder_id INTO @folder_id_compressed
+  FROM
+    files
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+  -- Figure out if the user has permissions on the folder.
+  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+
+  IF (@role IS NULL) THEN
+    SELECT
+      1 AS err_code,      /* Not Found */
+      'File does not exist.' AS err_context;
+    LEAVE this_proc;
+  END IF;
+
+  IF (@role = 'reader') THEN
+    SELECT
+      9 AS err_code,      /* Not authorized */
+      'User is not authorized to modify file.' AS err_context;
+    LEAVE this_proc;
+  END IF;
+
+  UPDATE
+    files 
+  SET
+    name = p_name,
+    rating = p_rating,
+    title = p_title,
+    subject = p_subject
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+	SELECT ROW_COUNT() INTO @affected_rows;
+
+	SELECT
+		CASE 
+			WHEN @affected_rows = 0 THEN 1	/* Not Found */
+			ELSE 0 
+		END
+			AS err_code,
+		NULL AS err_context;
+
+  SELECT
+		expand_guid(library_id) AS library_id,
+		expand_guid(folder_id) AS folder_id,
+    expand_guid(file_id) AS file_id,
+		name,
+		mime_type,
+    is_video,
+    height,
+    width,
+    imported_on,
+    taken_on,
+    modified_on,
+    rating,
+    title,
+    subject,
+    comments,
+    file_size,
+    file_size_sm,
+    file_size_lg,
+    file_size_backup,
+    is_processing
+	FROM
+		files
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+END $$
+
+
+/*
+ * Change delete_file to accept a user ID.
+ */
+DROP PROCEDURE IF EXISTS `delete_file`$$
+
+CREATE PROCEDURE `delete_file`(
+                      IN p_user_id VARCHAR(36),
+                      IN p_library_id VARCHAR(36), 
+                      IN p_file_id VARCHAR(36))
+this_proc:BEGIN
+
+  SET @library_id_compressed = compress_guid(p_library_id);
+  SET @file_id_compressed = compress_guid(p_file_id);
+
+  -- Grab the parent folder ID.  
+  SELECT
+    folder_id INTO @folder_id_compressed
+  FROM
+    files
+  WHERE
+    library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+
+  -- Figure out if the user has permissions on the folder.
+  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+
+  IF (@role IS NULL) THEN
+    SELECT
+      1 AS err_code,      /* Not Found */
+      'File does not exist.' AS err_context;
+    LEAVE this_proc;
+  END IF;
+
+  IF (@role = 'reader') THEN
+    SELECT
+      9 AS err_code,      /* Not authorized */
+      'User is not authorized to delete file.' AS err_context;
+    LEAVE this_proc;
+  END IF;
+
+	DELETE FROM
+		files
+	WHERE
+		library_id = @library_id_compressed AND
+    file_id = @file_id_compressed;
+        
+	SELECT ROW_COUNT() INTO @affected_rows;
+
+	SELECT
+		CASE 
+			WHEN @affected_rows = 0 THEN 1	/* Not Found */
+			ELSE 0 
+		END
+			AS err_code,
+			NULL as err_context;
+
+	SELECT
+			p_library_id AS library_id,
+      p_file_id AS file_id;
+	
 END$$
 
 

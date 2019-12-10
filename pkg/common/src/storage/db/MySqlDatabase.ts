@@ -263,9 +263,10 @@ export class MySqlDatabase {
     });
   }
 
-  public getFiles(libraryId: string, folderId: string) {
+  public getFiles(userId: string, libraryId: string, folderId: string) {
     debug(`Retrieving files in folder ${folderId} in library ${libraryId}.`);
     return this.callSelectManyProc<IDbFile>('get_files', [
+      userId,
       libraryId,
       folderId
     ]).then(dbFiles => {
@@ -277,9 +278,10 @@ export class MySqlDatabase {
     });
   }
 
-  public getFile(libraryId: string, fileId: string) {
+  public getFile(userId: string, libraryId: string, fileId: string) {
     debug(`Retrieving file ${fileId} in library ${libraryId}.`);
     return this.callSelectOneProc<IDbFile>('get_file', [
+      userId,
       libraryId,
       fileId
     ]).then(dbFile => {
@@ -289,11 +291,12 @@ export class MySqlDatabase {
     });
   }
 
-  public getFileContentInfo(libraryId: string, fileId: string) {
+  public getFileContentInfo(userId: string, libraryId: string, fileId: string) {
     debug(
-      `Retrieving file content info for ${fileId} in library ${libraryId}.`
+      `Retrieving file content info for ${fileId} in library ${libraryId} for user ${userId}.`
     );
     return this.callSelectOneProc<IDbFileContentInfo>('get_file_content_info', [
+      userId,
       libraryId,
       fileId
     ]).then(dbFileContentInfo => {
@@ -304,6 +307,7 @@ export class MySqlDatabase {
   }
 
   public addFile(
+    userId: string,
     libraryId: string,
     folderId: string,
     fileId: string,
@@ -311,6 +315,7 @@ export class MySqlDatabase {
   ) {
     debug(`Adding a new file ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFile>('add_file', [
+      userId,
       libraryId,
       folderId,
       fileId,
@@ -328,13 +333,20 @@ export class MySqlDatabase {
     });
   }
 
-  public updateFile(libraryId: string, fileId: string, update: IFileUpdate) {
+  public updateFile(
+    userId: string,
+    libraryId: string,
+    fileId: string,
+    update: IFileUpdate
+  ) {
     debug(`Updating file ${fileId} in library ${libraryId}.`);
     return this.callSelectOneProc<IDbFile>('get_file', [
+      userId,
       libraryId,
       fileId
     ]).then(dbFile => {
       return this.callChangeProc<IDbFile>('update_file', [
+        userId,
         libraryId,
         fileId,
         update.name ? update.name : dbFile.name,
@@ -389,9 +401,10 @@ export class MySqlDatabase {
     });
   }
 
-  public deleteFile(libraryId: string, fileId: string) {
+  public deleteFile(userId: string, libraryId: string, fileId: string) {
     debug(`Deleting file ${fileId} in library ${libraryId}.`);
     return this.callChangeProc<IDbFile>('delete_file', [
+      userId,
       libraryId,
       fileId
     ]).then((file: IDbFile) => {

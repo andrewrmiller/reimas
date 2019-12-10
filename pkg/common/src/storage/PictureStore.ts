@@ -463,7 +463,7 @@ export class PictureStore {
    */
   public getFiles(libraryId: string, folderId: string) {
     const db = DbFactory.createInstance();
-    return db.getFiles(libraryId, folderId);
+    return db.getFiles(this.userId, libraryId, folderId);
   }
 
   /**
@@ -474,7 +474,7 @@ export class PictureStore {
    */
   public getFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
-    return db.getFile(libraryId, fileId);
+    return db.getFile(this.userId, libraryId, fileId);
   }
 
   /**
@@ -487,23 +487,25 @@ export class PictureStore {
    * @param fileId Unique ID of the file.
    */
   public getFileContents(libraryId: string, fileId: string) {
-    debug('Retrieving the contents of file ${fileId} in library ${libraryId');
+    debug(`Retrieving the contents of file ${fileId} in library ${libraryId}`);
     const db = DbFactory.createInstance();
-    return db.getFileContentInfo(libraryId, fileId).then(contents => {
-      let filePath = contents.path;
+    return db
+      .getFileContentInfo(this.userId, libraryId, fileId)
+      .then(contents => {
+        let filePath = contents.path;
 
-      // If the file is a video and it is not in MP4 format, we retrieve
-      // the converted MP4 video instead of the file itself.
-      if (contents.isVideo && contents.mimeType !== VideoMimeType.MP4) {
-        filePath = Paths.deleteLastSubpath(filePath);
-        filePath = `${filePath}/cnv/${contents.fileId}`;
-      }
+        // If the file is a video and it is not in MP4 format, we retrieve
+        // the converted MP4 video instead of the file itself.
+        if (contents.isVideo && contents.mimeType !== VideoMimeType.MP4) {
+          filePath = Paths.deleteLastSubpath(filePath);
+          filePath = `${filePath}/cnv/${contents.fileId}`;
+        }
 
-      return {
-        stream: this.getFileStream(libraryId, filePath),
-        mimeType: contents.isVideo ? VideoMimeType.MP4 : contents.mimeType
-      };
-    });
+        return {
+          stream: this.getFileStream(libraryId, filePath),
+          mimeType: contents.isVideo ? VideoMimeType.MP4 : contents.mimeType
+        };
+      });
   }
 
   /**
@@ -522,16 +524,18 @@ export class PictureStore {
       `Retrieving the ${size} thumbnail of file ${fileId} in library ${libraryId}`
     );
     const db = DbFactory.createInstance();
-    return db.getFileContentInfo(libraryId, fileId).then(contents => {
-      let filePath = contents.path;
-      filePath = Paths.deleteLastSubpath(filePath);
-      filePath = `${filePath}/tn_${size}/${contents.fileId}`;
+    return db
+      .getFileContentInfo(this.userId, libraryId, fileId)
+      .then(contents => {
+        let filePath = contents.path;
+        filePath = Paths.deleteLastSubpath(filePath);
+        filePath = `${filePath}/tn_${size}/${contents.fileId}`;
 
-      return {
-        stream: this.getFileStream(libraryId, filePath),
-        mimeType: PictureMimeType.Jpeg
-      };
-    });
+        return {
+          stream: this.getFileStream(libraryId, filePath),
+          mimeType: PictureMimeType.Jpeg
+        };
+      });
   }
 
   /**
@@ -552,28 +556,32 @@ export class PictureStore {
    */
   public downloadTempFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
-    return db.getFileContentInfo(libraryId, fileId).then(contentInfo => {
-      // Generate a temporary path and filename.
-      const tempPath = buildTempPath({
-        suffix: contentInfo.name
-      });
-
-      return new Promise<string>((resolve, reject) => {
-        debug(`Downloading ${contentInfo.path} to temporary file ${tempPath}`);
-        const writeStream = fs.createWriteStream(tempPath);
-        const readStream = this.getFileStream(libraryId, contentInfo.path);
-
-        readStream.on('end', () => {
-          resolve(tempPath);
+    return db
+      .getFileContentInfo(this.userId, libraryId, fileId)
+      .then(contentInfo => {
+        // Generate a temporary path and filename.
+        const tempPath = buildTempPath({
+          suffix: contentInfo.name
         });
 
-        readStream.on('error', readError => {
-          reject(readError);
-        });
+        return new Promise<string>((resolve, reject) => {
+          debug(
+            `Downloading ${contentInfo.path} to temporary file ${tempPath}`
+          );
+          const writeStream = fs.createWriteStream(tempPath);
+          const readStream = this.getFileStream(libraryId, contentInfo.path);
 
-        readStream.pipe(writeStream);
+          readStream.on('end', () => {
+            resolve(tempPath);
+          });
+
+          readStream.on('error', readError => {
+            reject(readError);
+          });
+
+          readStream.pipe(writeStream);
+        });
       });
-    });
   }
 
   /**
@@ -637,7 +645,7 @@ export class PictureStore {
                 // File has been impmorted into the file system.  Now
                 // create a row in the database with the file's metadata.
                 return db
-                  .addFile(libraryId, folderId, fileId, {
+                  .addFile(this.userId, libraryId, folderId, fileId, {
                     name: filename,
                     mimeType,
                     isVideo:
@@ -688,48 +696,50 @@ export class PictureStore {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
 
-    return db.getFileContentInfo(libraryId, fileId).then(fileInfo => {
-      const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
-      const thumbnailFolder = this.buildLibraryPath(
-        libraryId,
-        pictureFolder,
-        `tn_${thumbSize}`
-      );
+    return db
+      .getFileContentInfo(this.userId, libraryId, fileId)
+      .then(fileInfo => {
+        const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
+        const thumbnailFolder = this.buildLibraryPath(
+          libraryId,
+          pictureFolder,
+          `tn_${thumbSize}`
+        );
 
-      return fileSystem
-        .createFolder(thumbnailFolder)
-        .then(() => {
-          const fileSystemPath = `${thumbnailFolder}/${fileId}`;
-          return fileSystem.importFile(localPath, fileSystemPath).then(() => {
-            // File has been imported into the file system.  Update the database.
-            return db
-              .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
-              .then(file => {
-                return this.enqueueRecalcFolderJob(
-                  libraryId,
-                  fileInfo.folderId
-                );
-              })
-              .catch(dbErr => {
-                // We failed to update the database.  Make sure we clean
-                // up the file that we created in the file system.
-                fileSystem.deleteFile(fileSystemPath);
-                throw dbErr;
-              });
+        return fileSystem
+          .createFolder(thumbnailFolder)
+          .then(() => {
+            const fileSystemPath = `${thumbnailFolder}/${fileId}`;
+            return fileSystem.importFile(localPath, fileSystemPath).then(() => {
+              // File has been imported into the file system.  Update the database.
+              return db
+                .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
+                .then(file => {
+                  return this.enqueueRecalcFolderJob(
+                    libraryId,
+                    fileInfo.folderId
+                  );
+                })
+                .catch(dbErr => {
+                  // We failed to update the database.  Make sure we clean
+                  // up the file that we created in the file system.
+                  fileSystem.deleteFile(fileSystemPath);
+                  throw dbErr;
+                });
+            });
+          })
+          .catch(err => {
+            if (err.status) {
+              throw err;
+            } else {
+              debug(`Error importing thumbnail: ${err}`);
+              throw createHttpError(
+                HttpStatusCode.INTERNAL_SERVER_ERROR,
+                err.message
+              );
+            }
           });
-        })
-        .catch(err => {
-          if (err.status) {
-            throw err;
-          } else {
-            debug(`Error importing thumbnail: ${err}`);
-            throw createHttpError(
-              HttpStatusCode.INTERNAL_SERVER_ERROR,
-              err.message
-            );
-          }
-        });
-    });
+      });
   }
 
   /**
@@ -753,48 +763,50 @@ export class PictureStore {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
 
-    return db.getFileContentInfo(libraryId, fileId).then(fileInfo => {
-      const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
-      const videoFolder = this.buildLibraryPath(
-        libraryId,
-        pictureFolder,
-        'cnv'
-      );
+    return db
+      .getFileContentInfo(this.userId, libraryId, fileId)
+      .then(fileInfo => {
+        const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
+        const videoFolder = this.buildLibraryPath(
+          libraryId,
+          pictureFolder,
+          'cnv'
+        );
 
-      return fileSystem
-        .createFolder(videoFolder)
-        .then(() => {
-          const fileSystemPath = `${videoFolder}/${fileId}`;
-          return fileSystem.importFile(localPath, fileSystemPath).then(() => {
-            // File has been imported into the file system.  Update the database.
-            return db
-              .updateFileConvertedVideo(libraryId, fileId, fileSize)
-              .then(file => {
-                return this.enqueueRecalcFolderJob(
-                  libraryId,
-                  fileInfo.folderId
-                );
-              })
-              .catch(dbErr => {
-                // We failed to update the database.  Make sure we clean
-                // up the file that we created in the file system.
-                fileSystem.deleteFile(fileSystemPath);
-                throw dbErr;
-              });
+        return fileSystem
+          .createFolder(videoFolder)
+          .then(() => {
+            const fileSystemPath = `${videoFolder}/${fileId}`;
+            return fileSystem.importFile(localPath, fileSystemPath).then(() => {
+              // File has been imported into the file system.  Update the database.
+              return db
+                .updateFileConvertedVideo(libraryId, fileId, fileSize)
+                .then(file => {
+                  return this.enqueueRecalcFolderJob(
+                    libraryId,
+                    fileInfo.folderId
+                  );
+                })
+                .catch(dbErr => {
+                  // We failed to update the database.  Make sure we clean
+                  // up the file that we created in the file system.
+                  fileSystem.deleteFile(fileSystemPath);
+                  throw dbErr;
+                });
+            });
+          })
+          .catch(err => {
+            if (err.status) {
+              throw err;
+            } else {
+              debug(`Error importing converted video: ${err}`);
+              throw createHttpError(
+                HttpStatusCode.INTERNAL_SERVER_ERROR,
+                err.message
+              );
+            }
           });
-        })
-        .catch(err => {
-          if (err.status) {
-            throw err;
-          } else {
-            debug(`Error importing converted video: ${err}`);
-            throw createHttpError(
-              HttpStatusCode.INTERNAL_SERVER_ERROR,
-              err.message
-            );
-          }
-        });
-    });
+      });
   }
 
   /**
@@ -811,18 +823,20 @@ export class PictureStore {
     // the database. Othwerise just update the database since all
     // other updates are metadata only.
     if (update.name) {
-      return db.getFileContentInfo(libraryId, fileId).then(info => {
-        if (!PictureStore.areExtensionsEqual(info.name, update.name!)) {
-          throw createHttpError(
-            HttpStatusCode.BAD_REQUEST,
-            'Invalid operation.  File extensions must match.'
-          );
-        }
+      return db
+        .getFileContentInfo(this.userId, libraryId, fileId)
+        .then(info => {
+          if (!PictureStore.areExtensionsEqual(info.name, update.name!)) {
+            throw createHttpError(
+              HttpStatusCode.BAD_REQUEST,
+              'Invalid operation.  File extensions must match.'
+            );
+          }
 
-        return db.updateFile(libraryId, fileId, update);
-      });
+          return db.updateFile(this.userId, libraryId, fileId, update);
+        });
     } else {
-      return db.updateFile(libraryId, fileId, update);
+      return db.updateFile(this.userId, libraryId, fileId, update);
     }
   }
 
@@ -831,8 +845,8 @@ export class PictureStore {
     const fileSystem = FileSystemFactory.createInstance();
 
     // Grab the file info first and then delete the file in the database.
-    return db.getFileContentInfo(libraryId, fileId).then(file => {
-      return db.deleteFile(libraryId, fileId).then(result => {
+    return db.getFileContentInfo(this.userId, libraryId, fileId).then(file => {
+      return db.deleteFile(this.userId, libraryId, fileId).then(result => {
         // Now try to delete the file in the file system
         // along with any thumbnails that have been created.
         const fileDir = Paths.deleteLastSubpath(file.path);
@@ -881,7 +895,7 @@ export class PictureStore {
     const fileSystem = FileSystemFactory.createInstance();
 
     return db
-      .getFileContentInfo(libraryId, fileId)
+      .getFileContentInfo(this.userId, libraryId, fileId)
       .then(info => {
         return fileSystem.getLocalFilePath(`${libraryId}/${info.path}`);
       })
