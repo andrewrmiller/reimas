@@ -15,6 +15,16 @@ Picstrata is a containerized microservice designed to make it easier to store an
 
 Image file information and tags are stored in a database for efficient searches. The Picstrata API provides the expected abstraction over the database and the chosen mechanism for file storage (file system or AWS S3).
 
+#### Services
+
+Picstrata is made up of the following services:
+
+| Service   | Description                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------------- |
+| API       | API service which provides a REST endpoint for working with libraries                               |
+| Workers   | Worker service which executes asynchronous jobs like image resizing and video conversion.           |
+| Rabbit-MQ | A message queue to which the API service dispaches messages for consumption by the Workers service. |
+
 #### Building, Running and Testing Picstrata
 
 ##### Environment Setup
@@ -26,9 +36,9 @@ environment variables will need to be set so that the Picstrata services are
 able to connect to the database. Other configuration options can be found in
 `custom-environment-variables.yaml`.
 
-Picstrata libraries are stored on your local machine under `/var/lib/picstrata`.  
-This directory should be initialized before building and running Picstrata using
-the following commands:
+During development, Picstrata libraries are stored on your local machine under
+`/var/lib/picstrata`. This directory should be initialized before building and
+running Picstrata using the following commands:
 
 ```
 sudo mkdir -p /var/lib/picstrata/libraries
@@ -41,13 +51,13 @@ where `nodeuser` is the name of the user account under which Node.js will be run
 
 To build the Picstrata service containers, use the `picstrata` script under `/scripts`.
 
-`picstrata build` will build both of the Picstrata containers (API and Workers).
-`picstrata start` will run the containers on the local host.
-`picstrata stop` will stop the running containers.
+- `picstrata build` will build both of the Picstrata containers (API and Workers).
+- `picstrata start` will run all Picstrata containers on the local host.
+- `picstrata stop` will stop the running containers.
 
 It is also possible to run each service outside of a container for easier
 testing and development. For example, if you want to run the API service
-outside of a container, follow these commands:
+locally (i.e. not in a container), use these commands:
 
 ```
 cd pkg/api
