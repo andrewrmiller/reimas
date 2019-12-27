@@ -26,6 +26,17 @@ environment variables will need to be set so that the Picstrata services are
 able to connect to the database. Other configuration options can be found in
 `custom-environment-variables.yaml`.
 
+Picstrata libraries are stored on your local machine under `/var/lib/picstrata`.  
+This directory should be initialized before building and running Picstrata using
+the following commands:
+
+```
+sudo mkdir -p /var/lib/picstrata/libraries
+sudo chown -R nodeuser /var/lib/picstrata/libraries
+```
+
+where `nodeuser` is the name of the user account under which Node.js will be run.
+
 ##### Building
 
 To build the Picstrata service containers, use the `picstrata` script under `/scripts`.
