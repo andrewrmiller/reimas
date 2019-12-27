@@ -38,7 +38,7 @@ router.get(
  * Adds one or more pictures to a folder in a library.
  */
 router.post(
-  '/:libraryId/folders/:folderId/pictures',
+  '/:libraryId/folders/:folderId/files',
   upload.array('files'),
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
@@ -106,7 +106,7 @@ router.get(
  * Gets a thumbnail for a specific file in a library folder.
  */
 router.get(
-  '/:libraryId/files/:fileId/thumbnail/:size',
+  '/:libraryId/files/:fileId/thumbnails/:size',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
     const pictureStore = new PictureStore(getUserIdHeader(req));

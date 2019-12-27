@@ -271,7 +271,7 @@ describe('File Tests', () => {
     for (let i = 0; i < fileIds.length; i++) {
       const fileId = fileIds[i];
       await sendRequest(
-        `libraries/${testLibraryId}/files/${fileId}/thumbnail/sm`,
+        `libraries/${testLibraryId}/files/${fileId}/thumbnails/sm`,
         ReaderUserId
       ).then(response => {
         expect(response.status).toBe(HttpStatusCode.OK);
@@ -280,13 +280,13 @@ describe('File Tests', () => {
         });
       });
       await sendRequest(
-        `libraries/${testLibraryId}/files/${fileId}/thumbnail/md`,
+        `libraries/${testLibraryId}/files/${fileId}/thumbnails/md`,
         ReaderUserId
       ).then(response => {
         expect(response.status).toBe(HttpStatusCode.OK);
       });
       await sendRequest(
-        `libraries/${testLibraryId}/files/${fileId}/thumbnail/lg`,
+        `libraries/${testLibraryId}/files/${fileId}/thumbnails/lg`,
         ReaderUserId
       ).then(response => {
         expect(response.status).toBe(HttpStatusCode.OK);

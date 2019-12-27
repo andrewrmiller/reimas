@@ -94,7 +94,7 @@ export async function postFileToFolder(
   });
 
   return postFile(
-    `libraries/${libraryId}/folders/${folderId}/pictures`,
+    `libraries/${libraryId}/folders/${folderId}/files`,
     userId,
     form
   );

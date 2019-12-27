@@ -30,7 +30,7 @@ Picstrata is made up of the following services:
 ##### Database Setup
 
 The API and Workers services are configured by default to expect a MySQL instance
-running on your local machin e. This can be overridden using environment variables
+running on your local machine. This can be overridden using environment variables
 if necessary.
 
 To initialize and configure the Picstrata database on your MySQL host, use the
