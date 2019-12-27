@@ -21,17 +21,24 @@ Picstrata is made up of the following services:
 
 | Service   | Description                                                                                         |
 | --------- | --------------------------------------------------------------------------------------------------- |
-| API       | API service which provides a REST endpoint for working with libraries                               |
+| API       | API service which provides a REST endpoint for working with libraries, folders and files.           |
 | Workers   | Worker service which executes asynchronous jobs like image resizing and video conversion.           |
 | Rabbit-MQ | A message queue to which the API service dispaches messages for consumption by the Workers service. |
 
 #### Building, Running and Testing Picstrata
 
+##### Database Setup
+
+The API and Workers services are configured by default to expect a MySQL instance
+running on your local machin e. This can be overridden using environment variables
+if necessary.
+
+To initialize and configure the Picstrata database on your MySQL host, use the
+`picstratadb` script in the `/scripts` directory.
+
 ##### Environment Setup
 
-The services in the Picstrata repo are configured to expect MySQL instance
-running on your local host by default. This can be overridden using environment
-variables if necessary. At a minimum the `PST_DATABASE_USER` and `PST_DATABASE_PASSWORD`
+At a minimum the `PST_DATABASE_USER` and `PST_DATABASE_PASSWORD`
 environment variables will need to be set so that the Picstrata services are
 able to connect to the database. Other configuration options can be found in
 `custom-environment-variables.yaml`.
