@@ -1,11 +1,13 @@
 Database:
   host: localhost
-  user: reimasuser
-  password: =eJ+MVukg2#L%55e
-  name: reimas
+  user: 'use environment variable'
+  password: 'use environment variable'
+  name: picstrata
 FileSystem:
   type: local
   localFileSystem:
-    root: ../api/libraries
+    root: /var/lib/picstrata/libraries
   s3FileSystem:
-    bucket: reimas-localdev  
+    bucket: picstrata-localdev  
+MessageQueue:
+  url: amqp://localhost

@@ -1,4 +1,3 @@
-import amqp from 'amqplib';
 import { HttpMethod, HttpStatusCode, Paths } from 'common';
 import createDebug from 'debug';
 import FormData from 'form-data';
@@ -7,7 +6,7 @@ import fetch, { BodyInit, Headers } from 'node-fetch';
 
 const debug = createDebug('apitest:libraries');
 
-export const ApiBaseUrl = 'http://localhost:3000';
+export const ApiBaseUrl = `http://localhost:${process.env.APITEST_PORT}`;
 export const SystemUserId = '11111111-1111-1111-1111-111111111111';
 
 // Tests need to connect to the RabbitMQ server to check queue
@@ -136,7 +135,6 @@ export async function waitForProcessingComplete() {
  */
 export async function getProcessingCount() {
   return getStats().then(stats => {
-    debug(`Processing count: ${stats.processingCount}`);
     return stats.processingCount;
   });
 }
@@ -173,7 +171,6 @@ export async function getQueueLen() {
     response => {
       expect(response.status).toBe(HttpStatusCode.OK);
       return response.json().then(queues => {
-        debug(`Messags in queue: ${queues[0].messages}`);
         return queues[0].messages as number;
       });
     }

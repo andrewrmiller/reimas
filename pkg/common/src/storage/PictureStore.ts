@@ -1,4 +1,5 @@
 import amqp from 'amqplib';
+import config from 'config';
 import createDebug from 'debug';
 import ffmpeg from 'ffmpeg';
 import fs from 'fs';
@@ -24,6 +25,7 @@ import {
   VideoMimeType
 } from '../FileTypes';
 import { HttpStatusCode } from '../httpConstants';
+import { IMessageQueueConfig } from '../IMessageQueueConfig';
 import {
   IProcessPictureMsg,
   IProcessVideoMsg,
@@ -44,8 +46,6 @@ enum FormatSupportStatus {
   IsSupportedPicture = 1,
   IsSupportedVideo = 2
 }
-
-const RabbitUrl = 'amqp://localhost';
 
 // Unique ID of the system user.  The system user is used in
 // asynchronous processing operations and other scenarios.  It
@@ -972,9 +972,10 @@ export class PictureStore {
   }
 
   private enqueue(callback: (ch: amqp.Channel) => any) {
-    debug('Connecting to RabbitMQ server...');
+    const messageQueueConfig: IMessageQueueConfig = config.get('MessageQueue');
+    debug(`Connecting to RabbitMQ server at ${messageQueueConfig.url}`);
     return amqp
-      .connect(RabbitUrl)
+      .connect(messageQueueConfig.url)
       .then(conn => {
         debug('Creating RabbitMQ channel and asserting the queue...');
         return conn.createChannel().then(ch => {

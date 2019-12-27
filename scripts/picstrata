@@ -1,0 +1,141 @@
+#!/bin/bash
+
+usage() {
+	echo
+	echo "picstrata - Build and container management utility for Picstrata."
+	echo
+	echo "Usage:"
+	echo
+	echo "   picstrata <command>"
+	echo 
+	echo "Available commands:"
+	echo
+	echo "   build              Builds the Picstrata containers."
+	echo "   start              Starts the Picstrata containers."
+  echo "   stop               Stops the Picstrata containers"
+	echo "   ls                 Lists the Picstrata containers"
+	echo "   logs [container]   Shows the logs for a given container"
+	echo
+	echo "Where [container] is one of 'api', 'wrk', or 'mq'"
+	echo
+}
+
+CONTAINER_PREFIX=picstrata
+RABBIT_MQ_HOST=$CONTAINER_PREFIX-rabbit
+RABBIT_MQ_CONTAINER=$RABBIT_MQ_HOST-1
+API_CONTAINER=$CONTAINER_PREFIX-api
+WORKERS_CONTAINER=$CONTAINER_PREFIX-workers
+
+buildContainers () {
+	cd pkg
+	npm run build
+	docker build --rm -f api.Dockerfile -t picstrata/api .
+	docker build --rm -f workers.Dockerfile -t picstrata/workers .
+	docker rmi $(docker images --filter "dangling=true" -q --no-trunc)
+	cd ..
+}
+
+startServices() {
+	HOST_IP=`hostname -I | awk '{print $1}'`
+	echo Starting storage layer containers on host $HOST_IP
+
+	if docker ps -a | grep -q $RABBIT_MQ_CONTAINER; then
+  	docker start $RABBIT_MQ_CONTAINER
+	else
+  	docker run -d --hostname $RABBIT_MQ_HOST \
+								--name $RABBIT_MQ_CONTAINER \
+								-p5672:5672 -p 15672:15672 \
+								rabbitmq:3-management
+	fi
+
+	if docker ps -a | grep -q $WORKERS_CONTAINER; then
+  	docker start $WORKERS_CONTAINER
+	else
+  	docker run -d --name $WORKERS_CONTAINER \
+							--volume /var/lib/picstrata:/var/lib/picstrata \
+							-e PST_DATABASE_HOST=$HOST_IP \
+							-e PST_DATABASE_USER=$PST_DATABASE_USER \
+							-e PST_DATABASE_PASSWORD=$PST_DATABASE_PASSWORD \
+							-e PST_MESSAGE_QUEUE_URL=amqp://$HOST_IP \
+							-e DEBUG=* \
+							picstrata/workers:latest
+	fi
+
+	if docker ps -a | grep -q $API_CONTAINER; then
+  	docker start $API_CONTAINER
+	else
+  	docker run -d --name $API_CONTAINER \
+							--volume /var/lib/picstrata:/var/lib/picstrata \
+							-e PST_DATABASE_HOST=$HOST_IP \
+							-e PST_DATABASE_USER=$PST_DATABASE_USER \
+							-e PST_DATABASE_PASSWORD=$PST_DATABASE_PASSWORD \
+							-e PST_MESSAGE_QUEUE_URL=amqp://$HOST_IP \
+							-e DEBUG=* \
+							-p3100:3000 \
+							picstrata/api:latest
+	fi
+
+  echo Containers started.
+}
+
+stopServices() {
+  echo Stopping storage layer containers...
+  docker stop $API_CONTAINER
+  docker rm $API_CONTAINER
+  docker stop $WORKERS_CONTAINER
+  docker rm $WORKERS_CONTAINER
+  docker stop $RABBIT_MQ_CONTAINER
+  docker rm $RABBIT_MQ_CONTAINER
+  echo Containers stopped.
+}
+
+listServices () {
+  echo Storage Layer Containers
+  echo ----------------------------------
+  docker ps | grep -E "CONTAINER ID|$CONTAINER_PREFIX"
+}
+
+viewContainerLogs () {
+	case "$1" in
+	"api")
+		docker logs $API_CONTAINER
+		;;
+	"wrk")
+		docker logs $WORKERS_CONTAINER
+		;;
+	"mq")
+		docker logs $RABBIT_MQ_CONTAINER
+		;;
+	*)
+		usage
+		;;
+	esac;
+}
+
+# Change to the root of the project
+pushd "$( dirname "$0" )"/.. > /dev/null
+
+case "$1" in 
+build)
+	buildContainers
+	;;
+start)
+	startServices
+	;;
+stop)
+	stopServices
+	;;
+ls)
+  listServices
+  ;;
+
+logs)
+	viewContainerLogs $2
+	;; 
+
+*)
+	usage
+	;;
+esac
+
+popd > /dev/null

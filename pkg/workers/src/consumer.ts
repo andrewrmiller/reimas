@@ -1,12 +1,14 @@
 import amqp from 'amqplib';
 import {
   IMessage,
+  IMessageQueueConfig,
   IProcessPictureMsg,
   IProcessVideoMsg,
   IRecalcFolderMsg,
   JobsChannelName,
   MessageType
 } from 'common';
+import config from 'config';
 import createDebug from 'debug';
 import { processPicture } from './processPicture';
 import { processVideo } from './processVideo';
@@ -16,16 +18,16 @@ const debug = createDebug('workers:consumer');
 let amqpConn: amqp.Connection | undefined;
 let amqpChan: amqp.Channel | undefined;
 
-const RabbitUrl = 'amqp://localhost';
+const messageQueueConfig: IMessageQueueConfig = config.get('MessageQueue');
 
 /**
  * Connects to the RabbitMQ server.  If successful then starts
  * the worker which processes incoming messages.
  */
 function connect() {
-  debug(`Connection to RabbitMQ server at ${RabbitUrl}`);
+  debug(`Connecting to RabbitMQ server at ${messageQueueConfig.url}`);
   amqp
-    .connect(`${RabbitUrl}?heartbeat=60`)
+    .connect(`${messageQueueConfig.url}?heartbeat=60`)
     .then(conn => {
       conn.on('error', err => {
         if (err.message !== 'Connection closing') {

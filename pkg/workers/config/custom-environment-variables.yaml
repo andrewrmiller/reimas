@@ -1,0 +1,13 @@
+Database:
+  host: PST_DATABASE_HOST
+  user: PST_DATABASE_USER
+  password: PST_DATABASE_PASSWORD
+  name: PST_DATABASE_NAME
+FileSystem:
+  type: PST_FILE_SYSTEM_TYPE
+  localFileSystem:
+    root: PST_LOCAL_FILE_SYSTEM_ROOT
+  s3FileSystem:
+    bucket: PST_S3_FILE_SYSTEM_BUCKET
+MessageQueue:
+  url: PST_MESSAGE_QUEUE_URL

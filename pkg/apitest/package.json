@@ -4,7 +4,8 @@
   "description": "API integration tests.",
   "scripts": {
     "build": "tsc",
-    "test": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1 jest --config ./jest.config.js --runInBand"
+    "test": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1  APITEST_PORT=3100 jest --config ./jest.config.js --runInBand",
+    "testdev": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1 APITEST_PORT=3000 jest --config ./jest.config.js --runInBand"
   },
   "dependencies": {
     "amqplib": "^0.5.5",

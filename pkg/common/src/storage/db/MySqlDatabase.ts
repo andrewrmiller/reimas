@@ -46,6 +46,9 @@ export class MySqlDatabase {
    * Connects to the database using configuration information.
    */
   public connect() {
+    debug(
+      `Connecting to MySQL database ${this.config.name} on host ${this.config.host}.`
+    );
     this.conn = mysql.createConnection({
       host: this.config.host,
       user: this.config.user,

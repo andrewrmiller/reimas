@@ -1,51 +1,48 @@
 #!/bin/bash
 
-# rdb.sh - Reimas database management utility.
-
-
-
 usage() {
 	echo
-	echo "reimasdb - Reimas database management utility."
+	echo "picstratadb - Picstrata database management utility."
 	echo
 	echo "Usage:"
 	echo
-	echo "   reimasdb <command>"
+	echo "   picstratadb <command>"
 	echo 
 	echo "Available commands:"
 	echo
-	echo "   create             Create a new Reimas database."
-	echo "   migrate            Migrate a Reimas database to the current version."
-	echo "   delete             Delete a Remias database."
-	echo "   recreate           Delete the Reimas database then create a new database."
+	echo "   create             Create a new Picstrata database."
+	echo "   migrate            Migrate a Picstrata database to the current version."
+	echo "   delete             Delete a Picstrata database."
+	echo "   recreate           Delete the Picstrata database then create a new database."
 	echo
 	echo "Requirements:"
 	echo
+	echo "   MySQL              https://www.mysql.com"
 	echo "   Flyway CLI         https://flywaydb.org/documentation/commandline"
 	echo
 }
 
 # The name of the database to initialize.
-DATABASE_NAME=reimas
+DATABASE_NAME=picstrata
 
 # The name of the login-path to use.  To create a login-path use
 # a command like the following:
 #
-#   mysql_config_editor set --login-path=reimasadmin --host=localhost --user=myRemiasAdminUser --password
+#   mysql_config_editor set --login-path=picstrataadmin --host=localhost --user=myPicstrataAdminUser --password
 #
 # To list all login-path entries use this command:
 #
 #   mysql_config_editor print --all
-LOGIN_PATH=reimasadmin
+LOGIN_PATH=picstrataadmin
 
-# The name of the user that will be used by the web app
+# The name of the MySQL user that will be used by the web app
 # to access the database.
-USER=reimasuser
+USER=psuser
 
 # JDBC needs to know the time zone of the MySQL server.
 SERVER_TIMEZONE=America/Los_Angeles
 
-# The JDBC connection URL for the data
+# The JDBC connection URL for the database.
 JDBC_CONNECT_URL="jdbc:mysql://localhost/$DATABASE_NAME?useUnicode=true&useSSL=false&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=$SERVER_TIMEZONE"
 
 # The MySQL CLI command.
@@ -53,8 +50,8 @@ MYSQL="mysql --login-path=$LOGIN_PATH "
 
 createDb() {
 
-	CREATESCRIPT=~/tmp/create_reimas_db.sql
-	INITIALIZESCRIPT=~/tmp/initialize_reimas_db.sql
+	CREATESCRIPT=~/tmp/create_picstrata_db.sql
+	INITIALIZESCRIPT=~/tmp/initialize_picstrata_db.sql
 	SRCDIR="$( pwd )"
 
 	# Check to make sure that the database doesn't already exist.
@@ -71,12 +68,12 @@ createDb() {
 	fi
 
 	(echo SET @db_name=\'$DATABASE_NAME\'\;) > $CREATESCRIPT
-	(echo SET @user_name=\'\\\'$USER\\\'@\\\'localhost\\\'\'\;) >> $CREATESCRIPT
+	(echo SET @user_name=\'\\\'$USER\\\'@\\\'%\\\'\'\;) >> $CREATESCRIPT
 	(cat $SRCDIR/init/create_db.sql; echo) >> $CREATESCRIPT
 
-	# TODO: Need to set this option to avoid a MySQL whine about not
-	# having some declarations in our stored procedures.  See this article:
-	# https://stackoverflow.com/questions/26015160/deterministic-no-sql-or-reads-sql-data-in-its-declaration-and-binary-logging-i.
+	# Need to set this option to avoid a MySQL whine about not having some
+	# declarations in our stored procedures.  See this article:
+	# https://stackoverflow.com/questions/26015160.
 	(echo 'SET GLOBAL log_bin_trust_function_creators = 1;') > $INITIALIZESCRIPT;
 
 	# We need to deploy in two steps because MySQL's 
@@ -132,7 +129,7 @@ recreateDb() {
 }
 
 # Change to the root of the database directory.
-cd "$( dirname "$0" )"
+pushd "$( dirname "$0" )"/../db > /dev/null
 
 case "$1" in 
 create)
@@ -152,3 +149,5 @@ recreate)
 	usage
 	;;
 esac
+
+popd > /dev/null

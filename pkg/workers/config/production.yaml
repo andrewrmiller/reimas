@@ -1,5 +1,5 @@
 Database:
-  host: localhost
+  host: 'use environment variable'
   user: 'use environment variable'
   password: 'use environment variable'
   name: picstrata
@@ -8,6 +8,6 @@ FileSystem:
   localFileSystem:
     root: /var/lib/picstrata/libraries
   s3FileSystem:
-    bucket: picstrata-localdev
+    bucket: 'use environment variable'
 MessageQueue:
-  url: amqp://localhost
+  url: 'use environment variable'
