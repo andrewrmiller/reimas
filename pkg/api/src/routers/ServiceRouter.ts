@@ -1,6 +1,5 @@
-import { PictureStore } from 'common';
 import express from 'express';
-import { getUserIdHeader } from '../common/HttpHeader';
+import { createPictureStore } from './RouterHelpers';
 
 const router = express.Router();
 
@@ -10,8 +9,7 @@ const router = express.Router();
 router.get(
   '/stats',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getStatistics()
       .then(data => {
         res.send(data);

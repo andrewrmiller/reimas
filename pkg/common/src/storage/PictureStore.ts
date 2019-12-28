@@ -47,16 +47,43 @@ enum FormatSupportStatus {
   IsSupportedVideo = 2
 }
 
+// API key used for system operations like async photo processing.
+export const SystemApiKey = '00000000-0000-0000-0000-000000000000';
+
 // Unique ID of the system user.  The system user is used in
 // asynchronous processing operations and other scenarios.  It
 // is granted special privileges in some cases.
 export const SystemUserId = '11111111-1111-1111-1111-111111111111';
+
+// Interface for the ApiKeys configuration element.
+interface IApiKeysConfig {
+  key1: string;
+  key2: string;
+}
 
 /**
  * Service which wraps the database and the file system to
  * provide a single picture storage facade.
  */
 export class PictureStore {
+  /**
+   * Creates a new PictureStore instance which can be used to satisfy
+   * an API request.
+   *
+   * @param apiKey API key transmitted in the request.
+   * @param userId Unique ID of the user who initiated the request.
+   */
+  public static createForApiRequest(apiKey: string, userId: string) {
+    return new PictureStore(apiKey, userId);
+  }
+
+  /**
+   * Creates a new PictureStore instance which can be used for system operations.
+   */
+  public static createForSystemOp() {
+    return new PictureStore(SystemApiKey, SystemUserId);
+  }
+
   /**
    * Retrieves some information about a video file.
    *
@@ -179,15 +206,25 @@ export class PictureStore {
   /**
    * Initializes a new instance of the PictureStore.
    *
+   * @param apiKey API key provided by the caller.
    * @param userId Unique ID of the user accessing the store.
    */
-  constructor(userId: string) {
+  private constructor(apiKey: string, userId: string) {
+    // Validate the API key.
+    if (apiKey !== SystemApiKey) {
+      const apiKeys: IApiKeysConfig = config.get('ApiKeys');
+      if (apiKey !== apiKeys.key1 && apiKey !== apiKeys.key2) {
+        throw createHttpError(HttpStatusCode.UNAUTHORIZED, 'Invalid API key');
+      }
+    }
+
     if (!userId || userId === '') {
       throw createHttpError(
         HttpStatusCode.BAD_REQUEST,
         'Missing or invalid user ID header'
       );
     }
+
     this.userId = userId;
   }
 
@@ -245,7 +282,7 @@ export class PictureStore {
         // remove the file system folder that we just created.
         debug(`ERROR: Create library failed for library ${add.name}`);
         debug('Folder was created in file system but database insert failed.');
-        fileSystem.deleteFolder(add.name);
+        fileSystem.deleteFolder(add.libraryId!);
         throw err;
       });
     });

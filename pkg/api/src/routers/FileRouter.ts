@@ -1,10 +1,10 @@
-import { PictureStore, ThumbnailSize } from 'common';
+import { ThumbnailSize } from 'common';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import multer from 'multer';
 import { IFile, IFileUpdate } from 'picstrata-client';
-import { getUserIdHeader } from '../common/HttpHeader';
+import { createPictureStore } from './RouterHelpers';
 
 const upload = multer({ dest: 'uploads/' });
 
@@ -24,8 +24,7 @@ router.get(
   '/:libraryId/folders/:folderId/files',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getFiles(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
@@ -43,7 +42,7 @@ router.post(
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
     const importPromises: Array<Promise<IFile>> = [];
-    const pictureStore = new PictureStore(getUserIdHeader(req));
+    const pictureStore = createPictureStore(req);
     for (const file of (req.files as any) as Express.Multer.File[]) {
       // NOTE: Uploaded file will be deleted by importFile method.
       importPromises.push(
@@ -73,8 +72,7 @@ router.get(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getFile(params.libraryId, params.fileId)
       .then(data => {
         res.send(data);
@@ -90,8 +88,7 @@ router.get(
   '/:libraryId/files/:fileId/contents',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getFileContents(params.libraryId, params.fileId)
       .then(contents => {
         res.contentType(contents.mimeType);
@@ -109,8 +106,7 @@ router.get(
   '/:libraryId/files/:fileId/thumbnails/:size',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getFileThumbnail(
         params.libraryId,
         params.fileId,
@@ -132,8 +128,7 @@ router.patch(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .updateFile(params.libraryId, params.fileId, req.body as IFileUpdate)
       .then(data => {
         res.send(data);
@@ -149,8 +144,7 @@ router.delete(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .deleteFile(params.libraryId, params.fileId)
       .then(data => {
         res.send(data);

@@ -38,10 +38,16 @@ To initialize and configure the Picstrata database on your MySQL host, use the
 
 ##### Environment Setup
 
-At a minimum the `PST_DATABASE_USER` and `PST_DATABASE_PASSWORD`
-environment variables will need to be set so that the Picstrata services are
-able to connect to the database. Other configuration options can be found in
-`custom-environment-variables.yaml`.
+The following environment variables should be set to enable the execution and
+testing of the Picstrata microservice:
+
+| Variable              | Description                                      |
+| --------------------- | ------------------------------------------------ |
+| PST_DATABASE_USER     | User account to use when accessing the database. |
+| PST_DATABASE_PASSWORD | Password to use with PST_DATABASE_USER.          |
+| PST_API_KEY_1         | API key to use when accessing the REST API.      |
+
+Other configuration options can be found in `custom-environment-variables.yaml`.
 
 During development, Picstrata libraries are stored on your local machine under
 `/var/lib/picstrata`. This directory should be initialized before building and

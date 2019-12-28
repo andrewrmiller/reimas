@@ -11,3 +11,6 @@ FileSystem:
     bucket: picstrata-localdev
 MessageQueue:
   url: amqp://localhost
+ApiKeys:
+  key1: 'use environment variable'
+  key2: 'use environment variable'

@@ -1,9 +1,4 @@
-import {
-  IProcessVideoMsg,
-  PictureStore,
-  SystemUserId,
-  VideoExtension
-} from 'common';
+import { IProcessVideoMsg, PictureStore, VideoExtension } from 'common';
 import createDebug from 'debug';
 import ffmpeg, { Video } from 'ffmpeg';
 import fs from 'fs';
@@ -20,7 +15,7 @@ export function processVideo(
   callback: (ok: boolean) => void
 ) {
   debug(`Converting video file ${message.fileId} to MP4.`);
-  const pictureStore = new PictureStore(SystemUserId);
+  const pictureStore = PictureStore.createForSystemOp();
 
   return getLocalFilePath(message.libraryId, message.fileId)
     .then(localFilePath => {

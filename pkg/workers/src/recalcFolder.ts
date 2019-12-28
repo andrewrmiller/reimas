@@ -1,6 +1,5 @@
 import { IRecalcFolderMsg, PictureStore } from 'common';
 import createDebug from 'debug';
-import { SystemUserId } from './constants';
 
 const debug = createDebug('workers:recalcFolder');
 
@@ -12,7 +11,7 @@ export function recalcFolder(
     `Recalculating folder ${message.folderId} in library ${message.libraryId}.`
   );
 
-  const pictureStore = new PictureStore(SystemUserId);
+  const pictureStore = PictureStore.createForSystemOp();
   return pictureStore
     .recalcFolder(message.libraryId, message.folderId)
     .then(folder => {

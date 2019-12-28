@@ -3,6 +3,7 @@ import createDebug from 'debug';
 import FormData from 'form-data';
 import fs from 'fs';
 import fetch, { BodyInit, Headers } from 'node-fetch';
+import { ApiKeyAuthType, UserIdHeader } from 'picstrata-client';
 
 const debug = createDebug('apitest:libraries');
 
@@ -13,8 +14,11 @@ export const SystemUserId = '11111111-1111-1111-1111-111111111111';
 // status.  To do that we need to provide authorization information.
 // We currently use basic auth and the default 'guest' login with
 // 'guest' password.  Probably should make this more secure at some point.
+const AuthorizationHeader = 'Authorization';
 const RabbitAuthHeaderValue = 'Basic Z3Vlc3Q6Z3Vlc3Q=';
 const WaitRetryCount = 10;
+
+const ApiKey = process.env.PST_API_KEY_1;
 
 export async function getStats() {
   return sendRequest('service/stats', SystemUserId).then(result => {
@@ -35,8 +39,10 @@ export async function sendRequest(
     headers.append('Content-Type', 'application/json');
   }
 
+  headers.append(AuthorizationHeader, ApiKeyAuthType + ' ' + ApiKey);
+
   if (userId) {
-    headers.append('Api-User-ID', userId);
+    headers.append(UserIdHeader, userId);
   }
 
   return fetch(`${ApiBaseUrl}/${relativeUrl}`, {
@@ -59,7 +65,9 @@ export async function postFile(
   body: FormData
 ) {
   const headers = new Headers();
-  headers.append('Api-User-ID', userId);
+
+  headers.append(AuthorizationHeader, ApiKeyAuthType + ' ' + ApiKey);
+  headers.append(UserIdHeader, userId);
 
   return fetch(`${ApiBaseUrl}/${relativeUrl}`, {
     method: HttpMethod.Post,
@@ -165,7 +173,7 @@ export async function waitForQueueDrain() {
  */
 export async function getQueueLen() {
   const headers = new Headers();
-  headers.append('Authorization', RabbitAuthHeaderValue);
+  headers.append(AuthorizationHeader, RabbitAuthHeaderValue);
 
   return fetch('http://localhost:15672/api/queues', { headers }).then(
     response => {

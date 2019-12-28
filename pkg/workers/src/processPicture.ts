@@ -2,10 +2,10 @@ import {
   IProcessPictureMsg,
   PictureExtension,
   PictureStore,
-  SystemUserId,
   ThumbnailDimensions,
   ThumbnailSize
 } from 'common';
+import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
 import sharp from 'sharp';
@@ -22,7 +22,7 @@ export function processPicture(
   debug(
     `Processing picture file ${message.fileId} in library ${message.libraryId}.`
   );
-  const pictureStore = new PictureStore(SystemUserId);
+  const pictureStore = PictureStore.createForSystemOp();
 
   return getLocalFilePath(message.libraryId, message.fileId)
     .then(localFilePath => {

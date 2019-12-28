@@ -11,3 +11,6 @@ FileSystem:
     bucket: PST_S3_FILE_SYSTEM_BUCKET
 MessageQueue:
   url: PST_MESSAGE_QUEUE_URL
+ApiKeys:
+  key1: PST_API_KEY_1
+  key2: PST_API_KEY_2

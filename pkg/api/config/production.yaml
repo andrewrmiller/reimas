@@ -11,3 +11,6 @@ FileSystem:
     bucket: 'use environment variable'
 MessageQueue:
   url: 'use environment variable'
+ApiKeys:
+  key1: 'use environment variable'
+  key2: 'use environment variable'

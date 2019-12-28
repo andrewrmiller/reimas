@@ -1,10 +1,9 @@
-import { PictureStore } from 'common';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import createHttpError from 'http-errors';
 import { IFolderAdd, IFolderUpdate, IFolderUserAdd } from 'picstrata-client';
-import { getUserIdHeader } from '../common/HttpHeader';
+import { createPictureStore } from './RouterHelpers';
 
 const router = express.Router();
 
@@ -37,8 +36,7 @@ router.get(
     }
 
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getFolders(params.libraryId, parent === '' ? undefined : parent)
       .then(data => {
         res.send(data);
@@ -54,8 +52,7 @@ router.get(
   '/:libraryId/folders/:folderId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getFolder(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
@@ -71,8 +68,7 @@ router.post(
   '/:libraryId/folders',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .addFolder(params.libraryId, req.body as IFolderAdd)
       .then(data => {
         res.send(data);
@@ -88,8 +84,7 @@ router.patch(
   '/:libraryId/folders/:folderId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .updateFolder(
         params.libraryId,
         params.folderId,
@@ -109,8 +104,7 @@ router.delete(
   '/:libraryId/folders/:folderId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .deleteFolder(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
@@ -126,8 +120,7 @@ router.get(
   '/:libraryId/folders/:folderId/subfolders',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .getFolders(params.libraryId, params.folderId)
       .then(data => {
         res.send(data);
@@ -143,8 +136,7 @@ router.post(
   '/:libraryId/folders/:folderId/users',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const pictureStore = new PictureStore(getUserIdHeader(req));
-    pictureStore
+    createPictureStore(req)
       .addFolderUser(
         params.libraryId,
         params.folderId,
