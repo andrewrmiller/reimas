@@ -3,17 +3,20 @@ import express from 'express';
 import createHttpError from 'http-errors';
 import { getApiKey, getUserIdHeader } from '../common/HttpHeader';
 
-export function createPictureStore(req: express.Request) {
+export function createPictureStore(
+  req: express.Request,
+  allowAnonymous: boolean = false
+) {
   const apiKey = getApiKey(req);
   if (!apiKey) {
     throw createHttpError(HttpStatusCode.UNAUTHORIZED, 'API key not found.');
   }
 
   const userId = getUserIdHeader(req);
-  if (!userId) {
+  if ((!userId && !allowAnonymous) || userId === '') {
     throw createHttpError(
       HttpStatusCode.BAD_REQUEST,
-      'User ID header not found.'
+      'Invalid or missing user ID.'
     );
   }
 

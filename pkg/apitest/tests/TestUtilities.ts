@@ -8,7 +8,6 @@ import { ApiKeyAuthType, UserIdHeader } from 'picstrata-client';
 const debug = createDebug('apitest:libraries');
 
 export const ApiBaseUrl = `http://localhost:${process.env.APITEST_PORT}`;
-export const SystemUserId = '11111111-1111-1111-1111-111111111111';
 
 // Tests need to connect to the RabbitMQ server to check queue
 // status.  To do that we need to provide authorization information.
@@ -21,7 +20,7 @@ const WaitRetryCount = 10;
 const ApiKey = process.env.PST_API_KEY_1;
 
 export async function getStats() {
-  return sendRequest('service/stats', SystemUserId).then(result => {
+  return sendRequest('service/stats').then(result => {
     expect(result.status).toBe(HttpStatusCode.OK);
     return result.json();
   });

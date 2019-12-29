@@ -279,11 +279,20 @@ describe('Library Tests', () => {
   test('Verify creation of a new library with bad user ID', async () => {
     await sendRequest(
       'libraries',
-      'john@doe.com',
+      '', // Empty user IDs are not allowed
       HttpMethod.Post,
       JSON.stringify(NewLibrary)
     ).then(result => {
-      expect(result.status).toBe(500);
+      expect(result.status).toBe(400);
+    });
+
+    await sendRequest(
+      'libraries',
+      'system.user@picstrata.api', // Can't use system user ID.
+      HttpMethod.Post,
+      JSON.stringify(NewLibrary)
+    ).then(result => {
+      expect(result.status).toBe(400);
     });
   });
 

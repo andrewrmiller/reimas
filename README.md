@@ -90,6 +90,45 @@ service running locally, use `npm run testdev`.
 
 #### API Notes
 
+##### API Keys
+
+All Picstrata REST API calls must include an Authorization header containing an API
+key which identifies the calling application. The REST API server will compare this
+API key against the set of configured API keys to determine if the key is valid. If
+the key is determined to be not valid, the request will fail with a status code of 401.
+
+The Authorization header should take the following form:
+
+```
+Authorization: ApiKey abcde12345
+```
+
+Where `abcde12345` is the API key. API keys are configured on the REST API server using
+these environment variables:
+
+| Variable      | Description               |
+| ------------- | ------------------------- |
+| PST_API_KEY_1 | Valid API key number one. |
+| PST_API_KEY_2 | Valid API key number two. |
+
+As long as the API provided in the Authorization header matches one of the two API keys
+listed above, it will be considered valid and request processing will continue. Although
+only one API key needs to be configured for the API server to work properly, two keys may
+be configured to facilitate API key rotation.
+
+##### User IDs
+
+To enable proper library and folder authorization, all REST API calls should include
+an API-User-ID header which contains a unique identifier for the user who initiated
+the request. Picstrata persists these user IDs to the database when libraries and
+folders are created, and these user IDs are checked for subsequent operations such
+as deleting a folder or uploading a file.
+
+A Picstrata User IDs is nothing more than a string that identifies the user in the
+context of your application. Common user IDs are user names (johnsmith), email
+addresses (johnsmith@somecompany.com), and generated UUIDs converted to a string.
+The user ID must be the same for a given user across all her devices and browsers.
+
 ##### Null Values
 
 Null values stored in the database will not be returned in the JSON objects created by the API.

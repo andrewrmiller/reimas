@@ -9,7 +9,7 @@ const router = express.Router();
 router.get(
   '/stats',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    createPictureStore(req)
+    createPictureStore(req, true /* allowAnonymous */)
       .getStatistics()
       .then(data => {
         res.send(data);

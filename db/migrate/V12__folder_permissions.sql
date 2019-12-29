@@ -1,7 +1,7 @@
 CREATE TABLE `folder_user_roles` (
   `library_id` BINARY(16) NOT NULL DEFAULT '0',
   `folder_id` BINARY(16) NOT NULL,
-  `user_id` BINARY(16) NOT NULL,
+  `user_id` VARCHAR(254) NOT NULL,
   `role` VARCHAR(20) NOT NULL,
   PRIMARY KEY (`library_id`,`folder_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
@@ -71,7 +71,7 @@ END$$
  * Create a routine that adds a folder but does not select any results.
  */
 CREATE PROCEDURE `add_folder_core`(
-                  IN p_user_id VARCHAR(36),
+                  IN p_user_id VARCHAR(254),
                   IN p_library_id VARCHAR(36), 
                   IN p_folder_id VARCHAR(36), 
                   IN p_name VARCHAR(80), 
@@ -134,7 +134,7 @@ this_proc:BEGIN
   INSERT INTO
     folder_user_roles(library_id, folder_id, user_id, role)
   VALUES
-    (@library_id_compressed, @folder_id_compressed,  compress_guid(p_user_id), 'owner');
+    (@library_id_compressed, @folder_id_compressed,  p_user_id, 'owner');
 
   SET p_err_code = 0;
   SET p_err_context = NULL;
@@ -151,11 +151,9 @@ END $$
  */
 DROP PROCEDURE IF EXISTS `get_libraries`$$
 
-CREATE PROCEDURE `get_libraries`(IN p_user_id VARCHAR(36))
+CREATE PROCEDURE `get_libraries`(IN p_user_id VARCHAR(254))
 BEGIN
 	
-  SET @user_id_compressed = compress_guid(p_user_id);
-
   SELECT
     0 AS err_code,
     NULL AS err_context;
@@ -169,12 +167,12 @@ BEGIN
     libraries l 
       INNER JOIN folders f 
       ON l.library_id = f.library_id
-      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = @user_id_compressed) ur
+      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = p_user_id) ur
       ON f.library_id = ur.library_id AND f.folder_id = ur.folder_id
   WHERE 
     f.parent_id IS NULL AND
     l.library_id IN 
-      (SELECT DISTINCT library_id FROM folder_user_roles WHERE user_id = @user_id_compressed);
+      (SELECT DISTINCT library_id FROM folder_user_roles WHERE user_id = p_user_id);
 
 END$$
 
@@ -190,11 +188,9 @@ END$$
 DROP PROCEDURE IF EXISTS `get_library`$$
 
 CREATE PROCEDURE `get_library`(
-                    IN p_user_id VARCHAR(36), 
+                    IN p_user_id VARCHAR(254), 
                     IN p_library_id VARCHAR(36))
 BEGIN
-
-  SET @user_id_compressed = compress_guid(p_user_id);
 
   SELECT
     0 AS err_code,
@@ -209,12 +205,12 @@ BEGIN
     libraries l 
       INNER JOIN folders f
       ON l.library_id = f.library_id
-      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = @user_id_compressed) ur
+      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = p_user_id) ur
       ON f.library_id = ur.library_id AND f.folder_id = ur.folder_id
 	WHERE
 		l.library_id = compress_guid(p_library_id) AND
     l.library_id IN
-      (SELECT DISTINCT library_id FROM folder_user_roles WHERE user_id = @user_id_compressed);
+      (SELECT DISTINCT library_id FROM folder_user_roles WHERE user_id = p_user_id);
         
 END$$
 
@@ -226,7 +222,7 @@ END$$
 DROP PROCEDURE IF EXISTS `add_library`$$
 
 CREATE PROCEDURE `add_library`(
-                      IN p_user_id VARCHAR(36),
+                      IN p_user_id VARCHAR(254),
 											IN p_library_id VARCHAR(36), 
 											IN p_name VARCHAR(80), 
 											IN p_description LONGTEXT)
@@ -262,7 +258,7 @@ BEGIN
   INSERT INTO
     folder_user_roles (library_id, folder_id, user_id, role)
   VALUES
-    (compress_guid(p_library_id), compress_guid(@default_folder_id), compress_guid('11111111-1111-1111-1111-111111111111'), 'owner');
+    (compress_guid(p_library_id), compress_guid(@default_folder_id), 'system.user@picstrata.api', 'owner');
 
   IF (@err_code <> 0) THEN
     ROLLBACK;
@@ -289,19 +285,18 @@ END $$
 DROP PROCEDURE IF EXISTS `update_library`$$
 
 CREATE PROCEDURE `update_library`(
-                    IN p_user_id VARCHAR(36),
+                    IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_name VARCHAR(80), 
                     IN p_description LONGTEXT)
 this_proc:BEGIN
 
-  SET @user_id_compressed = compress_guid(p_user_id);
   SET @library_id_compressed = compress_guid(p_library_id);
 
   -- If the user has no access to the library at all they should not
   -- be made aware that it even exists.
   SELECT COUNT(folder_id) > 0 INTO @user_is_participant FROM folder_user_roles 
-  WHERE library_id = @library_id_compressed AND user_id = @user_id_compressed;
+  WHERE library_id = @library_id_compressed AND user_id = p_user_id;
   IF (NOT @user_is_participant) THEN
     SELECT 
       1 AS err_code,        /* Not found */
@@ -311,7 +306,7 @@ this_proc:BEGIN
 
   -- Only owners and contributors on a library can update it.
   SELECT user_role INTO @role FROM vw_library_user_roles
-  WHERE library_id = @library_id_compressed AND user_id = @user_id_compressed;
+  WHERE library_id = @library_id_compressed AND user_id = p_user_id;
   IF (@role IS NULL OR (@role <> 'owner' AND @role <> 'contributor')) THEN
     SELECT 
       9 AS err_code,        /* Not authorized */
@@ -351,9 +346,9 @@ this_proc:BEGIN
 	WHERE
 		l.library_id = compress_guid(p_library_id) AND
     l.library_id IN
-      (SELECT DISTINCT library_id FROM folder_user_roles WHERE user_id = @user_id_compressed) AND
+      (SELECT DISTINCT library_id FROM folder_user_roles WHERE user_id = p_user_id) AND
     f.parent_id IS NULL AND
-    ur.user_id = @user_id_compressed;
+    ur.user_id = p_user_id;
 
 END$$
 
@@ -363,17 +358,16 @@ END$$
 DROP PROCEDURE IF EXISTS `delete_library`$$
 
 CREATE PROCEDURE `delete_library`(
-                      IN p_user_id VARCHAR(36),
+                      IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36))
 this_proc:BEGIN
 
-  SET @user_id_compressed = compress_guid(p_user_id);
   SET @library_id_compressed = compress_guid(p_library_id);
 
   -- If the user has no access to the library at all they should not
   -- be made aware that it even exists.
   SELECT COUNT(folder_id) > 0 INTO @user_is_participant FROM folder_user_roles 
-  WHERE library_id = @library_id_compressed AND user_id = @user_id_compressed;
+  WHERE library_id = @library_id_compressed AND user_id = p_user_id;
   IF (NOT @user_is_participant) THEN
     SELECT 
       1 AS err_code,        /* Not found */
@@ -383,7 +377,7 @@ this_proc:BEGIN
 
   -- Only owners on a library can delete it.
   SELECT user_role INTO @role FROM vw_library_user_roles
-  WHERE library_id = @library_id_compressed AND user_id = @user_id_compressed;
+  WHERE library_id = @library_id_compressed AND user_id = p_user_id;
   IF (@role IS NULL OR @role <> 'owner') THEN
     SELECT 
       9 AS err_code,        /* Not authorized */
@@ -448,7 +442,7 @@ END$$
  * a folder in an existing library.
  */
 CREATE PROCEDURE `add_folder_user`(
-                      IN p_user_id VARCHAR(36),
+                      IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36),
                       IN p_folder_id VARCHAR(36),
                       IN p_new_user_id VARCHAR(36),
@@ -469,11 +463,10 @@ this_proc:BEGIN
     LEAVE this_proc;
   END IF;
 
-  SET @user_id_compressed = compress_guid(p_user_id);
   SET @library_id_compressed = compress_guid(p_library_id);
   SET @folder_id_compressed = compress_guid(p_folder_id);
 
-  SET @role = COALESCE(get_user_role(@user_id_compressed, @library_id_compressed, @folder_id_compressed), '');
+  SET @role = COALESCE(get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed), '');
   IF (@role <> 'owner') THEN
     SELECT
       9 AS err_code,      /* Not authorized */
@@ -484,7 +477,7 @@ this_proc:BEGIN
   INSERT INTO
     folder_user_roles (library_id, folder_id, user_id, role)
   VALUES
-    (@library_id_compressed, @folder_id_compressed, compress_guid(p_new_user_id), p_role);
+    (@library_id_compressed, @folder_id_compressed, p_new_user_id, p_role);
 
   SELECT
     0 AS err_code,
@@ -507,7 +500,7 @@ END$$
  * any grants on parent folders.
  */
 CREATE FUNCTION `get_user_role`(
-                    p_user_id BINARY(16), 
+                    p_user_id VARCHAR(254), 
                     p_library_id BINARY(16), 
                     p_folder_id BINARY(16)) 
                     RETURNS VARCHAR(20) DETERMINISTIC
@@ -583,7 +576,7 @@ END$$
 DROP PROCEDURE IF EXISTS `get_folders`$$
 
 CREATE PROCEDURE `get_folders`(
-                      IN p_user_id VARCHAR(36),
+                      IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36), 
                       IN p_parent_id VARCHAR(36))
 this_proc:BEGIN
@@ -592,13 +585,12 @@ this_proc:BEGIN
     SET @parent_id_compressed = compress_guid(p_parent_id);
   END IF;
 
-  SET @user_id_compressed = compress_guid(p_user_id);
   SET @library_id_compressed = compress_guid(p_library_id);
   
 
   -- Make sure the user has permission to see folders under the parent.
   SET @role = get_user_role(
-              @user_id_compressed, 
+              p_user_id, 
               @library_id_compressed, 
               IF (p_parent_id IS NULL, NULL, @parent_id_compressed));
 
@@ -632,7 +624,7 @@ this_proc:BEGIN
     ur.role AS user_role
 	FROM
     folders f 
-      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = @user_id_compressed) ur
+      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = p_user_id) ur
       ON f.library_id = ur.library_id AND f.folder_id = ur.folder_id
   WHERE
     f.library_id = compress_guid(p_library_id) AND
@@ -650,18 +642,17 @@ END$$
 DROP PROCEDURE IF EXISTS `get_folder`$$
 
 CREATE PROCEDURE `get_folder`(
-                    IN p_user_id VARCHAR(36),
+                    IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36))
 this_proc:BEGIN
 	
-  SET @user_id_compressed = compress_guid(p_user_id);
   SET @library_id_compressed = compress_guid(p_library_id);
   SET @folder_id_compressed = compress_guid(p_folder_id);
 
   -- Make sure the user has permission to see the folder.
   SET @role = get_user_role(
-                @user_id_compressed, 
+                p_user_id, 
                 @library_id_compressed, 
                 @folder_id_compressed);
 
@@ -695,7 +686,7 @@ this_proc:BEGIN
     ur.role AS user_role
 	FROM
     folders f 
-      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = @user_id_compressed) ur
+      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = p_user_id) ur
       ON f.library_id = ur.library_id AND f.folder_id = ur.folder_id
   WHERE
     f.library_id = @library_id_compressed AND
@@ -711,7 +702,7 @@ END$$
 DROP PROCEDURE IF  EXISTS `add_folder`$$
 
 CREATE PROCEDURE `add_folder`(
-                  IN p_user_id VARCHAR(36),
+                  IN p_user_id VARCHAR(254),
                   IN p_library_id VARCHAR(36), 
                   IN p_folder_id VARCHAR(36), 
                   IN p_name VARCHAR(80), 
@@ -725,11 +716,10 @@ this_proc:BEGIN
     RESIGNAL;
   END;
 
-  SET @user_id_compressed = compress_guid(p_user_id);
   SET @library_id_compressed = compress_guid(p_library_id);
 
   -- Make sure the user has permission to create folders under the parent.
-  SET @role = COALESCE(get_user_role(@user_id_compressed, @library_id_compressed, compress_guid(p_parent_id)), '');
+  SET @role = COALESCE(get_user_role(p_user_id, @library_id_compressed, compress_guid(p_parent_id)), '');
   IF (@role <> 'owner' AND @role <> 'contributor') THEN
     SELECT
       9 AS err_code,
@@ -787,18 +777,17 @@ END $$
 DROP PROCEDURE IF EXISTS `update_folder`$$
 
 CREATE PROCEDURE `update_folder`(
-                      IN p_user_id VARCHAR(36),
+                      IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36), 
                       IN p_folder_id VARCHAR(36), 
                       IN p_name VARCHAR(80))
 this_proc:BEGIN
   	
-  SET @user_id_compressed = compress_guid(p_user_id);
   SET @library_id_compressed = compress_guid(p_library_id);
   SET @folder_id_compressed = compress_guid(p_folder_id);
   
   -- Make sure the user has permission to update the folder.
-  SET @role = get_user_role(@user_id_compressed, @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
 
   IF (@role IS NULL) THEN
     SELECT
@@ -893,7 +882,7 @@ this_proc:BEGIN
     ur.role AS user_role
   FROM
     folders f 
-      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = @user_id_compressed) ur
+      LEFT JOIN (SELECT * FROM folder_user_roles WHERE user_id = p_user_id) ur
       ON f.library_id = ur.library_id AND f.folder_id = ur.folder_id
   WHERE
     f.library_id = @library_id_compressed AND
@@ -908,7 +897,7 @@ END $$
 DROP PROCEDURE IF EXISTS `delete_folder`$$
 
 CREATE PROCEDURE `delete_folder`(
-                    IN p_user_id VARCHAR(36),
+                    IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36))
 this_proc:BEGIN
@@ -917,7 +906,7 @@ this_proc:BEGIN
   SET @folder_id_compressed = compress_guid(p_folder_id);
 
   -- Make sure the user has permission to update the folder.
-  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
 
   IF (@role IS NULL) THEN
     SELECT
@@ -1037,7 +1026,7 @@ END$$
 DROP PROCEDURE IF EXISTS `get_files`$$
 
 CREATE PROCEDURE `get_files`(
-                    IN p_user_id VARCHAR(36), 
+                    IN p_user_id VARCHAR(254), 
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36))
 this_proc:BEGIN
@@ -1046,7 +1035,7 @@ this_proc:BEGIN
   SET @folder_id_compressed = compress_guid(p_folder_id);
 
   -- Figure out if the user has permissions on the folder.
-  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
   
   IF (@role IS NULL) THEN
     SELECT 
@@ -1099,7 +1088,7 @@ END$$
 DROP PROCEDURE IF EXISTS `get_file`$$
 
 CREATE PROCEDURE `get_file`(
-                    IN p_user_id VARCHAR(36), 
+                    IN p_user_id VARCHAR(254), 
                     IN p_library_id VARCHAR(36), 
                     IN p_file_id VARCHAR(36))
 this_proc:BEGIN
@@ -1117,7 +1106,7 @@ this_proc:BEGIN
     file_id = @file_id_compressed;
 
   -- Figure out if the user has permissions on the folder.
-  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
   
   IF (@role IS NULL) THEN
     SELECT 
@@ -1166,7 +1155,7 @@ END$$
 DROP PROCEDURE IF EXISTS `get_file_content_info`$$
 
 CREATE PROCEDURE `get_file_content_info`(
-                        IN p_user_id VARCHAR(36),
+                        IN p_user_id VARCHAR(254),
                         IN p_library_id VARCHAR(36), 
                         IN p_file_id VARCHAR(36))
 this_proc:BEGIN
@@ -1184,7 +1173,7 @@ this_proc:BEGIN
     file_id = @file_id_compressed;
 
   -- Figure out if the user has permissions on the folder.
-  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
 
   IF (@role IS NULL) THEN
     SELECT 
@@ -1224,7 +1213,7 @@ END$$
 DROP PROCEDURE IF EXISTS `add_file`$$
 
 CREATE PROCEDURE `add_file`(
-                    IN p_user_id VARCHAR(36),
+                    IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36),
                     IN p_file_id VARCHAR(36), 
@@ -1248,7 +1237,7 @@ this_proc:BEGIN
   SET @folder_id_compressed = compress_guid(p_folder_id);
 
   -- Figure out if the user has permissions on the folder.
-  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
 
   IF (@role IS NULL) THEN
     SELECT
@@ -1349,7 +1338,7 @@ END$$
 DROP PROCEDURE IF EXISTS `update_file`$$
 
 CREATE PROCEDURE `update_file`(
-          IN p_user_id VARCHAR(36),
+          IN p_user_id VARCHAR(254),
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_name VARCHAR(80),
@@ -1378,7 +1367,7 @@ this_proc:BEGIN
     file_id = @file_id_compressed;
 
   -- Figure out if the user has permissions on the folder.
-  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
 
   IF (@role IS NULL) THEN
     SELECT
@@ -1451,7 +1440,7 @@ END $$
 DROP PROCEDURE IF EXISTS `delete_file`$$
 
 CREATE PROCEDURE `delete_file`(
-                      IN p_user_id VARCHAR(36),
+                      IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36), 
                       IN p_file_id VARCHAR(36))
 this_proc:BEGIN
@@ -1469,7 +1458,7 @@ this_proc:BEGIN
     file_id = @file_id_compressed;
 
   -- Figure out if the user has permissions on the folder.
-  SET @role = get_user_role(compress_guid(p_user_id), @library_id_compressed, @folder_id_compressed);
+  SET @role = get_user_role(p_user_id, @library_id_compressed, @folder_id_compressed);
 
   IF (@role IS NULL) THEN
     SELECT

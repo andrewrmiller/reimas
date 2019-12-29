@@ -53,7 +53,7 @@ export const SystemApiKey = '00000000-0000-0000-0000-000000000000';
 // Unique ID of the system user.  The system user is used in
 // asynchronous processing operations and other scenarios.  It
 // is granted special privileges in some cases.
-export const SystemUserId = '11111111-1111-1111-1111-111111111111';
+export const SystemUserId = 'system.user@picstrata.api';
 
 // Interface for the ApiKeys configuration element.
 interface IApiKeysConfig {
@@ -73,7 +73,7 @@ export class PictureStore {
    * @param apiKey API key transmitted in the request.
    * @param userId Unique ID of the user who initiated the request.
    */
-  public static createForApiRequest(apiKey: string, userId: string) {
+  public static createForApiRequest(apiKey: string, userId?: string) {
     return new PictureStore(apiKey, userId);
   }
 
@@ -201,7 +201,8 @@ export class PictureStore {
     );
   }
 
-  private userId: string;
+  // User ID is optional here to allow for anonymous requests.
+  private userId?: string;
 
   /**
    * Initializes a new instance of the PictureStore.
@@ -209,7 +210,7 @@ export class PictureStore {
    * @param apiKey API key provided by the caller.
    * @param userId Unique ID of the user accessing the store.
    */
-  private constructor(apiKey: string, userId: string) {
+  private constructor(apiKey: string, userId?: string) {
     // Validate the API key.
     if (apiKey !== SystemApiKey) {
       const apiKeys: IApiKeysConfig = config.get('ApiKeys');
@@ -218,11 +219,9 @@ export class PictureStore {
       }
     }
 
-    if (!userId || userId === '') {
-      throw createHttpError(
-        HttpStatusCode.BAD_REQUEST,
-        'Missing or invalid user ID header'
-      );
+    // The special system user ID can only be used with the system API key.
+    if (apiKey !== SystemApiKey && userId === SystemUserId) {
+      throw createHttpError(HttpStatusCode.BAD_REQUEST, 'Invalid user ID');
     }
 
     this.userId = userId;
@@ -232,10 +231,6 @@ export class PictureStore {
    * Retrieves statistics for the service as a whole.
    */
   public getStatistics() {
-    if (this.userId !== SystemUserId) {
-      throw new Error('User is not authorized.');
-    }
-
     const db = DbFactory.createInstance();
     return db.getStatistics();
   }
@@ -245,7 +240,7 @@ export class PictureStore {
    */
   public getLibraries() {
     const db = DbFactory.createInstance();
-    return db.getLibraries(this.userId);
+    return db.getLibraries(this.getUserId());
   }
 
   /**
@@ -255,7 +250,7 @@ export class PictureStore {
    */
   public getLibrary(libraryId: string) {
     const db = DbFactory.createInstance();
-    return db.getLibrary(this.userId, libraryId);
+    return db.getLibrary(this.getUserId(), libraryId);
   }
 
   /**
@@ -277,7 +272,7 @@ export class PictureStore {
     // Create the library folder on disk first.
     return fileSystem.createFolder(add.libraryId).then(() => {
       // Now add the library to the database.
-      return db.addLibrary(this.userId, add).catch(err => {
+      return db.addLibrary(this.getUserId(), add).catch(err => {
         // Failed to add it to the database.  Make an attempt to
         // remove the file system folder that we just created.
         debug(`ERROR: Create library failed for library ${add.name}`);
@@ -296,7 +291,7 @@ export class PictureStore {
    */
   public updateLibrary(libraryId: string, update: ILibraryUpdate) {
     const db = DbFactory.createInstance();
-    return db.updateLibrary(this.userId, libraryId, update);
+    return db.updateLibrary(this.getUserId(), libraryId, update);
   }
 
   /**
@@ -309,7 +304,7 @@ export class PictureStore {
     const fileSystem = FileSystemFactory.createInstance();
 
     // Delete the library in the database first.
-    return db.deleteLibrary(this.userId, libraryId).then(result => {
+    return db.deleteLibrary(this.getUserId(), libraryId).then(result => {
       // Now try to delete the library folder in the file system.
       return fileSystem
         .deleteFolder(libraryId)
@@ -337,7 +332,7 @@ export class PictureStore {
    */
   public getFolders(libraryId: string, parent?: string) {
     const db = DbFactory.createInstance();
-    return db.getFolders(this.userId, libraryId, parent ? parent : null);
+    return db.getFolders(this.getUserId(), libraryId, parent ? parent : null);
   }
 
   /**
@@ -348,7 +343,7 @@ export class PictureStore {
    */
   public getFolder(libraryId: string, folderId: string) {
     const db = DbFactory.createInstance();
-    return db.getFolder(this.userId, libraryId, folderId);
+    return db.getFolder(this.getUserId(), libraryId, folderId);
   }
 
   /**
@@ -360,9 +355,10 @@ export class PictureStore {
   public addFolder(libraryId: string, add: IFolderAdd) {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
+    const userId = this.getUserId();
 
     // Grab some information about the parent folder first.
-    return db.getFolder(this.userId, libraryId, add.parentId!).then(parent => {
+    return db.getFolder(userId, libraryId, add.parentId!).then(parent => {
       // Create the folder in the file system first.
       const folderId = createGuid();
       const fileSystemPath = this.buildLibraryPath(
@@ -372,17 +368,15 @@ export class PictureStore {
       );
       return fileSystem.createFolder(fileSystemPath).then(() => {
         // Now create the folder in the database.
-        return db
-          .addFolder(this.userId, libraryId, folderId, add)
-          .catch(err => {
-            // We failed to create the folder in the file system.  Try to
-            // remove the folder that we created in the database.
-            debug(`ERROR: Create folder failed for folder ${add.name}.`);
-            debug(`Folder was created in the file system but not in db.`);
-            debug(`Attempting to delete the folder in the file systme.`);
-            fileSystem.deleteFolder(fileSystemPath);
-            throw err;
-          });
+        return db.addFolder(userId, libraryId, folderId, add).catch(err => {
+          // We failed to create the folder in the file system.  Try to
+          // remove the folder that we created in the database.
+          debug(`ERROR: Create folder failed for folder ${add.name}.`);
+          debug(`Folder was created in the file system but not in db.`);
+          debug(`Attempting to delete the folder in the file systme.`);
+          fileSystem.deleteFolder(fileSystemPath);
+          throw err;
+        });
       });
     });
   }
@@ -400,13 +394,13 @@ export class PictureStore {
     update: IFolderUpdate
   ) {
     const db = DbFactory.createInstance();
-    return db.getFolder(this.userId, libraryId, folderId).then(folder => {
-      return db
-        .updateFolder(this.userId, libraryId, folderId, update)
-        .catch(err => {
-          debug(`ERROR: Patching folder ${folderId} failed.`);
-          throw err;
-        });
+    const userId = this.getUserId();
+
+    return db.getFolder(userId, libraryId, folderId).then(folder => {
+      return db.updateFolder(userId, libraryId, folderId, update).catch(err => {
+        debug(`ERROR: Patching folder ${folderId} failed.`);
+        throw err;
+      });
     });
   }
 
@@ -419,10 +413,11 @@ export class PictureStore {
   public deleteFolder(libraryId: string, folderId: string) {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
+    const userId = this.getUserId();
 
     // Grab the folder info first and then delete the folder in the database.
-    return db.getFolder(this.userId, libraryId, folderId).then(folder => {
-      return db.deleteFolder(this.userId, libraryId, folderId).then(result => {
+    return db.getFolder(userId, libraryId, folderId).then(folder => {
+      return db.deleteFolder(userId, libraryId, folderId).then(result => {
         // Now try to delete the folder in the file system.
         return fileSystem
           .deleteFolder(`${libraryId}/${folder.path}`)
@@ -456,7 +451,7 @@ export class PictureStore {
     const db = DbFactory.createInstance();
     return db
       .addFolderUser(
-        this.userId,
+        this.getUserId(),
         libraryId,
         folderId,
         newFolderUser.userId,
@@ -500,7 +495,7 @@ export class PictureStore {
    */
   public getFiles(libraryId: string, folderId: string) {
     const db = DbFactory.createInstance();
-    return db.getFiles(this.userId, libraryId, folderId);
+    return db.getFiles(this.getUserId(), libraryId, folderId);
   }
 
   /**
@@ -511,7 +506,7 @@ export class PictureStore {
    */
   public getFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
-    return db.getFile(this.userId, libraryId, fileId);
+    return db.getFile(this.getUserId(), libraryId, fileId);
   }
 
   /**
@@ -527,7 +522,7 @@ export class PictureStore {
     debug(`Retrieving the contents of file ${fileId} in library ${libraryId}`);
     const db = DbFactory.createInstance();
     return db
-      .getFileContentInfo(this.userId, libraryId, fileId)
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
       .then(contents => {
         let filePath = contents.path;
 
@@ -562,7 +557,7 @@ export class PictureStore {
     );
     const db = DbFactory.createInstance();
     return db
-      .getFileContentInfo(this.userId, libraryId, fileId)
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
       .then(contents => {
         let filePath = contents.path;
         filePath = Paths.deleteLastSubpath(filePath);
@@ -594,7 +589,7 @@ export class PictureStore {
   public downloadTempFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
     return db
-      .getFileContentInfo(this.userId, libraryId, fileId)
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
       .then(contentInfo => {
         // Generate a temporary path and filename.
         const tempPath = buildTempPath({
@@ -645,6 +640,8 @@ export class PictureStore {
     const fileExtension = Paths.getFileExtension(filename).toLowerCase();
     const supportStatus = PictureStore.getExtSupportStatus(fileExtension);
 
+    const userId = this.getUserId();
+
     if (supportStatus === FormatSupportStatus.NotSupported) {
       throw createHttpError(
         HttpStatusCode.BAD_REQUEST,
@@ -670,7 +667,7 @@ export class PictureStore {
       })
       .then(imageInfo => {
         return db
-          .getFolder(this.userId, libraryId, folderId)
+          .getFolder(userId, libraryId, folderId)
           .then(folder => {
             const fileId = createGuid();
             return fileSystem
@@ -682,7 +679,7 @@ export class PictureStore {
                 // File has been impmorted into the file system.  Now
                 // create a row in the database with the file's metadata.
                 return db
-                  .addFile(this.userId, libraryId, folderId, fileId, {
+                  .addFile(userId, libraryId, folderId, fileId, {
                     name: filename,
                     mimeType,
                     isVideo:
@@ -734,7 +731,7 @@ export class PictureStore {
     const fileSystem = FileSystemFactory.createInstance();
 
     return db
-      .getFileContentInfo(this.userId, libraryId, fileId)
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
       .then(fileInfo => {
         const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
         const thumbnailFolder = this.buildLibraryPath(
@@ -801,7 +798,7 @@ export class PictureStore {
     const fileSystem = FileSystemFactory.createInstance();
 
     return db
-      .getFileContentInfo(this.userId, libraryId, fileId)
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
       .then(fileInfo => {
         const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
         const videoFolder = this.buildLibraryPath(
@@ -855,35 +852,35 @@ export class PictureStore {
    */
   public updateFile(libraryId: string, fileId: string, update: IFileUpdate) {
     const db = DbFactory.createInstance();
+    const userId = this.getUserId();
 
     // If name is changing, rename file on disk first, then update
     // the database. Othwerise just update the database since all
     // other updates are metadata only.
     if (update.name) {
-      return db
-        .getFileContentInfo(this.userId, libraryId, fileId)
-        .then(info => {
-          if (!PictureStore.areExtensionsEqual(info.name, update.name!)) {
-            throw createHttpError(
-              HttpStatusCode.BAD_REQUEST,
-              'Invalid operation.  File extensions must match.'
-            );
-          }
+      return db.getFileContentInfo(userId, libraryId, fileId).then(info => {
+        if (!PictureStore.areExtensionsEqual(info.name, update.name!)) {
+          throw createHttpError(
+            HttpStatusCode.BAD_REQUEST,
+            'Invalid operation.  File extensions must match.'
+          );
+        }
 
-          return db.updateFile(this.userId, libraryId, fileId, update);
-        });
+        return db.updateFile(userId, libraryId, fileId, update);
+      });
     } else {
-      return db.updateFile(this.userId, libraryId, fileId, update);
+      return db.updateFile(userId, libraryId, fileId, update);
     }
   }
 
   public deleteFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
+    const userId = this.getUserId();
 
     // Grab the file info first and then delete the file in the database.
-    return db.getFileContentInfo(this.userId, libraryId, fileId).then(file => {
-      return db.deleteFile(this.userId, libraryId, fileId).then(result => {
+    return db.getFileContentInfo(userId, libraryId, fileId).then(file => {
+      return db.deleteFile(userId, libraryId, fileId).then(result => {
         // Now try to delete the file in the file system
         // along with any thumbnails that have been created.
         const fileDir = Paths.deleteLastSubpath(file.path);
@@ -932,7 +929,7 @@ export class PictureStore {
     const fileSystem = FileSystemFactory.createInstance();
 
     return db
-      .getFileContentInfo(this.userId, libraryId, fileId)
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
       .then(info => {
         return fileSystem.getLocalFilePath(`${libraryId}/${info.path}`);
       })
@@ -940,6 +937,17 @@ export class PictureStore {
         debug(`Error: getLocalFilePath: ${err}`);
         throw err;
       });
+  }
+
+  /**
+   * Simple cover which checks this.userId before use.
+   */
+  private getUserId() {
+    if (!this.userId) {
+      throw createHttpError(HttpStatusCode.UNAUTHORIZED, 'Not authorized.');
+    }
+
+    return this.userId;
   }
 
   /**
