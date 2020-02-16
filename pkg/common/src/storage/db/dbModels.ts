@@ -1,4 +1,4 @@
-import { Role } from 'picstrata-client';
+import { Role } from '@picstrata/client';
 import { DbErrorCode } from './DbError';
 
 /**

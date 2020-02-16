@@ -1,10 +1,3 @@
-import amqp from 'amqplib';
-import config from 'config';
-import createDebug from 'debug';
-import ffmpeg from 'ffmpeg';
-import fs from 'fs';
-import createHttpError from 'http-errors';
-import sizeOf from 'image-size';
 import {
   IFile,
   IFileAdd,
@@ -14,7 +7,14 @@ import {
   IFolderUserAdd,
   ILibraryAdd,
   ILibraryUpdate
-} from 'picstrata-client';
+} from '@picstrata/client';
+import amqp from 'amqplib';
+import config from 'config';
+import createDebug from 'debug';
+import ffmpeg from 'ffmpeg';
+import fs from 'fs';
+import createHttpError from 'http-errors';
+import sizeOf from 'image-size';
 import { path as buildTempPath } from 'temp';
 import * as util from 'util';
 import { v1 as createGuid } from 'uuid';

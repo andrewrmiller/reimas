@@ -1,6 +1,6 @@
+import { IFile, IFolder, ILibrary, ILibraryAdd, Role } from '@picstrata/client';
 import { HttpMethod, HttpStatusCode, Paths, PictureMimeType } from 'common';
 import createDebug from 'debug';
-import { IFile, IFolder, ILibrary, ILibraryAdd, Role } from 'picstrata-client';
 import { v1 as createGuid } from 'uuid';
 import {
   getStats,

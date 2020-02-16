@@ -286,6 +286,13 @@
     "@types/istanbul-reports" "^1.1.1"
     "@types/yargs" "^13.0.0"
 
+"@picstrata/client@^0.2.0":
+  version "0.2.0"
+  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.2.0.tgz#c1bc03301482821b62dfd7f00f5a4692b66d4ebd"
+  integrity sha512-Y4fSVNC4v719hP6Oux6Yc1l6ud/58CCu6hSl2tehUzmk6+V4tmKMUI55zExc5N1sSNQW81TQrs1X4BOogm14WQ==
+  dependencies:
+    typescript "^3.7.2"
+
 "@types/amqplib@^0.5.13":
   version "0.5.13"
   resolved "https://registry.yarnpkg.com/@types/amqplib/-/amqplib-0.5.13.tgz#a0dc9be08f38b91e5f7532acf0c89b0e515cdc6c"
@@ -3424,12 +3431,6 @@ performance-now@^2.1.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/performance-now/-/performance-now-2.1.0.tgz#6309f4e0e5fa913ec1c69307ae364b4b377c9e7b"
   integrity sha1-Ywn04OX6kT7BxpMHrjZLSzd8nns=
-
-"picstrata-client@https://github.com/andrewrmiller/picstrata-nodejs#8291cfd2603de9145d0fb416063fb415386e1510":
-  version "0.1.1"
-  resolved "https://github.com/andrewrmiller/picstrata-nodejs#8291cfd2603de9145d0fb416063fb415386e1510"
-  dependencies:
-    typescript "^3.7.2"
 
 pify@^3.0.0:
   version "3.0.0"

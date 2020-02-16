@@ -1,6 +1,3 @@
-import config from 'config';
-import createDebug from 'debug';
-import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import {
   IFile,
   IFileAdd,
@@ -14,7 +11,10 @@ import {
   ILibraryUpdate,
   IStatistics,
   Role
-} from 'picstrata-client';
+} from '@picstrata/client';
+import config from 'config';
+import createDebug from 'debug';
+import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import { ChangeCase } from '../../ChangeCase';
 import { IDatabaseConfig } from '../../IDatabaseConfig';
 import { ThumbnailSize } from '../../thumbnails';

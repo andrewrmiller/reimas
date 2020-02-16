@@ -1,5 +1,5 @@
+import { ApiKeyAuthType, UserIdHeader } from '@picstrata/client';
 import express from 'express';
-import { ApiKeyAuthType, UserIdHeader } from 'picstrata-client';
 
 /**
  * Extracts the API key from a request.

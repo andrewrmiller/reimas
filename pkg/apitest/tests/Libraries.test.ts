@@ -1,6 +1,6 @@
+import { IFolder, ILibrary, ILibraryAdd, Role } from '@picstrata/client';
 import { HttpMethod, HttpStatusCode } from 'common';
 import createDebug from 'debug';
-import { IFolder, ILibrary, ILibraryAdd, Role } from 'picstrata-client';
 import { v1 as createGuid } from 'uuid';
 import { getStats, sendRequest } from './TestUtilities';
 

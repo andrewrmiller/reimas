@@ -1,5 +1,3 @@
-import { HttpMethod, HttpStatusCode } from 'common';
-import createDebug from 'debug';
 import {
   FolderType,
   IFolder,
@@ -9,7 +7,9 @@ import {
   ILibraryAdd,
   IStatistics,
   Role
-} from 'picstrata-client';
+} from '@picstrata/client';
+import { HttpMethod, HttpStatusCode } from 'common';
+import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
 import { getStats, sendRequest } from './TestUtilities';
 

@@ -3,7 +3,6 @@ FROM node:10.15.0-alpine
 RUN apk update
 RUN apk upgrade
 RUN apk add bash
-RUN apk add git
 
 WORKDIR /usr/src/app
 

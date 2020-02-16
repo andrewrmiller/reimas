@@ -10,6 +10,7 @@
     "up": "node ./bin/www"
   },
   "dependencies": {
+    "@picstrata/client": "^0.2.0",
     "amqplib": "^0.5.5",
     "common": "0.1.0",
     "concurrently": "^4.1.2",
@@ -22,7 +23,6 @@
     "js-yaml": "^3.13.1",
     "morgan": "~1.9.1",
     "multer": "^1.4.2",
-    "picstrata-client": "https://github.com/andrewrmiller/picstrata-nodejs#8291cfd2603de9145d0fb416063fb415386e1510",
     "typescript": "^3.5.3"
   },
   "devDependencies": {

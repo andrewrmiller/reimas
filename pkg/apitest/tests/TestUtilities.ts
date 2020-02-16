@@ -1,9 +1,9 @@
+import { ApiKeyAuthType, UserIdHeader } from '@picstrata/client';
 import { HttpMethod, HttpStatusCode, Paths } from 'common';
 import createDebug from 'debug';
 import FormData from 'form-data';
 import fs from 'fs';
 import fetch, { BodyInit, Headers } from 'node-fetch';
-import { ApiKeyAuthType, UserIdHeader } from 'picstrata-client';
 
 const debug = createDebug('apitest:libraries');
 

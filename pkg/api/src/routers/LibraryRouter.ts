@@ -1,6 +1,6 @@
+import { ILibraryAdd, ILibraryUpdate } from '@picstrata/client';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
-import { ILibraryAdd, ILibraryUpdate } from 'picstrata-client';
 import { createPictureStore } from './RouterHelpers';
 
 const router = express.Router();

@@ -1,8 +1,8 @@
+import { IFolderAdd, IFolderUpdate, IFolderUserAdd } from '@picstrata/client';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import createHttpError from 'http-errors';
-import { IFolderAdd, IFolderUpdate, IFolderUserAdd } from 'picstrata-client';
 import { createPictureStore } from './RouterHelpers';
 
 const router = express.Router();

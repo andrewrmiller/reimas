@@ -1,9 +1,9 @@
+import { IFile, IFileUpdate } from '@picstrata/client';
 import { ThumbnailSize } from 'common';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import multer from 'multer';
-import { IFile, IFileUpdate } from 'picstrata-client';
 import { createPictureStore } from './RouterHelpers';
 
 const upload = multer({ dest: 'uploads/' });
