@@ -10,14 +10,14 @@ import {
   ILibraryAdd,
   ILibraryUpdate,
   IStatistics,
-  Role
+  Role,
+  ThumbnailSize
 } from '@picstrata/client';
 import config from 'config';
 import createDebug from 'debug';
 import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
 import { ChangeCase } from '../../ChangeCase';
 import { IDatabaseConfig } from '../../IDatabaseConfig';
-import { ThumbnailSize } from '../../thumbnails';
 import { DbError, DbErrorCode } from './DbError';
 import {
   IDbFile,

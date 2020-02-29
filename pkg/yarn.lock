@@ -286,10 +286,10 @@
     "@types/istanbul-reports" "^1.1.1"
     "@types/yargs" "^13.0.0"
 
-"@picstrata/client@^0.2.0":
-  version "0.2.0"
-  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.2.0.tgz#c1bc03301482821b62dfd7f00f5a4692b66d4ebd"
-  integrity sha512-Y4fSVNC4v719hP6Oux6Yc1l6ud/58CCu6hSl2tehUzmk6+V4tmKMUI55zExc5N1sSNQW81TQrs1X4BOogm14WQ==
+"@picstrata/client@^0.2.1":
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.2.1.tgz#fb28f083a559c03cf96c837ff29d67872f661715"
+  integrity sha512-tYfWYa8hWuPEElZFciDUcxync8M6bTOJb9juvTSxqED7itn864YaZgWCfT2l+zD3GrAPk09JD2OEqUxmr27a8g==
   dependencies:
     typescript "^3.7.2"
 

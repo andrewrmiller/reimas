@@ -1,8 +1,4 @@
-export enum ThumbnailSize {
-  Small = 'sm',
-  Medium = 'md',
-  Large = 'lg'
-}
+import { ThumbnailSize } from '@picstrata/client';
 
 export const ThumbnailDimensions = {
   [ThumbnailSize.Small]: { width: 96, height: 96 },

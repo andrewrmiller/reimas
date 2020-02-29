@@ -1,5 +1,4 @@
-import { IFile, IFileUpdate } from '@picstrata/client';
-import { ThumbnailSize } from 'common';
+import { IFile, IFileUpdate, ThumbnailSize } from '@picstrata/client';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';

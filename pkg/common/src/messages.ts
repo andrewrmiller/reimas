@@ -1,5 +1,3 @@
-import { ThumbnailSize } from './thumbnails';
-
 /**
  * Enumeration of the types of messages that can be posted to the queue.
  */

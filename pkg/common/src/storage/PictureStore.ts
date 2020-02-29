@@ -6,7 +6,8 @@ import {
   IFolderUpdate,
   IFolderUserAdd,
   ILibraryAdd,
-  ILibraryUpdate
+  ILibraryUpdate,
+  ThumbnailSize
 } from '@picstrata/client';
 import amqp from 'amqplib';
 import config from 'config';
@@ -33,7 +34,6 @@ import {
   MessageType
 } from '../messages';
 import { Paths } from '../Paths';
-import { ThumbnailSize } from '../thumbnails';
 import { JobsChannelName } from '../workers';
 import { DbFactory } from './db/DbFactory';
 import { FileSystemFactory } from './files/FileSystemFactory';

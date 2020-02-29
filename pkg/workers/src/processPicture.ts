@@ -1,9 +1,9 @@
+import { ThumbnailSize } from '@picstrata/client';
 import {
   IProcessPictureMsg,
   PictureExtension,
   PictureStore,
-  ThumbnailDimensions,
-  ThumbnailSize
+  ThumbnailDimensions
 } from 'common';
 import config from 'config';
 import createDebug from 'debug';
