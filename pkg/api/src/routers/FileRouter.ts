@@ -90,6 +90,12 @@ router.get(
     createPictureStore(req)
       .getFileContents(params.libraryId, params.fileId)
       .then(contents => {
+        if (req.query.attachment === 'true') {
+          res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=${contents.filename}`
+          );
+        }
         res.contentType(contents.mimeType);
         contents.stream.on('error', next);
         contents.stream.pipe(res);

@@ -535,7 +535,8 @@ export class PictureStore {
 
         return {
           stream: this.getFileStream(libraryId, filePath),
-          mimeType: contents.isVideo ? VideoMimeType.MP4 : contents.mimeType
+          mimeType: contents.isVideo ? VideoMimeType.MP4 : contents.mimeType,
+          filename: contents.name
         };
       });
   }
