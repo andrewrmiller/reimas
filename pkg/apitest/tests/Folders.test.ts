@@ -11,7 +11,7 @@ import {
 import { HttpMethod, HttpStatusCode } from 'common';
 import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
-import { getStats, sendRequest } from './TestUtilities';
+import { ApiBaseUrl, getStats, sendRequest } from './TestUtilities';
 
 const debug = createDebug('apitest:libraries');
 
@@ -34,6 +34,10 @@ describe('Folder Tests', () => {
   let subFolder1Id: string;
   let subFolder2Id: string;
   let subFolder2Child1Id: string;
+
+  beforeAll(() => {
+    debug(`Testing folder routes on API server at ${ApiBaseUrl}`);
+  });
 
   test('Verify initial state', async () => {
     return getStats().then(stats => {

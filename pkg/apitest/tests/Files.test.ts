@@ -1,5 +1,19 @@
-import { IFile, IFolder, ILibrary, ILibraryAdd, Role } from '@picstrata/client';
-import { HttpMethod, HttpStatusCode, Paths, PictureMimeType } from 'common';
+import {
+  FolderType,
+  IFile,
+  IFolder,
+  IFolderAdd,
+  ILibrary,
+  ILibraryAdd,
+  Role
+} from '@picstrata/client';
+import {
+  HttpMethod,
+  HttpStatusCode,
+  Paths,
+  PictureMimeType,
+  VideoMimeType
+} from 'common';
 import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
 import {
@@ -8,7 +22,8 @@ import {
   sendRequest,
   sleep,
   waitForProcessingComplete,
-  waitForQueueDrain
+  waitForQueueDrain,
+  ApiBaseUrl
 } from './TestUtilities';
 
 const debug = createDebug('apitest:libraries');
@@ -57,10 +72,46 @@ const TestPictures = [
   }
 ];
 
+const TestVideos = [
+  {
+    path: '../../test/samples/big-buck-bunny.mp4',
+    contentType: VideoMimeType.MP4,
+    height: 176,
+    width: 320,
+    byteLength: 788493
+  },
+  {
+    path: '../../test/samples/jellyfish-25-mbps-hd-hevc.mp4',
+    contentType: VideoMimeType.MP4,
+    height: 1080,
+    width: 1920,
+    byteLength: 32822684
+  },
+  {
+    path: '../../test/samples/small.avi',
+    contentType: VideoMimeType.AVI,
+    height: 320,
+    width: 560,
+    byteLength: 410162
+  },
+  {
+    path: '../../test/samples/star_trails.mov',
+    contentType: VideoMimeType.MOV,
+    height: 720,
+    width: 1280,
+    byteLength: 5038478
+  }
+];
+
 describe('File Tests', () => {
   let testLibraryId: string;
   let allPicturesFolderId: string;
   const fileIds: string[] = [];
+
+  beforeAll(() => {
+    jest.setTimeout(10000);
+    debug(`Testing file routes on API server at ${ApiBaseUrl}`);
+  });
 
   test('Verify initial state', async () => {
     return getStats().then(stats => {
@@ -157,7 +208,7 @@ describe('File Tests', () => {
       });
     });
 
-    // Verify that the owner can download the metdata asd well as the content of each file.
+    // Verify that the owner can download the metdata as well as the content of each file.
     for (let i = 0; i < fileIds.length; i++) {
       const fileId = fileIds[i];
 
@@ -414,6 +465,62 @@ describe('File Tests', () => {
     });
   });
 
+  test('Verify addition of videos to library', async () => {
+    let videoFolderId: string;
+
+    // Create VideoSubFolder
+    await sendRequest(
+      `libraries/${testLibraryId}/folders`,
+      OwnerUserId,
+      HttpMethod.Post,
+      JSON.stringify({
+        parentId: allPicturesFolderId,
+        name: 'VideoSubFolder',
+        type: FolderType.Picture
+      } as IFolderAdd)
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.json().then((folder: IFolder) => {
+        videoFolderId = folder.folderId;
+        expect(folder.userRole).toBe(Role.Owner);
+      });
+    });
+
+    // Upload some videos.
+    for (const video of TestVideos) {
+      await postFileToFolder(
+        OwnerUserId,
+        testLibraryId,
+        videoFolderId!,
+        video.path,
+        video.contentType
+      ).then(response => {
+        expect(response.status).toBe(HttpStatusCode.OK);
+        return response.json().then((files: IFile[]) => {
+          expect(files[0].mimeType).toBe(video.contentType);
+        });
+      });
+    }
+
+    // Let asynchronous processing complete.
+    waitForProcessingComplete();
+
+    // Get the list of files back along with their metadata.
+    await sendRequest(
+      `libraries/${testLibraryId}/folders/${videoFolderId!}/files`,
+      OwnerUserId
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.json().then((files: IFile[]) => {
+        expect(files).toHaveLength(TestVideos.length);
+        for (const videoFile of files) {
+          expect(videoFile.width).toBeGreaterThan(0);
+          expect(videoFile.height).toBeGreaterThan(0);
+        }
+      });
+    });
+  });
+
   test('Verify name conflict resolution', async () => {
     const picture = TestPictures[1];
     const name = Paths.getLastSubpath(picture.path);
@@ -477,9 +584,12 @@ describe('File Tests', () => {
     // Then wait a little longer to let jobs like the folder reacalc
     // job to complete--there isn't currently a way to see if it is
     // running.
+    debug('Waiting for message queue to drain...');
     await waitForQueueDrain();
+    debug('Waiting for file processing to complete...');
     await waitForProcessingComplete();
     await sleep(1000);
+    debug('Deleting library...');
 
     await sendRequest(
       `libraries/${testLibraryId}`,

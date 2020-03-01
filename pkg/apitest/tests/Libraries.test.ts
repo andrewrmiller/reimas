@@ -2,7 +2,7 @@ import { IFolder, ILibrary, ILibraryAdd, Role } from '@picstrata/client';
 import { HttpMethod, HttpStatusCode } from 'common';
 import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
-import { getStats, sendRequest } from './TestUtilities';
+import { ApiBaseUrl, getStats, sendRequest } from './TestUtilities';
 
 const debug = createDebug('apitest:libraries');
 
@@ -23,6 +23,10 @@ const UpdatedLibraryName = 'Test Library Updated';
 describe('Library Tests', () => {
   let testLibraryId: string;
   let allPicturesFolderId: string;
+
+  beforeAll(() => {
+    debug(`Testing library routes on API server at ${ApiBaseUrl}`);
+  });
 
   test('Verify initial state', async () => {
     return getStats().then(stats => {
