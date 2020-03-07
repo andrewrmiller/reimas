@@ -12,10 +12,12 @@ import {
 import amqp from 'amqplib';
 import config from 'config';
 import createDebug from 'debug';
+import { ExifData, ExifImage } from 'exif';
 import ffmpeg from 'ffmpeg';
 import fs from 'fs';
 import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
+import jo from 'jpeg-autorotate';
 import { path as buildTempPath } from 'temp';
 import * as util from 'util';
 import { v1 as createGuid } from 'uuid';
@@ -61,6 +63,21 @@ interface IApiKeysConfig {
   key2: string;
 }
 
+// Interface for metadata which can be extracted from a file.
+interface IFileMetadata {
+  type?: string;
+  isVideo: boolean;
+  height?: number;
+  width?: number;
+  takenOn?: string;
+  rating?: string;
+  title?: string;
+  subject?: string;
+  comments?: string;
+  keywords?: string;
+  orientation?: number;
+}
+
 /**
  * Service which wraps the database and the file system to
  * provide a single picture storage facade.
@@ -85,19 +102,84 @@ export class PictureStore {
   }
 
   /**
+   * Extracts the metadata from the file.
+   *
+   * @param filePath Full path to the file to inspect.
+   * @param isVideo True if this is a video file.
+   *
+   * @returns An IFileMetadata instance.
+   */
+  private static getFileMetadata(filePath: string, isVideo: boolean) {
+    return isVideo
+      ? PictureStore.getVideoMetadata(filePath)
+      : PictureStore.getPictureMetadata(filePath);
+  }
+
+  private static async getPictureMetadata(
+    filePath: string
+  ): Promise<IFileMetadata> {
+    const metadata: IFileMetadata = { isVideo: false };
+    debug('Getting picture metadata.');
+    await sizeOfPromise(filePath)
+      .then(imageInfo => {
+        metadata.type = imageInfo.type;
+        metadata.height = imageInfo.height;
+        metadata.width = imageInfo.width;
+        metadata.orientation = imageInfo.orientation;
+      })
+      .catch(err => {
+        debug(err);
+        throw err;
+      });
+
+    if (
+      metadata.type === PictureMimeType.Jpeg ||
+      metadata.type === PictureMimeType.Tiff
+    ) {
+      debug('Retrieving EXIF metadata.');
+      await PictureStore.getExifInfo(filePath)
+        .then(exifData => {
+          metadata.takenOn = exifData.exif.CreateDate;
+          metadata.comments = exifData.exif.UserComment?.toString();
+        })
+        .catch(err => {
+          throw err;
+        });
+    }
+
+    return metadata;
+  }
+
+  private static getExifInfo(imageFile: string): Promise<ExifData> {
+    return new Promise((resolve, reject) => {
+      const _ = new ExifImage(
+        imageFile,
+        (error: Error | null, exifData: ExifData) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(exifData);
+          }
+        }
+      );
+    });
+  }
+
+  /**
    * Retrieves some information about a video file.
    *
    * @param videoPath Local path to the video file.
    */
-  private static getVideoInfo(videoPath: string) {
-    return new ffmpeg(videoPath).then(video => {
+  private static getVideoMetadata(filePath: string) {
+    return new ffmpeg(filePath).then(video => {
       const metadata = video.metadata;
       const resolution = (metadata as any).video.resolution;
       return {
+        isVideo: true,
         width: metadata.width || resolution.w,
         height: metadata.height || resolution.h,
         type: metadata.encoder
-      };
+      } as IFileMetadata;
     });
   }
 
@@ -627,7 +709,7 @@ export class PictureStore {
    * @param mimeType Mime type of the file.
    * @param fileSize Size of the file in bytes.
    */
-  public importFile(
+  public async importFile(
     libraryId: string,
     folderId: string,
     localPath: string,
@@ -637,12 +719,10 @@ export class PictureStore {
   ) {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
+    const userId = this.getUserId();
 
     const fileExtension = Paths.getFileExtension(filename).toLowerCase();
     const supportStatus = PictureStore.getExtSupportStatus(fileExtension);
-
-    const userId = this.getUserId();
-
     if (supportStatus === FormatSupportStatus.NotSupported) {
       throw createHttpError(
         HttpStatusCode.BAD_REQUEST,
@@ -650,61 +730,79 @@ export class PictureStore {
       );
     }
 
-    let getSizePromise;
-    if (supportStatus === FormatSupportStatus.IsSupportedPicture) {
-      debug('Getting picture dimensions.');
-      getSizePromise = sizeOfPromise(localPath);
-    } else {
-      debug('Getting video dimensions.');
-      getSizePromise = PictureStore.getVideoInfo(localPath);
+    // Get whatever metadata we can out of the file.
+    const metadata = await PictureStore.getFileMetadata(
+      localPath,
+      supportStatus === FormatSupportStatus.IsSupportedVideo
+    ).catch(err => {
+      throw createHttpError(
+        HttpStatusCode.BAD_REQUEST,
+        `Unrecognized picture or video file: ${filename}`
+      );
+    });
+
+    // Rotate images if necessary.
+    // TODO: This should be moved into the worker process.
+    if (metadata.orientation && metadata.orientation !== 1) {
+      debug(`Rotating picture ${filename}`);
+      fileSize = await jo
+        .rotate(localPath, { quality: 90 })
+        .then(result => {
+          if (metadata.orientation === 6 || metadata.orientation === 8) {
+            const temp = metadata.height;
+            metadata.height = metadata.width;
+            metadata.width = temp;
+          }
+          return fs.promises.writeFile(localPath, result.buffer).then(() => {
+            const stats = fs.statSync(localPath);
+            return stats.size;
+          });
+        })
+        .catch(err => {
+          debug(err.message);
+          throw createHttpError(
+            HttpStatusCode.BAD_REQUEST,
+            `Image file could not be rotated: ${localPath}`
+          );
+        });
     }
 
-    return getSizePromise
-      .catch(err => {
-        throw createHttpError(
-          HttpStatusCode.BAD_REQUEST,
-          `Unrecognized picture or video file: ${filename}`
-        );
-      })
-      .then(imageInfo => {
-        return db
-          .getFolder(userId, libraryId, folderId)
-          .then(folder => {
-            const fileId = createGuid();
-            return fileSystem
-              .importFile(
-                localPath,
-                this.buildLibraryPath(libraryId, folder.path, fileId)
-              )
-              .then(filenameUsed => {
-                // File has been impmorted into the file system.  Now
-                // create a row in the database with the file's metadata.
-                return db
-                  .addFile(userId, libraryId, folderId, fileId, {
-                    name: filename,
-                    mimeType,
-                    isVideo:
-                      supportStatus === FormatSupportStatus.IsSupportedVideo,
-                    height: imageInfo.height,
-                    width: imageInfo.width,
-                    fileSize,
-                    isProcessing: true
-                  } as IFileAdd)
-                  .then(file => {
-                    return this.enqueueProcessFileJob(file);
-                  });
+    return db
+      .getFolder(userId, libraryId, folderId)
+      .then(folder => {
+        const fileId = createGuid();
+        return fileSystem
+          .importFile(
+            localPath,
+            this.buildLibraryPath(libraryId, folder.path, fileId)
+          )
+          .then(filenameUsed => {
+            // File has been impmorted into the file system.  Now
+            // create a row in the database with the file's metadata.
+            return db
+              .addFile(userId, libraryId, folderId, fileId, {
+                name: filename,
+                mimeType,
+                isVideo: metadata.isVideo,
+                height: metadata.height,
+                width: metadata.width,
+                fileSize,
+                isProcessing: true
+              } as IFileAdd)
+              .then(file => {
+                return this.enqueueProcessFileJob(file);
               });
-          })
-          .catch(err => {
-            if (err.status) {
-              throw err;
-            } else {
-              throw createHttpError(
-                HttpStatusCode.INTERNAL_SERVER_ERROR,
-                err.message
-              );
-            }
           });
+      })
+      .catch(err => {
+        if (err.status) {
+          throw err;
+        } else {
+          throw createHttpError(
+            HttpStatusCode.INTERNAL_SERVER_ERROR,
+            err.message
+          );
+        }
       });
   }
 

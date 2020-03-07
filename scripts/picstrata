@@ -104,13 +104,13 @@ listServices () {
 viewContainerLogs () {
 	case "$1" in
 	"api")
-		docker logs $API_CONTAINER
+		docker logs $API_CONTAINER 2>&1
 		;;
 	"wrk")
-		docker logs $WORKERS_CONTAINER
+		docker logs $WORKERS_CONTAINER 2>&1
 		;;
 	"mq")
-		docker logs $RABBIT_MQ_CONTAINER
+		docker logs $RABBIT_MQ_CONTAINER 2>&1
 		;;
 	*)
 		usage

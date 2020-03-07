@@ -17,13 +17,13 @@ import {
 import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
 import {
+  ApiBaseUrl,
   getStats,
   postFileToFolder,
   sendRequest,
   sleep,
   waitForProcessingComplete,
-  waitForQueueDrain,
-  ApiBaseUrl
+  waitForQueueDrain
 } from './TestUtilities';
 
 const debug = createDebug('apitest:libraries');
@@ -69,6 +69,15 @@ const TestPictures = [
     height: 450,
     width: 600,
     byteLength: 31780
+  },
+  {
+    path: '../../test/samples/Tires.jpg',
+    contentType: PictureMimeType.Jpg,
+    height: 593,
+    width: 395,
+    byteLength: 138666,
+    // This file is rotated on upload.
+    processedByteLength: 71134
   }
 ];
 
@@ -231,7 +240,9 @@ describe('File Tests', () => {
       ).then(response => {
         expect(response.status).toBe(HttpStatusCode.OK);
         return response.blob().then((blob: any) => {
-          expect(blob.size).toBe(TestPictures[i].byteLength);
+          expect(blob.size).toBe(
+            TestPictures[i].processedByteLength || TestPictures[i].byteLength
+          );
         });
       });
     }
@@ -351,12 +362,13 @@ describe('File Tests', () => {
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.OK);
       return response.json().then((folder: IFolder) => {
-        expect(folder.fileCount).toBe(4);
+        expect(folder.fileCount).toBe(TestPictures.length);
         expect(folder.fileSize).toBe(
           TestPictures[0].byteLength +
             TestPictures[1].byteLength +
             TestPictures[2].byteLength +
-            TestPictures[3].byteLength
+            TestPictures[3].byteLength +
+            TestPictures[4].processedByteLength!
         );
         expect(folder.fileSizeSm).toBeGreaterThan(0);
         expect(folder.fileSizeMd).toBeGreaterThan(folder.fileSizeSm);
