@@ -62,6 +62,22 @@ router.get(
 );
 
 /**
+ * Gets the breadcrumbs for a specific folder in a library.
+ */
+router.get(
+  '/:libraryId/folders/:folderId/breadcrumbs',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .getFolderBreadcrumbs(params.libraryId, params.folderId)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
  * Creates a new folder in a library.
  */
 router.post(

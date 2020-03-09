@@ -423,6 +423,19 @@ describe('Folder Tests', () => {
     });
   });
 
+  test('Verify folder breadcrumbs', async () => {
+    await sendRequest(
+      `libraries/${testLibraryId}/folders/${subFolder2Child1Id}/breadcrumbs`,
+      OwnerUserId,
+      HttpMethod.Get
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.json().then(result => {
+        expect(result).toHaveLength(2);
+      });
+    });
+  });
+
   test('Verify duplicate folder name detection', async () => {
     await sendRequest(
       `libraries/${testLibraryId}/folders`,

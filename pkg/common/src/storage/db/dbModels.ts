@@ -43,6 +43,12 @@ export interface IDbFolder {
   order_by: string;
 }
 
+export interface IDbBreadcrumb {
+  library_id: string;
+  folder_id: string;
+  name: string;
+}
+
 /**
  * Structure of a file as represented in the database.
  */

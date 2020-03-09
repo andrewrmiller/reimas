@@ -1,4 +1,5 @@
 import {
+  IBreadcrumb,
   IFile,
   IFileAdd,
   IFileContentInfo,
@@ -20,6 +21,7 @@ import { ChangeCase } from '../../ChangeCase';
 import { IDatabaseConfig } from '../../IDatabaseConfig';
 import { DbError, DbErrorCode } from './DbError';
 import {
+  IDbBreadcrumb,
   IDbFile,
   IDbFileContentInfo,
   IDbFolder,
@@ -201,6 +203,23 @@ export class MySqlDatabase {
       folderId
     ]).then(dbFolder => {
       return ChangeCase.toCamelObject(dbFolder) as IFolder;
+    });
+  }
+
+  public getFolderBreadcrumbs(
+    userId: string,
+    libraryId: string,
+    folderId: string
+  ) {
+    debug(`Retrieving folder ${folderId} in library ${libraryId}.`);
+    return this.callSelectManyProc<IDbBreadcrumb[]>('get_folder_breadcrumbs', [
+      userId,
+      libraryId,
+      folderId
+    ]).then(dbBreadcrumbs => {
+      return dbBreadcrumbs.map(dbBreadcrumb => {
+        return ChangeCase.toCamelObject(dbBreadcrumb) as IBreadcrumb;
+      });
     });
   }
 

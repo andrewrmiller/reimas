@@ -118,7 +118,7 @@ describe('File Tests', () => {
   const fileIds: string[] = [];
 
   beforeAll(() => {
-    jest.setTimeout(10000);
+    jest.setTimeout(15000);
     debug(`Testing file routes on API server at ${ApiBaseUrl}`);
   });
 

@@ -429,6 +429,17 @@ export class PictureStore {
   }
 
   /**
+   * Retrieves the breadcrumbs in a folder's parent hierarchy.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param folderId Unique ID of the folder.
+   */
+  public getFolderBreadcrumbs(libraryId: string, folderId: string) {
+    const db = DbFactory.createInstance();
+    return db.getFolderBreadcrumbs(this.getUserId(), libraryId, folderId);
+  }
+
+  /**
    * Adds a new folder to an existing library.
    *
    * @param libraryId Unique ID of the parent library.
