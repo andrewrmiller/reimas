@@ -95,6 +95,7 @@ describe('Folder Tests', () => {
     });
 
     // Add a contributor to that folder.
+    expect(ContributorUserId).not.toBe(OwnerUserId);
     await sendRequest(
       `libraries/${testLibraryId}/folders/${subFolder1Id}/users`,
       OwnerUserId,
@@ -148,6 +149,8 @@ describe('Folder Tests', () => {
     });
 
     // Add a reader to that folder.
+    expect(ReaderUserId).not.toBe(OwnerUserId);
+    expect(ReaderUserId).not.toBe(ContributorUserId);
     await sendRequest(
       `libraries/${testLibraryId}/folders/${subFolder2Id}/users`,
       OwnerUserId,
@@ -417,6 +420,22 @@ describe('Folder Tests', () => {
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.UNAUTHORIZED);
+    });
+  });
+
+  test('Verify duplicate folder name detection', async () => {
+    await sendRequest(
+      `libraries/${testLibraryId}/folders`,
+      OwnerUserId,
+      HttpMethod.Post,
+      JSON.stringify({
+        parentId: allPicturesFolderId,
+        name: 'SubFolder1',
+        type: FolderType.Picture
+      } as IFolderAdd)
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.CONFLICT);
+      return null;
     });
   });
 
