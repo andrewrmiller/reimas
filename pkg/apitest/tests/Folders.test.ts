@@ -432,6 +432,8 @@ describe('Folder Tests', () => {
       expect(response.status).toBe(HttpStatusCode.OK);
       return response.json().then(result => {
         expect(result).toHaveLength(2);
+        expect(result[0].folderId).toBe(allPicturesFolderId);
+        expect(result[1].folderId).toBe(subFolder2Id);
       });
     });
   });
