@@ -72,7 +72,6 @@ interface IFileMetadata {
   takenOn?: string;
   rating?: string;
   title?: string;
-  subject?: string;
   comments?: string;
   keywords?: string;
   orientation?: number;

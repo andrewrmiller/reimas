@@ -120,6 +120,7 @@ export async function sleep(timeMs: number) {
  * Waits for all files to be processed before returning.
  */
 export async function waitForProcessingComplete() {
+  debug('Waiting for file processing to complete...');
   let retry = 0;
 
   while (retry < WaitRetryCount) {
@@ -150,6 +151,7 @@ export async function getProcessingCount() {
  * Waits for the asynchronous queue to drain.
  */
 export async function waitForQueueDrain() {
+  debug('Waiting for message queue to drain...');
   let retry = 0;
 
   while (retry < WaitRetryCount) {

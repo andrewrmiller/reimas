@@ -47,7 +47,7 @@ const TestPictures = [
     contentType: PictureMimeType.Jpg,
     height: 3840,
     width: 5760,
-    byteLength: 1575991
+    byteLength: 1574829
   },
   {
     path: '../../test/samples/Marbles.GIF',
@@ -325,7 +325,8 @@ describe('File Tests', () => {
   });
 
   test('Verify asynchronous job execution', async () => {
-    // Wait for all file processing cto complete
+    // Wait for all file processing to complete
+    await waitForQueueDrain();
     await waitForProcessingComplete();
 
     // Readers should be able to fetch the thumbnails that
@@ -354,6 +355,23 @@ describe('File Tests', () => {
         expect(response.status).toBe(HttpStatusCode.OK);
       });
     }
+
+    // Metadata extracted from files should also be available.
+    await sendRequest(
+      `libraries/${testLibraryId}/files/${fileIds[0]}`,
+      ReaderUserId
+    ).then(response => {
+      response.json().then((file: IFile) => {
+        expect(file.title).toBe('Aurora Borealis');
+        expect(file.comments).toBe(
+          'A photo of the Aurora Borealis over an ice field.'
+        );
+        expect(file.tags).toHaveLength(3);
+        expect(file.tags[0]).toBe('Atmosphere');
+        expect(file.tags[1]).toBe('Nature');
+        expect(file.tags[2]).toBe('Night');
+      });
+    });
 
     // Verify folder calcs.
     await sendRequest(
@@ -515,7 +533,8 @@ describe('File Tests', () => {
     }
 
     // Let asynchronous processing complete.
-    waitForProcessingComplete();
+    await waitForQueueDrain();
+    await waitForProcessingComplete();
 
     // Get the list of files back along with their metadata.
     await sendRequest(
@@ -596,9 +615,7 @@ describe('File Tests', () => {
     // Then wait a little longer to let jobs like the folder reacalc
     // job to complete--there isn't currently a way to see if it is
     // running.
-    debug('Waiting for message queue to drain...');
     await waitForQueueDrain();
-    debug('Waiting for file processing to complete...');
     await waitForProcessingComplete();
     await sleep(1000);
     debug('Deleting library...');

@@ -33,10 +33,55 @@ const debug = createDebug('storage:database');
 
 const FileBitFields = ['is_video', 'is_processing'];
 
+// We use the logical not sign (&#172, 0xAC) to separate tags.
+const TagSeparator = '¬';
+
 /**
  * MySQL Reimas database interface.
  */
 export class MySqlDatabase {
+  /**
+   * Converts the object returned for MySQL bit fields into a
+   * more consumable boolean.
+   *
+   * https://stackoverflow.com/questions/34414659
+   *
+   * @param jsonObject JSON object returned from MySQL.
+   * @param bitFields Names of the bit fields to convert.
+   */
+  private static convertBitFields(
+    jsonObject: { [key: string]: any },
+    bitFields: string[]
+  ) {
+    const newObject = {
+      ...jsonObject
+    };
+
+    for (const bitField of bitFields) {
+      const bitFieldValue = jsonObject[bitField];
+      if (bitFieldValue) {
+        newObject[bitField] = (bitFieldValue.lastIndexOf(1) !== -1) as boolean;
+      }
+    }
+
+    return newObject;
+  }
+
+  /**
+   * Converts an IDbFile object into an IFile object.
+   */
+  private static convertDbFile(dbFile: IDbFile) {
+    const tags = dbFile.tags ? dbFile.tags.split(TagSeparator) : [];
+    const file = ChangeCase.toCamelObject(
+      MySqlDatabase.convertBitFields(dbFile, FileBitFields)
+    ) as IFile;
+
+    return {
+      ...file,
+      tags
+    } as IFile;
+  }
+
   private config: IDatabaseConfig;
   private conn?: mysql.Connection;
 
@@ -292,11 +337,7 @@ export class MySqlDatabase {
       libraryId,
       folderId
     ]).then(dbFiles => {
-      return dbFiles.map(dbFile => {
-        return ChangeCase.toCamelObject(
-          this.convertBitFields(dbFile, FileBitFields)
-        ) as IFile;
-      });
+      return dbFiles.map(MySqlDatabase.convertDbFile);
     });
   }
 
@@ -307,9 +348,7 @@ export class MySqlDatabase {
       libraryId,
       fileId
     ]).then(dbFile => {
-      return ChangeCase.toCamelObject(
-        this.convertBitFields(dbFile, FileBitFields)
-      ) as IFile;
+      return MySqlDatabase.convertDbFile(dbFile);
     });
   }
 
@@ -323,7 +362,7 @@ export class MySqlDatabase {
       fileId
     ]).then(dbFileContentInfo => {
       return ChangeCase.toCamelObject(
-        this.convertBitFields(dbFileContentInfo, FileBitFields)
+        MySqlDatabase.convertBitFields(dbFileContentInfo, FileBitFields)
       ) as IFileContentInfo;
     });
   }
@@ -349,37 +388,58 @@ export class MySqlDatabase {
       add.fileSize,
       add.isProcessing
     ]).then((file: IDbFile) => {
-      return ChangeCase.toCamelObject(
-        this.convertBitFields(file, FileBitFields)
-      ) as IFile;
+      return MySqlDatabase.convertDbFile(file);
     });
   }
 
-  public updateFile(
+  public async updateFile(
     userId: string,
     libraryId: string,
     fileId: string,
     update: IFileUpdate
   ) {
     debug(`Updating file ${fileId} in library ${libraryId}.`);
-    return this.callSelectOneProc<IDbFile>('get_file', [
+    const dbFile = await this.callSelectOneProc<IDbFile>('get_file', [
       userId,
       libraryId,
       fileId
-    ]).then(dbFile => {
-      return this.callChangeProc<IDbFile>('update_file', [
+    ]).catch(err => {
+      throw err;
+    });
+
+    // Tags are handled separately from other metadata.
+    if (update.tags) {
+      debug(`Updating tags on file ${fileId} in library ${libraryId}`);
+
+      // We pass the tags to the database as a delimited string.  Make
+      // sure the tags themselves don't contain the delimiter.
+      if (update.tags.some(t => t.indexOf(TagSeparator) >= 0)) {
+        throw new DbError(
+          DbErrorCode.InvalidFieldValue,
+          'Invalid character found in tag.'
+        );
+      }
+
+      await this.callChangeProc<any>('set_file_tags', [
         userId,
         libraryId,
         fileId,
-        update.name ? update.name : dbFile.name,
-        update.rating ? update.rating : dbFile.rating,
-        update.title ? update.title : dbFile.title,
-        update.subject ? update.subject : dbFile.subject
-      ]).then((dbFileUpdated: IDbFile) => {
-        return ChangeCase.toCamelObject(
-          this.convertBitFields(dbFileUpdated, FileBitFields)
-        ) as IFile;
+        update.tags.join(TagSeparator)
+      ]).catch(err => {
+        throw err;
       });
+    }
+
+    return this.callChangeProc<IDbFile>('update_file', [
+      userId,
+      libraryId,
+      fileId,
+      update.name ? update.name : dbFile.name,
+      update.rating ? update.rating : dbFile.rating,
+      update.title ? update.title : dbFile.title,
+      update.comments ? update.comments : dbFile.comments
+    ]).then((dbFileUpdated: IDbFile) => {
+      return MySqlDatabase.convertDbFile(dbFileUpdated);
     });
   }
 
@@ -398,9 +458,7 @@ export class MySqlDatabase {
       thumbSize,
       fileSize
     ]).then((dbFileUpdated: IDbFile) => {
-      return ChangeCase.toCamelObject(
-        this.convertBitFields(dbFileUpdated, FileBitFields)
-      ) as IFile;
+      return MySqlDatabase.convertDbFile(dbFileUpdated);
     });
   }
 
@@ -417,9 +475,7 @@ export class MySqlDatabase {
       fileId,
       fileSize
     ]).then((dbFileUpdated: IDbFile) => {
-      return ChangeCase.toCamelObject(
-        this.convertBitFields(dbFileUpdated, FileBitFields)
-      ) as IFile;
+      return MySqlDatabase.convertDbFile(dbFileUpdated);
     });
   }
 
@@ -430,7 +486,7 @@ export class MySqlDatabase {
       libraryId,
       fileId
     ]).then((file: IDbFile) => {
-      return ChangeCase.toCamelObject(file) as IFile;
+      return MySqlDatabase.convertDbFile(file);
     });
   }
 
@@ -679,30 +735,5 @@ export class MySqlDatabase {
     }
 
     return new DbError(response.err_code, errorMessage, response.err_context);
-  }
-
-  /**
-   * Converts the object returned for MySQL bit fields into a
-   * more consumable boolean.
-   *
-   * https://stackoverflow.com/questions/34414659
-   *
-   * @param jsonObject JSON object returned from MySQL.
-   * @param bitFields Names of the bit fields to convert.
-   */
-  private convertBitFields(
-    jsonObject: { [key: string]: any },
-    bitFields: string[]
-  ) {
-    const newObject = {
-      ...jsonObject
-    };
-
-    for (const bitField of bitFields) {
-      newObject[bitField] = (jsonObject[bitField].lastIndexOf(1) !==
-        -1) as boolean;
-    }
-
-    return newObject;
   }
 }

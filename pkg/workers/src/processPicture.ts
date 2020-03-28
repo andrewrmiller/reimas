@@ -1,15 +1,15 @@
-import { ThumbnailSize } from '@picstrata/client';
+import { IFileUpdate, ThumbnailSize } from '@picstrata/client';
 import {
   IProcessPictureMsg,
   PictureExtension,
   PictureStore,
   ThumbnailDimensions
 } from 'common';
-import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
 import sharp from 'sharp';
 import { path as buildTempPath } from 'temp';
+import { ExifTool } from './ExifTool';
 import { getLocalFilePath } from './getLocalFilePath';
 
 const fsPromises = fs.promises;
@@ -25,7 +25,18 @@ export function processPicture(
   const pictureStore = PictureStore.createForSystemOp();
 
   return getLocalFilePath(message.libraryId, message.fileId)
-    .then(localFilePath => {
+    .then(async localFilePath => {
+      const metadata = await updateMetadata(
+        pictureStore,
+        message.libraryId,
+        message.fileId,
+        localFilePath
+      );
+
+      if (metadata.Orientation && metadata.Orientation.startsWith('Rotate')) {
+        debug('*** ROTATION NEEDED ***');
+      }
+
       return createThumbnails(
         pictureStore,
         message.libraryId,
@@ -91,6 +102,38 @@ export function createThumbnails(
         ThumbnailSize.Large
       );
     });
+}
+
+/**
+ * Extracts the metadata from the file using ExifTool and then
+ * updates the metadata in the database.
+ *
+ * NOTE that extracted keywords are stored as tags in the database.
+ *
+ * @param pictureStore The PictureStore instance to use.
+ * @param libraryId Unique ID of the parent library.
+ * @param fileId Unique ID of the file to update.
+ * @param localFilePath Local path to the file.
+ */
+function updateMetadata(
+  pictureStore: PictureStore,
+  libraryId: string,
+  fileId: string,
+  localFilePath: string
+) {
+  return ExifTool.getMetadata(localFilePath).then(metadata => {
+    return pictureStore
+      .updateFile(libraryId, fileId, {
+        rating: metadata.Rating,
+        title: metadata.Title,
+        comments: metadata.Comment,
+        tags: metadata.Keyword
+      } as IFileUpdate)
+      .then(result => {
+        debug('File metadata updated successfully');
+        return metadata;
+      });
+  });
 }
 
 function createThumbnail(

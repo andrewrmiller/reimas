@@ -1,9 +1,10 @@
-FROM node:10.15.0-alpine
+FROM node:12.16.1-alpine
 
 RUN apk update
 RUN apk upgrade
 RUN apk add bash
 RUN apk add ffmpeg
+RUN apk add exiftool
 
 WORKDIR /usr/src/app
 

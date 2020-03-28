@@ -67,7 +67,8 @@ function startWorker() {
         debug('RabbitMQ channel closed.');
       });
 
-      ch.prefetch(1);
+      // We process up to three async jobs at a time.
+      ch.prefetch(3);
 
       return ch.assertQueue(JobsChannelName, { durable: true }).then(ok => {
         return ch

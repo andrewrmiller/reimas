@@ -66,7 +66,6 @@ export interface IDbFile {
   modified_on?: string;
   rating?: number;
   title?: string;
-  subject?: string;
   comments?: string;
   file_size: number;
   file_size_sm?: number;
@@ -75,6 +74,7 @@ export interface IDbFile {
   file_size_cnv_video?: number;
   file_size_backup?: number;
   is_processing: number;
+  tags: string;
 }
 
 /**
