@@ -41,6 +41,33 @@ const TagSeparator = '¬';
  */
 export class MySqlDatabase {
   /**
+   * Converts an ISO 8601 UTC date time string into a MySql DATETIME literal.
+   *
+   * @param utcDateTime ISO 8601 date time string to convert.
+   */
+  private static utcDateTimeToDbDateTime(utcDateTime?: string) {
+    if (!utcDateTime) {
+      return utcDateTime;
+    }
+
+    const dbDateTime = utcDateTime.replace('T', ' ');
+    return dbDateTime.substring(0, dbDateTime.length - 1);
+  }
+
+  /**
+   * Converts a Date returned from the database to an ISO 8601 date.
+   *
+   * @param dbDateTime Database date to convert.
+   */
+  private static dbDateTimeToUtcDateTime(dbDateTime?: Date) {
+    if (!dbDateTime) {
+      return dbDateTime;
+    }
+
+    return dbDateTime.toISOString();
+  }
+
+  /**
    * Converts the object returned for MySQL bit fields into a
    * more consumable boolean.
    *
@@ -75,6 +102,12 @@ export class MySqlDatabase {
     const file = ChangeCase.toCamelObject(
       MySqlDatabase.convertBitFields(dbFile, FileBitFields)
     ) as IFile;
+
+    file.importedOn = MySqlDatabase.dbDateTimeToUtcDateTime(
+      dbFile.imported_on
+    )!;
+    file.modifiedOn = MySqlDatabase.dbDateTimeToUtcDateTime(dbFile.modified_on);
+    file.takenOn = MySqlDatabase.dbDateTimeToUtcDateTime(dbFile.taken_on);
 
     return {
       ...file,
@@ -157,6 +190,7 @@ export class MySqlDatabase {
       userId,
       newLibrary.libraryId,
       newLibrary.name,
+      newLibrary.timeZone,
       newLibrary.description ? newLibrary.description : null
     ]).then((library: IDbLibrary) => {
       return ChangeCase.toCamelObject(library) as ILibrary;
@@ -179,6 +213,7 @@ export class MySqlDatabase {
         userId,
         libraryId,
         update.name ? update.name : dbLibrary.name,
+        update.timeZone ? update.timeZone : dbLibrary.time_zone,
         update.description ? update.description : dbLibrary.description
       ]).then((library: IDbLibrary) => {
         return ChangeCase.toCamelObject(library) as ILibrary;
@@ -434,6 +469,9 @@ export class MySqlDatabase {
       userId,
       libraryId,
       fileId,
+      update.takenOn
+        ? MySqlDatabase.utcDateTimeToDbDateTime(update.takenOn)
+        : dbFile.taken_on,
       update.name ? update.name : dbFile.name,
       update.rating ? update.rating : dbFile.rating,
       update.title ? update.title : dbFile.title,
@@ -469,6 +507,7 @@ export class MySqlDatabase {
       userId,
       libraryId,
       fileId,
+      dbFile.taken_on,
       dbFile.name,
       dbFile.rating,
       dbFile.title,

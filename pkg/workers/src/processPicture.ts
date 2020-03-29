@@ -1,5 +1,6 @@
 import { IFileUpdate, ThumbnailSize } from '@picstrata/client';
 import {
+  Dates,
   IProcessPictureMsg,
   PictureExtension,
   PictureStore,
@@ -72,7 +73,7 @@ export function processPicture(
 }
 
 /**
- * Creates small,  medium and large thumbnails from a local picture file.
+ * Creates small, medium and large thumbnails from a local picture file.
  *
  * @param libraryId Unique ID of the parent library.
  * @param fileId Unique ID of the file in the library.
@@ -129,17 +130,25 @@ function updateMetadata(
   localFilePath: string
 ) {
   return ExifTool.getMetadata(localFilePath).then(metadata => {
-    return pictureStore
-      .updateFile(libraryId, fileId, {
-        rating: metadata.Rating,
-        title: metadata.Title,
-        comments: metadata.Comment,
-        tags: metadata.Keyword
-      } as IFileUpdate)
-      .then(result => {
-        debug('File metadata updated successfully');
-        return metadata;
-      });
+    return pictureStore.getLibrary(libraryId).then(library => {
+      const takenOnInstant = Dates.exifDateTimeToInstant(
+        metadata.DateTimeOriginal || metadata.CreateDate,
+        library.timeZone
+      );
+
+      return pictureStore
+        .updateFile(libraryId, fileId, {
+          rating: metadata.Rating,
+          title: metadata.Title,
+          comments: metadata.Comment,
+          tags: metadata.Keyword,
+          takenOn: takenOnInstant ? takenOnInstant.toString() : undefined
+        } as IFileUpdate)
+        .then(result => {
+          debug('File metadata updated successfully');
+          return metadata;
+        });
+    });
   });
 }
 
@@ -159,16 +168,22 @@ async function autoRotate(
   localFilePath: string
 ) {
   debug(`Rotating picture ${fileId}`);
+
   await jo
     .rotate(localFilePath, { quality: 90 })
     .then(result => {
       // Save the rotated file to disk, save it back to the store
       // and make sure the database is updated.
-      return fs.promises.writeFile(localFilePath, result.buffer).then(_ => {
+      const rotatedFilePath = buildTempPath({
+        prefix: 'rot',
+        suffix: `.${PictureExtension.Jpg}`
+      });
+
+      return fs.promises.writeFile(rotatedFilePath, result.buffer).then(_ => {
         return pictureStore.updatePicture(
           libraryId,
           fileId,
-          localFilePath,
+          rotatedFilePath,
           result.buffer.byteLength,
           result.dimensions.height,
           result.dimensions.width

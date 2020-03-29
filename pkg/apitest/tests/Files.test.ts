@@ -38,6 +38,7 @@ const NonMemberUserId = createGuid();
 
 const NewLibrary: ILibraryAdd = {
   name: 'Test Library',
+  timeZone: 'America/Los_Angeles',
   description: 'Test Library Description'
 };
 
@@ -375,6 +376,7 @@ describe('File Tests', () => {
       ReaderUserId
     ).then(response => {
       response.json().then((file: IFile) => {
+        expect(file.takenOn).toBe('2011-10-10T04:22:31.000Z');
         expect(file.title).toBe('Aurora Borealis');
         expect(file.comments).toBe(
           'A photo of the Aurora Borealis over an ice field.'

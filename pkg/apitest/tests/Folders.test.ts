@@ -25,6 +25,7 @@ const NonMemberUserId = createGuid();
 
 const NewLibrary: ILibraryAdd = {
   name: 'Test Library',
+  timeZone: 'America/Los_Angeles',
   description: 'Test Library Description'
 };
 

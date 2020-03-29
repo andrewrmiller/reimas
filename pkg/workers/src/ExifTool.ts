@@ -20,6 +20,7 @@ export interface IExifResponse {
   MinorVersion?: string;
   CompatibleBrands?: string;
   MovieHeaderVersion?: number;
+  DateTimeOriginal?: string;
   CreateDate?: string;
   ModifyDate?: string;
   TimeScale?: number;

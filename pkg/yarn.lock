@@ -286,10 +286,20 @@
     "@types/istanbul-reports" "^1.1.1"
     "@types/yargs" "^13.0.0"
 
-"@picstrata/client@^0.3.4":
-  version "0.3.4"
-  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.3.4.tgz#ff868b24b177043188368896b8eae33d65fdbb62"
-  integrity sha512-/nWQXUKpgwgDDaJebE+4bgR89uValDkUyubuhvsh3NAH10OI/MDx5QevwkRG1hXZ69QAcWCUSTQRjQ4Yk78Fkw==
+"@js-joda/core@^2.0.0":
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/@js-joda/core/-/core-2.0.0.tgz#e9a351ee6feb91262770e2a3d085aa0219ad6afb"
+  integrity sha512-OWm/xa9O9e4ugzNHoRT3IsXZZYfaV6Ia1aRwctOmCQ2GYWMnhKBzMC1WomqCh/oGxEZKNtPy5xv5//VIAOgMqw==
+
+"@js-joda/timezone@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@js-joda/timezone/-/timezone-2.2.0.tgz#6085937d83791cd0bda0b43b533273f2f76b678b"
+  integrity sha512-Ks1F35VAEhQjlXQd9iqkbCkYGOUmCtMPfrjurgdoAGFqy4Q83Ob/p865E6N+mFAhlpWW1iFpwsznhdrVmtSZ2w==
+
+"@picstrata/client@^0.3.7":
+  version "0.3.7"
+  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.3.7.tgz#62d32cb60c7d064d386317d04275b9be459a8e61"
+  integrity sha512-1kRd0pgPC1/bZbK2WGCtAw2QcyPQ6Gm+VxUhwzjgjxi1Cv2ZZE5LAoBC4JuLSpP0z3b1y0FdbDFYOzAEXdIk8w==
   dependencies:
     typescript "^3.7.2"
 
@@ -387,13 +397,6 @@
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@types/events/-/events-3.0.0.tgz#2862f3f58a9a7f7c3e78d79f130dd4d71c25c2a7"
   integrity sha512-EaObqwIvayI5a8dCzhFrjKzVwKLxjoG9T6Ppd5CEo07LRKfQ8Yokw54r5+Wq7FaBQ+yXRvQAYPrHwya1/UFt9g==
-
-"@types/exif@^0.6.0":
-  version "0.6.0"
-  resolved "https://registry.yarnpkg.com/@types/exif/-/exif-0.6.0.tgz#8d6c6914c04bdda775212b5c8ee25ed3b4fdd70c"
-  integrity sha512-TyXIoevHn10FjPnCbNfpFlgb44c5KPsCbdWaNf59T76fKOl6YWfBQTmlt84kI7GtY4VuG9aW0qlEEmMuNDldoQ==
-  dependencies:
-    "@types/node" "*"
 
 "@types/express-serve-static-core@*":
   version "4.17.1"
@@ -1334,7 +1337,7 @@ date-fns@^1.30.1:
   resolved "https://registry.yarnpkg.com/date-fns/-/date-fns-1.30.1.tgz#2e71bf0b119153dbb4cc4e88d9ea5acfb50dc05c"
   integrity sha512-hBSVCvSmWC+QypYObzwGOd9wqdDpOt+0wl0KbU+R+uuZBS1jN8VsD1ss3irQDknRj5NvxiTF6oj/nDRnN/UQNw==
 
-debug@2.6.9, debug@^2.2, debug@^2.2.0, debug@^2.3.3, debug@~2.6.9:
+debug@2.6.9, debug@^2.2.0, debug@^2.3.3, debug@~2.6.9:
   version "2.6.9"
   resolved "https://registry.yarnpkg.com/debug/-/debug-2.6.9.tgz#5d128515df134ff327e90a4c93f4e077a536341f"
   integrity sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==
@@ -1596,13 +1599,6 @@ execa@^1.0.0:
     p-finally "^1.0.0"
     signal-exit "^3.0.0"
     strip-eof "^1.0.0"
-
-exif@^0.6.0:
-  version "0.6.0"
-  resolved "https://registry.yarnpkg.com/exif/-/exif-0.6.0.tgz#60a62668076542cb7e4f57199d4ac6f37d2c5f4a"
-  integrity sha1-YKYmaAdlQst+T1cZnUrG830sX0o=
-  dependencies:
-    debug "^2.2"
 
 exit@^0.1.2:
   version "0.1.2"

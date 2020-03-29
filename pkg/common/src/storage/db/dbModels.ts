@@ -18,6 +18,7 @@ export interface IDbLibrary {
   library_id: string;
   name: string;
   description: string;
+  time_zone: string;
   user_role: Role;
 }
 
@@ -61,9 +62,9 @@ export interface IDbFile {
   is_video: boolean;
   height: number;
   width: number;
-  imported_on: string;
-  taken_on?: string;
-  modified_on?: string;
+  imported_on: Date;
+  taken_on?: Date;
+  modified_on?: Date;
   rating?: number;
   title?: string;
   comments?: string;

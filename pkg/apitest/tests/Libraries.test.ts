@@ -16,6 +16,7 @@ const NonMemberUserId = createGuid();
 
 const NewLibrary: ILibraryAdd = {
   name: 'Test Library',
+  timeZone: 'America/Los_Angeles',
   description: 'Test Library Description'
 };
 const UpdatedLibraryName = 'Test Library Updated';
@@ -48,6 +49,7 @@ describe('Library Tests', () => {
       return result.json().then((library: ILibrary) => {
         testLibraryId = library.libraryId;
         expect(library.name).toBe(NewLibrary.name);
+        expect(library.timeZone).toBe(NewLibrary.timeZone);
         expect(library.description).toBe(NewLibrary.description);
         expect(library.userRole).toBe(Role.Owner);
       });

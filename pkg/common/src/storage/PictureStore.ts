@@ -12,7 +12,6 @@ import {
 import amqp from 'amqplib';
 import config from 'config';
 import createDebug from 'debug';
-import { ExifData, ExifImage } from 'exif';
 import ffmpeg from 'ffmpeg';
 import fs from 'fs';
 import createHttpError from 'http-errors';
@@ -118,50 +117,19 @@ export class PictureStore {
     filePath: string
   ): Promise<IFileMetadata> {
     const metadata: IFileMetadata = { isVideo: false };
-    debug('Getting picture metadata.');
+    debug('Getting picture type and dimensions.');
     await sizeOfPromise(filePath)
       .then(imageInfo => {
         metadata.type = imageInfo.type;
         metadata.height = imageInfo.height;
         metadata.width = imageInfo.width;
-        metadata.orientation = imageInfo.orientation;
       })
       .catch(err => {
         debug(err);
         throw err;
       });
 
-    if (
-      metadata.type === PictureMimeType.Jpeg ||
-      metadata.type === PictureMimeType.Tiff
-    ) {
-      debug('Retrieving EXIF metadata.');
-      await PictureStore.getExifInfo(filePath)
-        .then(exifData => {
-          metadata.takenOn = exifData.exif.CreateDate;
-          metadata.comments = exifData.exif.UserComment?.toString();
-        })
-        .catch(err => {
-          throw err;
-        });
-    }
-
     return metadata;
-  }
-
-  private static getExifInfo(imageFile: string): Promise<ExifData> {
-    return new Promise((resolve, reject) => {
-      const _ = new ExifImage(
-        imageFile,
-        (error: Error | null, exifData: ExifData) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(exifData);
-          }
-        }
-      );
-    });
   }
 
   /**
@@ -836,21 +804,28 @@ export class PictureStore {
     return db
       .getFileContentInfo(this.getUserId(), libraryId, fileId)
       .then(fileInfo => {
-        return fileSystem.importFile(localPath, fileInfo.path).then(() => {
-          // File has been imported into the file system.  Update the database.
-          return db
-            .updateFileDimsAndSize(
-              SystemUserId,
-              libraryId,
-              fileId,
-              height,
-              width,
-              fileSize
-            )
-            .then(_ => {
-              return this.enqueueRecalcFolderJob(libraryId, fileInfo.folderId);
-            });
-        });
+        return fileSystem
+          .importFile(localPath, `${libraryId}/${fileInfo.path}`)
+          .then(() => {
+            PictureStore.deleteFile(localPath);
+
+            // File has been imported into the file system.  Update the database.
+            return db
+              .updateFileDimsAndSize(
+                SystemUserId,
+                libraryId,
+                fileId,
+                height,
+                width,
+                fileSize
+              )
+              .then(_ => {
+                return this.enqueueRecalcFolderJob(
+                  libraryId,
+                  fileInfo.folderId
+                );
+              });
+          });
       })
       .catch(err => {
         if (err.status) {
