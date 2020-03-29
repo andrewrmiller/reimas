@@ -12,7 +12,7 @@ export class Dates {
    */
   public static exifDateTimeToInstant(
     exifDateTime: string | undefined,
-    defaultTimeZone: string
+    timeZone: string
   ) {
     if (!exifDateTime) {
       return undefined;
