@@ -96,15 +96,10 @@ export class LocalFileSystem implements IFileSystem {
     const target = `${this.config.root}/${targetPath}`;
 
     debug(`Importing ${localPath} as ${target}`);
-    return fsPromises
-      .copyFile(localPath, target, fs.constants.COPYFILE_EXCL)
-      .then(() => {
-        // After cleaning up, return the filename to the caller
-        // so they know what file we ended up using.
-        debug(`Deleting ${localPath}`);
-        fsPromises.unlink(localPath);
-        return Paths.getLastSubpath(target);
-      });
+    return fsPromises.copyFile(localPath, target).then(() => {
+      // Return the filename to the caller so they know what file we ended up using.
+      return Paths.getLastSubpath(target);
+    });
   }
 
   /**

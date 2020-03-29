@@ -73,8 +73,8 @@ const TestPictures = [
   {
     path: '../../test/samples/Tires.jpg',
     contentType: PictureMimeType.Jpg,
-    height: 593,
-    width: 395,
+    height: 395,
+    width: 593,
     byteLength: 138666,
     // This file is rotated on upload.
     processedByteLength: 71134
@@ -240,9 +240,10 @@ describe('File Tests', () => {
       ).then(response => {
         expect(response.status).toBe(HttpStatusCode.OK);
         return response.blob().then((blob: any) => {
-          expect(blob.size).toBe(
-            TestPictures[i].processedByteLength || TestPictures[i].byteLength
-          );
+          expect(
+            blob.size === TestPictures[i].processedByteLength ||
+              blob.size === TestPictures[i].byteLength
+          ).toBe(true);
         });
       });
     }
@@ -355,6 +356,18 @@ describe('File Tests', () => {
         expect(response.status).toBe(HttpStatusCode.OK);
       });
     }
+
+    // Files should be rotated if necessary.
+    await sendRequest(
+      `libraries/${testLibraryId}/files/${fileIds[4]}`,
+      ReaderUserId
+    ).then(response => {
+      response.json().then((file: IFile) => {
+        expect(file.width).toBe(TestPictures[4].height);
+        expect(file.height).toBe(TestPictures[4].width);
+        expect(file.fileSize).toBe(TestPictures[4].processedByteLength);
+      });
+    });
 
     // Metadata extracted from files should also be available.
     await sendRequest(

@@ -110,9 +110,6 @@ export class S3FileSystem implements IFileSystem {
    *
    * @param localPath Local path to the file to import.
    * @param targetPath Relative path for the imported file.
-   *
-   * NOTE: The source file at localPath will be deleted after
-   * the file is imported or if an error occurs.
    */
   public importFile(localPath: string, targetPath: string) {
     debug(
@@ -128,12 +125,8 @@ export class S3FileSystem implements IFileSystem {
       })
       .promise()
       .then(() => {
-        // After cleaning up, return the filename to the caller
-        // so they know what file we ended up using.
+        // Return the filename to the caller so they know what file we ended up using.
         debug(`Import successful.  Deleting ${localPath}.`);
-        fsPromises.unlink(localPath).catch(err => {
-          debug(`Error deleting file that was just imported: ${err}.`);
-        });
         return Paths.getLastSubpath(targetPath);
       });
   }

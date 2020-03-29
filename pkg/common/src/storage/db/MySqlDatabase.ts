@@ -437,7 +437,45 @@ export class MySqlDatabase {
       update.name ? update.name : dbFile.name,
       update.rating ? update.rating : dbFile.rating,
       update.title ? update.title : dbFile.title,
-      update.comments ? update.comments : dbFile.comments
+      update.comments ? update.comments : dbFile.comments,
+      dbFile.height,
+      dbFile.width,
+      dbFile.file_size
+    ]).then((dbFileUpdated: IDbFile) => {
+      return MySqlDatabase.convertDbFile(dbFileUpdated);
+    });
+  }
+
+  public async updateFileDimsAndSize(
+    userId: string,
+    libraryId: string,
+    fileId: string,
+    height: number,
+    width: number,
+    fileSize: number
+  ) {
+    debug(
+      `Updating dimensions and size of file ${fileId} in library ${libraryId}.`
+    );
+    const dbFile = await this.callSelectOneProc<IDbFile>('get_file', [
+      userId,
+      libraryId,
+      fileId
+    ]).catch(err => {
+      throw err;
+    });
+
+    return this.callChangeProc<IDbFile>('update_file', [
+      userId,
+      libraryId,
+      fileId,
+      dbFile.name,
+      dbFile.rating,
+      dbFile.title,
+      dbFile.comments,
+      height,
+      width,
+      fileSize
     ]).then((dbFileUpdated: IDbFile) => {
       return MySqlDatabase.convertDbFile(dbFileUpdated);
     });

@@ -7,6 +7,7 @@ import {
 } from 'common';
 import createDebug from 'debug';
 import fs from 'fs';
+import jo from 'jpeg-autorotate';
 import sharp from 'sharp';
 import { path as buildTempPath } from 'temp';
 import { ExifTool } from './ExifTool';
@@ -33,8 +34,14 @@ export function processPicture(
         localFilePath
       );
 
-      if (metadata.Orientation && metadata.Orientation.startsWith('Rotate')) {
-        debug('*** ROTATION NEEDED ***');
+      const orientation = metadata.Orientation;
+      if (orientation && orientation.startsWith('Rotate')) {
+        await autoRotate(
+          pictureStore,
+          message.libraryId,
+          message.fileId,
+          localFilePath
+        );
       }
 
       return createThumbnails(
@@ -134,6 +141,48 @@ function updateMetadata(
         return metadata;
       });
   });
+}
+
+/**
+ * Automatically rotates the picture to the right orientation and pushes
+ * the rotated file back into the store.
+ *
+ * @param pictureStore The PictureStore instance to use.
+ * @param libraryId Unique ID of the parent library.
+ * @param fileId Unique ID of the file to update.
+ * @param localFilePath Local path to the file.
+ */
+async function autoRotate(
+  pictureStore: PictureStore,
+  libraryId: string,
+  fileId: string,
+  localFilePath: string
+) {
+  debug(`Rotating picture ${fileId}`);
+  await jo
+    .rotate(localFilePath, { quality: 90 })
+    .then(result => {
+      // Save the rotated file to disk, save it back to the store
+      // and make sure the database is updated.
+      return fs.promises.writeFile(localFilePath, result.buffer).then(_ => {
+        return pictureStore.updatePicture(
+          libraryId,
+          fileId,
+          localFilePath,
+          result.buffer.byteLength,
+          result.dimensions.height,
+          result.dimensions.width
+        );
+      });
+    })
+    .then(file => {
+      debug('File auto rotated successfully.');
+      return file;
+    })
+    .catch(err => {
+      debug(`Auto rotation failed: ${err.message}`);
+      throw err;
+    });
 }
 
 function createThumbnail(

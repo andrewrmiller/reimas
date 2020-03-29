@@ -17,7 +17,6 @@ import ffmpeg from 'ffmpeg';
 import fs from 'fs';
 import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
-import jo from 'jpeg-autorotate';
 import { path as buildTempPath } from 'temp';
 import * as util from 'util';
 import { v1 as createGuid } from 'uuid';
@@ -41,6 +40,7 @@ import { DbFactory } from './db/DbFactory';
 import { FileSystemFactory } from './files/FileSystemFactory';
 
 const debug = createDebug('storage:picturestore');
+const fsPromises = fs.promises;
 const sizeOfPromise = util.promisify(sizeOf);
 
 enum FormatSupportStatus {
@@ -280,6 +280,22 @@ export class PictureStore {
       ext === VideoExtension.WMV ||
       ext === VideoExtension.AVI
     );
+  }
+
+  /**
+   * Deletes a file in the file system.
+   *
+   * @param localPath Path to the file to delete.
+   */
+  private static deleteFile(localPath: string) {
+    fsPromises
+      .unlink(localPath)
+      .then(_ => {
+        debug(`Deleted file ${localPath}.`);
+      })
+      .catch(err => {
+        debug(`Error deleting file: ${err}.`);
+      });
   }
 
   // User ID is optional here to allow for anonymous requests.
@@ -751,32 +767,6 @@ export class PictureStore {
       );
     });
 
-    // Rotate images if necessary.
-    // TODO: This should be moved into the worker process.
-    if (metadata.orientation && metadata.orientation !== 1) {
-      debug(`Rotating picture ${filename}`);
-      fileSize = await jo
-        .rotate(localPath, { quality: 90 })
-        .then(result => {
-          if (metadata.orientation === 6 || metadata.orientation === 8) {
-            const temp = metadata.height;
-            metadata.height = metadata.width;
-            metadata.width = temp;
-          }
-          return fs.promises.writeFile(localPath, result.buffer).then(() => {
-            const stats = fs.statSync(localPath);
-            return stats.size;
-          });
-        })
-        .catch(err => {
-          debug(err.message);
-          throw createHttpError(
-            HttpStatusCode.BAD_REQUEST,
-            `Image file could not be rotated: ${localPath}`
-          );
-        });
-    }
-
     return db
       .getFolder(userId, libraryId, folderId)
       .then(folder => {
@@ -786,8 +776,10 @@ export class PictureStore {
             localPath,
             this.buildLibraryPath(libraryId, folder.path, fileId)
           )
-          .then(filenameUsed => {
-            // File has been impmorted into the file system.  Now
+          .then(_ => {
+            PictureStore.deleteFile(localPath);
+
+            // File has been imported into the file system.  Now
             // create a row in the database with the file's metadata.
             return db
               .addFile(userId, libraryId, folderId, fileId, {
@@ -808,6 +800,63 @@ export class PictureStore {
         if (err.status) {
           throw err;
         } else {
+          throw createHttpError(
+            HttpStatusCode.INTERNAL_SERVER_ERROR,
+            err.message
+          );
+        }
+      });
+  }
+
+  /**
+   * Updates an existing picture in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   * @param localPath Local path to the updated picture.
+   * @param fileSize Size of the file in bytes.
+   * @param height Height of the updated picture.
+   * @param width Width of the picture picture.
+   */
+  public updatePicture(
+    libraryId: string,
+    fileId: string,
+    localPath: string,
+    fileSize: number,
+    height: number,
+    width: number
+  ) {
+    debug(
+      `Importing updated picture for file ${fileId} in library ${libraryId}.`
+    );
+
+    const db = DbFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
+
+    return db
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
+      .then(fileInfo => {
+        return fileSystem.importFile(localPath, fileInfo.path).then(() => {
+          // File has been imported into the file system.  Update the database.
+          return db
+            .updateFileDimsAndSize(
+              SystemUserId,
+              libraryId,
+              fileId,
+              height,
+              width,
+              fileSize
+            )
+            .then(_ => {
+              return this.enqueueRecalcFolderJob(libraryId, fileInfo.folderId);
+            });
+        });
+      })
+      .catch(err => {
+        if (err.status) {
+          throw err;
+        } else {
+          debug(`Error updating picture: ${err}`);
           throw createHttpError(
             HttpStatusCode.INTERNAL_SERVER_ERROR,
             err.message
@@ -854,6 +903,8 @@ export class PictureStore {
           .then(() => {
             const fileSystemPath = `${thumbnailFolder}/${fileId}`;
             return fileSystem.importFile(localPath, fileSystemPath).then(() => {
+              PictureStore.deleteFile(localPath);
+
               // File has been imported into the file system.  Update the database.
               return db
                 .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
@@ -921,6 +972,8 @@ export class PictureStore {
           .then(() => {
             const fileSystemPath = `${videoFolder}/${fileId}`;
             return fileSystem.importFile(localPath, fileSystemPath).then(() => {
+              PictureStore.deleteFile(localPath);
+
               // File has been imported into the file system.  Update the database.
               return db
                 .updateFileConvertedVideo(libraryId, fileId, fileSize)
