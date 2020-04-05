@@ -95,6 +95,19 @@ export class MySqlDatabase {
   }
 
   /**
+   * Decimal values are returned by mysql as strings only when they cannot
+   * be accurately represented as a number in Javascript.  Since we value
+   * both accuracy and consistency we always want them to be strings.
+   *
+   * @param decimalValue Decimal column value as returned from mysql.
+   */
+  private static convertDecimalValue(
+    decimalValue: number | string | undefined
+  ) {
+    return decimalValue ? decimalValue.toString() : undefined;
+  }
+
+  /**
    * Converts an IDbFile object into an IFile object.
    */
   private static convertDbFile(dbFile: IDbFile) {
@@ -108,6 +121,10 @@ export class MySqlDatabase {
     )!;
     file.modifiedOn = MySqlDatabase.dbDateTimeToUtcDateTime(dbFile.modified_on);
     file.takenOn = MySqlDatabase.dbDateTimeToUtcDateTime(dbFile.taken_on);
+
+    file.latitude = MySqlDatabase.convertDecimalValue(dbFile.latitude);
+    file.longitude = MySqlDatabase.convertDecimalValue(dbFile.longitude);
+    file.altitude = MySqlDatabase.convertDecimalValue(dbFile.altitude);
 
     return {
       ...file,
@@ -139,7 +156,15 @@ export class MySqlDatabase {
       // to MySQL in UTC.  When we get them back from the database
       // we don't want any timezone translation to occur so we
       // configure the mysql client with timezone='Z'.
-      timezone: 'Z'
+      timezone: 'Z',
+
+      // We use the DECIMAL type to store GPS coordinates.
+      supportBigNumbers: true,
+
+      // It would be nice to set bigNumberStrings to true as well so that
+      // we don't have to worry about precision loss, but it affects count
+      // values as well and we want those to be numbers.
+      bigNumberStrings: false
     });
 
     this.conn.connect();
@@ -469,6 +494,8 @@ export class MySqlDatabase {
       userId,
       libraryId,
       fileId,
+      dbFile.height,
+      dbFile.width,
       update.takenOn
         ? MySqlDatabase.utcDateTimeToDbDateTime(update.takenOn)
         : dbFile.taken_on,
@@ -476,8 +503,9 @@ export class MySqlDatabase {
       update.rating ? update.rating : dbFile.rating,
       update.title ? update.title : dbFile.title,
       update.comments ? update.comments : dbFile.comments,
-      dbFile.height,
-      dbFile.width,
+      update.latitude ? update.latitude : dbFile.latitude,
+      update.longitude ? update.longitude : dbFile.longitude,
+      update.altitude ? update.altitude : dbFile.altitude,
       dbFile.file_size
     ]).then((dbFileUpdated: IDbFile) => {
       return MySqlDatabase.convertDbFile(dbFileUpdated);
@@ -507,13 +535,16 @@ export class MySqlDatabase {
       userId,
       libraryId,
       fileId,
+      height,
+      width,
       dbFile.taken_on,
       dbFile.name,
       dbFile.rating,
       dbFile.title,
       dbFile.comments,
-      height,
-      width,
+      dbFile.latitude,
+      dbFile.longitude,
+      dbFile.altitude,
       fileSize
     ]).then((dbFileUpdated: IDbFile) => {
       return MySqlDatabase.convertDbFile(dbFileUpdated);

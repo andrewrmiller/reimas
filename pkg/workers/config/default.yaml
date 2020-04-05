@@ -11,3 +11,5 @@ FileSystem:
     bucket: picstrata-localdev  
 MessageQueue:
   url: amqp://localhost
+TimeZoneDb:
+  apiKey: 'use environment variable'

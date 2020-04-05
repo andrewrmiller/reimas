@@ -6,9 +6,12 @@ import {
   PictureStore,
   ThumbnailDimensions
 } from 'common';
+import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
 import jo from 'jpeg-autorotate';
+import fetch from 'node-fetch';
+import queryString from 'query-string';
 import sharp from 'sharp';
 import { path as buildTempPath } from 'temp';
 import { ExifTool } from './ExifTool';
@@ -36,7 +39,7 @@ export function processPicture(
       );
 
       const orientation = metadata.Orientation;
-      if (orientation && orientation.startsWith('Rotate')) {
+      if (orientation && orientation !== 1) {
         await autoRotate(
           pictureStore,
           message.libraryId,
@@ -67,7 +70,7 @@ export function processPicture(
         });
     })
     .catch(err => {
-      debug(`Error creating thumbnails: %o`, err);
+      debug(`Error processing picture : %o`, err);
       callback(false);
     });
 }
@@ -123,31 +126,89 @@ export function createThumbnails(
  * @param fileId Unique ID of the file to update.
  * @param localFilePath Local path to the file.
  */
-function updateMetadata(
+export function updateMetadata(
   pictureStore: PictureStore,
   libraryId: string,
   fileId: string,
   localFilePath: string
 ) {
   return ExifTool.getMetadata(localFilePath).then(metadata => {
-    return pictureStore.getLibrary(libraryId).then(library => {
-      const takenOnInstant = Dates.exifDateTimeToInstant(
-        metadata.DateTimeOriginal || metadata.CreateDate,
-        library.timeZone
-      );
+    return pictureStore.getLibrary(libraryId).then(async library => {
+      // By default we use the time zone of the library when figuring out
+      // the date/time of the file.  But if there are GPS coordinates we
+      // try to use those coordinates to figure out the actual time zone.
+      let timeZone = library.timeZone;
+      if (metadata.GPSLatitude && metadata.GPSLongitude) {
+        timeZone = await getGpsTimeZone(
+          metadata.GPSLatitude,
+          metadata.GPSLongitude
+        ).catch(err => {
+          debug('Error: Failed to determine time zone from GPS coordiantes.');
+          debug(err.message);
+          debug('Using library default time zone instead.');
+        });
+      }
+
+      // The taken on timestamp could come from one of two places.
+      let takenOn = metadata.DateTimeOriginal || metadata.CreateDate;
+
+      // In some files the date may not be set to anything meaningful.
+      if (takenOn && takenOn.startsWith('0000')) {
+        takenOn = undefined;
+      }
+
+      // Convert the EXIF date/time (which includes no time zone info) to
+      // an instant using the time zone we selected.
+      const takenOnInstant = Dates.exifDateTimeToInstant(takenOn, timeZone);
 
       return pictureStore
         .updateFile(libraryId, fileId, {
+          takenOn: takenOnInstant ? takenOnInstant.toString() : undefined,
           rating: metadata.Rating,
           title: metadata.Title,
           comments: metadata.Comment,
-          tags: metadata.Keyword,
-          takenOn: takenOnInstant ? takenOnInstant.toString() : undefined
+          latitude: metadata.GPSLatitude,
+          longitude: metadata.GPSLongitude,
+          altitude: metadata.GPSAltitude,
+          tags: metadata.Keyword
         } as IFileUpdate)
         .then(result => {
           debug('File metadata updated successfully');
           return metadata;
         });
+    });
+  });
+}
+
+/**
+ * Retrieves a time zone value given latitude and longitude.
+ *
+ * @param latitude Latitude where the picture was taken.
+ * @param longitude Longitude where the picture was taken.
+ */
+async function getGpsTimeZone(latitude: string, longitude: string) {
+  const params = {
+    key: config.get<string>('TimeZoneDb.apiKey'),
+    by: 'position',
+    format: 'json',
+    lat: latitude,
+    lng: longitude
+  };
+
+  return fetch(
+    `http://api.timezonedb.com/v2.1/get-time-zone?${queryString.stringify(
+      params
+    )}`
+  ).then(response => {
+    if (!response.ok) {
+      throw new Error(
+        `timezonedb.com API call failed with status: ${response.status}`
+      );
+    }
+
+    return response.json().then(info => {
+      debug(`GPS coordinates mapped to time zone: ${info.zoneName}`);
+      return info.zoneName;
     });
   });
 }

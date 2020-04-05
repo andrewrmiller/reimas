@@ -68,6 +68,9 @@ export interface IDbFile {
   rating?: number;
   title?: string;
   comments?: string;
+  latitude?: string;
+  longitude?: string;
+  altitude?: string;
   file_size: number;
   file_size_sm?: number;
   file_size_md?: number;

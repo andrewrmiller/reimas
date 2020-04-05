@@ -11,3 +11,6 @@ FileSystem:
     bucket: PST_S3_FILE_SYSTEM_BUCKET
 MessageQueue:
   url: PST_MESSAGE_QUEUE_URL
+TimeZoneDb:
+  apiKey: PST_TIMEZONE_DB_API_KEY
+  

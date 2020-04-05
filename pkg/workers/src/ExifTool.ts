@@ -52,12 +52,17 @@ export interface IExifResponse {
   TagString: string;
   ImageSize: string;
   Megapixels: number;
-  Orientation?: string;
+  Orientation?: number;
   Title?: string;
   Comment?: string;
   Rating?: number;
   Keyword?: string[];
   Subject?: string[];
+
+  // These numeric values stored as strings for accuracy.
+  GPSLatitude?: string; // Decimal degrees
+  GPSLongitude?: string; // Decimal degrees
+  GPSAltitude?: string; // Meters above/below sea level.
 }
 
 /**
@@ -80,7 +85,7 @@ export class ExifTool {
   ): Promise<IExifResponse> {
     return new Promise((resolve, reject) => {
       child_process.exec(
-        `${exifToolPath} -j ${filePath}`,
+        `${exifToolPath} -j -n ${filePath}`,
         (err, stdout, stderr) => {
           if (err) {
             return reject(err);

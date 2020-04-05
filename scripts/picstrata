@@ -26,7 +26,7 @@ RABBIT_MQ_CONTAINER=$RABBIT_MQ_HOST-1
 API_CONTAINER=$CONTAINER_PREFIX-api
 WORKERS_CONTAINER=$CONTAINER_PREFIX-workers
 
-VERSION=0.7.5
+VERSION=0.7.6
 
 buildContainers () {
 	cd pkg
@@ -61,6 +61,7 @@ startServices() {
 							-e PST_DATABASE_USER=$PST_DATABASE_USER \
 							-e PST_DATABASE_PASSWORD=$PST_DATABASE_PASSWORD \
 							-e PST_MESSAGE_QUEUE_URL=amqp://$HOST_IP \
+							-e PST_TIMEZONE_DB_API_KEY=$PST_TIMEZONE_DB_API_KEY \
 							-e DEBUG=* \
 							picstrata/workers:latest
 	fi

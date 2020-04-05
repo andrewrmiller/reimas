@@ -15,7 +15,7 @@ export const ApiBaseUrl = `http://localhost:${process.env.APITEST_PORT}`;
 // 'guest' password.  Probably should make this more secure at some point.
 const AuthorizationHeader = 'Authorization';
 const RabbitAuthHeaderValue = 'Basic Z3Vlc3Q6Z3Vlc3Q=';
-const WaitRetryCount = 15;
+const WaitRetryCount = 20;
 
 const ApiKey = process.env.PST_API_KEY_1;
 

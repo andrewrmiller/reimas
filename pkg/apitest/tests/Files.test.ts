@@ -72,13 +72,13 @@ const TestPictures = [
     byteLength: 31780
   },
   {
-    path: '../../test/samples/Tires.jpg',
+    path: '../../test/samples/Abbey.jpg',
     contentType: PictureMimeType.Jpg,
-    height: 395,
-    width: 593,
-    byteLength: 138666,
+    height: 1512,
+    width: 2016,
+    byteLength: 889411,
     // This file is rotated on upload.
-    processedByteLength: 71134
+    processedByteLength: 933484
   }
 ];
 
@@ -105,11 +105,11 @@ const TestVideos = [
     byteLength: 410162
   },
   {
-    path: '../../test/samples/star_trails.mov',
+    path: '../../test/samples/Puffins.mov',
     contentType: VideoMimeType.MOV,
-    height: 720,
-    width: 1280,
-    byteLength: 5038478
+    height: 320,
+    width: 568,
+    byteLength: 311253
   }
 ];
 
@@ -119,7 +119,7 @@ describe('File Tests', () => {
   const fileIds: string[] = [];
 
   beforeAll(() => {
-    jest.setTimeout(15000);
+    jest.setTimeout(20000);
     debug(`Testing file routes on API server at ${ApiBaseUrl}`);
   });
 
@@ -358,7 +358,7 @@ describe('File Tests', () => {
       });
     }
 
-    // Files should be rotated if necessary.
+    // Files should be rotated if necessary and GPS coords should be imported.
     await sendRequest(
       `libraries/${testLibraryId}/files/${fileIds[4]}`,
       ReaderUserId
@@ -367,6 +367,10 @@ describe('File Tests', () => {
         expect(file.width).toBe(TestPictures[4].height);
         expect(file.height).toBe(TestPictures[4].width);
         expect(file.fileSize).toBe(TestPictures[4].processedByteLength);
+        expect(file.latitude).toBe('56.3349722222');
+        expect(file.longitude).toBe('-6.3922305556');
+        expect(file.altitude).toBe('19.19868277');
+        expect(file.takenOn).toBe('2019-06-28T12:43:29.000Z');
       });
     });
 

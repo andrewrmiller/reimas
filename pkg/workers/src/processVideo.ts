@@ -5,7 +5,7 @@ import fs from 'fs';
 import rimraf from 'rimraf';
 import { path as buildTempPath } from 'temp';
 import { getLocalFilePath } from './getLocalFilePath';
-import { createThumbnails } from './processPicture';
+import { createThumbnails, updateMetadata } from './processPicture';
 
 const fsPromises = fs.promises;
 const debug = createDebug('workers:processVideo');
@@ -14,12 +14,20 @@ export function processVideo(
   message: IProcessVideoMsg,
   callback: (ok: boolean) => void
 ) {
-  debug(`Converting video file ${message.fileId} to MP4.`);
+  debug(
+    `Processing video file ${message.fileId} in library ${message.libraryId}.`
+  );
   const pictureStore = PictureStore.createForSystemOp();
 
   return getLocalFilePath(message.libraryId, message.fileId)
-    .then(localFilePath => {
-      debug(`Processing local video file ${localFilePath}.`);
+    .then(async localFilePath => {
+      await updateMetadata(
+        pictureStore,
+        message.libraryId,
+        message.fileId,
+        localFilePath
+      );
+
       return new ffmpeg(localFilePath)
         .then(video => {
           return createVideoThumbnails(pictureStore, message, video).then(
