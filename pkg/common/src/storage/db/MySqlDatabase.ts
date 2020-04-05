@@ -179,7 +179,7 @@ export class MySqlDatabase {
 
   public getStatistics() {
     debug('Retrieving database statistics.');
-    return this.callSelectOneProc<IDbLibrary>('get_statistics', []).then(
+    return this.callSelectOneProc<IDbLibrary>('pst_get_statistics', []).then(
       stats => {
         return ChangeCase.toCamelObject(stats) as IStatistics;
       }
@@ -188,18 +188,18 @@ export class MySqlDatabase {
 
   public getLibraries(userId: string) {
     debug(`Retrieving all libraries for user ${userId}.`);
-    return this.callSelectManyProc<IDbLibrary>('get_libraries', [userId]).then(
-      dbLibraries => {
-        return dbLibraries.map(dbLibrary => {
-          return ChangeCase.toCamelObject(dbLibrary) as ILibrary;
-        });
-      }
-    );
+    return this.callSelectManyProc<IDbLibrary>('pst_get_libraries', [
+      userId
+    ]).then(dbLibraries => {
+      return dbLibraries.map(dbLibrary => {
+        return ChangeCase.toCamelObject(dbLibrary) as ILibrary;
+      });
+    });
   }
 
   public getLibrary(userId: string, libraryId: string) {
     debug(`Retrieving library ${libraryId} for user ${userId}.`);
-    return this.callSelectOneProc<IDbLibrary>('get_library', [
+    return this.callSelectOneProc<IDbLibrary>('pst_get_library', [
       userId,
       libraryId
     ]).then(dbLibrary => {
@@ -211,7 +211,7 @@ export class MySqlDatabase {
     debug(
       `Adding a new library: ${newLibrary.name} on behalf of user ${userId}`
     );
-    return this.callChangeProc<IDbLibrary>('add_library', [
+    return this.callChangeProc<IDbLibrary>('pst_add_library', [
       userId,
       newLibrary.libraryId,
       newLibrary.name,
@@ -230,11 +230,11 @@ export class MySqlDatabase {
     debug(
       `Updating existing library ${libraryId} on behalf of user ${userId}.`
     );
-    return this.callSelectOneProc<IDbLibrary>('get_library', [
+    return this.callSelectOneProc<IDbLibrary>('pst_get_library', [
       userId,
       libraryId
     ]).then(dbLibrary => {
-      return this.callChangeProc<IDbLibrary>('update_library', [
+      return this.callChangeProc<IDbLibrary>('pst_update_library', [
         userId,
         libraryId,
         update.name ? update.name : dbLibrary.name,
@@ -248,7 +248,7 @@ export class MySqlDatabase {
 
   public deleteLibrary(userId: string, libraryId: string) {
     debug(`Deleting library ${libraryId} on behalf of user ${userId}.`);
-    return this.callChangeProc<IDbLibrary>('delete_library', [
+    return this.callChangeProc<IDbLibrary>('pst_delete_library', [
       userId,
       libraryId
     ]).then((library: IDbLibrary) => {
@@ -266,7 +266,7 @@ export class MySqlDatabase {
     debug(
       `Adding user ${newUserId} to library ${libraryId} with role ${role} on folder ${folderId}.`
     );
-    return this.callChangeProc<IDbLibrary>('add_folder_user', [
+    return this.callChangeProc<IDbLibrary>('pst_add_folder_user', [
       userId,
       libraryId,
       folderId,
@@ -289,7 +289,7 @@ export class MySqlDatabase {
     debug(
       `Retrieving folders in library ${libraryId} with parent=${parentFolderId}.`
     );
-    return this.callSelectManyProc<IDbFolder>('get_folders', [
+    return this.callSelectManyProc<IDbFolder>('pst_get_folders', [
       userId,
       libraryId,
       parentFolderId
@@ -302,7 +302,7 @@ export class MySqlDatabase {
 
   public getFolder(userId: string, libraryId: string, folderId: string) {
     debug(`Retrieving folder ${folderId} in library ${libraryId}.`);
-    return this.callSelectOneProc<IDbFolder>('get_folder', [
+    return this.callSelectOneProc<IDbFolder>('pst_get_folder', [
       userId,
       libraryId,
       folderId
@@ -317,11 +317,10 @@ export class MySqlDatabase {
     folderId: string
   ) {
     debug(`Retrieving folder ${folderId} in library ${libraryId}.`);
-    return this.callSelectManyProc<IDbBreadcrumb[]>('get_folder_breadcrumbs', [
-      userId,
-      libraryId,
-      folderId
-    ]).then(dbBreadcrumbs => {
+    return this.callSelectManyProc<IDbBreadcrumb[]>(
+      'pst_get_folder_breadcrumbs',
+      [userId, libraryId, folderId]
+    ).then(dbBreadcrumbs => {
       return dbBreadcrumbs.map(dbBreadcrumb => {
         return ChangeCase.toCamelObject(dbBreadcrumb) as IBreadcrumb;
       });
@@ -335,7 +334,7 @@ export class MySqlDatabase {
     add: IFolderAdd
   ) {
     debug(`Adding a new folder ${add.name} to library ${libraryId}.`);
-    return this.callChangeProc<IDbFolder>('add_folder', [
+    return this.callChangeProc<IDbFolder>('pst_add_folder', [
       userId,
       libraryId,
       folderId,
@@ -354,12 +353,12 @@ export class MySqlDatabase {
     update: IFolderUpdate
   ) {
     debug(`Updating folder ${folderId} in library ${libraryId}.`);
-    return this.callSelectOneProc<IDbFolder>('get_folder', [
+    return this.callSelectOneProc<IDbFolder>('pst_get_folder', [
       userId,
       libraryId,
       folderId
     ]).then(dbFolder => {
-      return this.callChangeProc<IDbFolder>('update_folder', [
+      return this.callChangeProc<IDbFolder>('pst_update_folder', [
         userId,
         libraryId,
         folderId,
@@ -372,7 +371,7 @@ export class MySqlDatabase {
 
   public deleteFolder(userId: string, libraryId: string, folderId: string) {
     debug(`Deleting folder ${folderId} in library ${libraryId}.`);
-    return this.callChangeProc<IDbFolder>('delete_folder', [
+    return this.callChangeProc<IDbFolder>('pst_delete_folder', [
       userId,
       libraryId,
       folderId
@@ -382,7 +381,7 @@ export class MySqlDatabase {
   }
 
   public recalcFolder(libraryId: string, folderId: string) {
-    return this.callChangeProc<IDbFolder>('recalc_folder', [
+    return this.callChangeProc<IDbFolder>('pst_recalc_folder', [
       libraryId,
       folderId
     ]).then((folder: IDbFolder) => {
@@ -392,7 +391,7 @@ export class MySqlDatabase {
 
   public getFiles(userId: string, libraryId: string, folderId: string) {
     debug(`Retrieving files in folder ${folderId} in library ${libraryId}.`);
-    return this.callSelectManyProc<IDbFile>('get_files', [
+    return this.callSelectManyProc<IDbFile>('pst_get_files', [
       userId,
       libraryId,
       folderId
@@ -403,7 +402,7 @@ export class MySqlDatabase {
 
   public getFile(userId: string, libraryId: string, fileId: string) {
     debug(`Retrieving file ${fileId} in library ${libraryId}.`);
-    return this.callSelectOneProc<IDbFile>('get_file', [
+    return this.callSelectOneProc<IDbFile>('pst_get_file', [
       userId,
       libraryId,
       fileId
@@ -416,11 +415,10 @@ export class MySqlDatabase {
     debug(
       `Retrieving file content info for ${fileId} in library ${libraryId} for user ${userId}.`
     );
-    return this.callSelectOneProc<IDbFileContentInfo>('get_file_content_info', [
-      userId,
-      libraryId,
-      fileId
-    ]).then(dbFileContentInfo => {
+    return this.callSelectOneProc<IDbFileContentInfo>(
+      'pst_get_file_content_info',
+      [userId, libraryId, fileId]
+    ).then(dbFileContentInfo => {
       return ChangeCase.toCamelObject(
         MySqlDatabase.convertBitFields(dbFileContentInfo, FileBitFields)
       ) as IFileContentInfo;
@@ -435,7 +433,7 @@ export class MySqlDatabase {
     add: IFileAdd
   ) {
     debug(`Adding a new file ${add.name} to library ${libraryId}.`);
-    return this.callChangeProc<IDbFile>('add_file', [
+    return this.callChangeProc<IDbFile>('pst_add_file', [
       userId,
       libraryId,
       folderId,
@@ -459,7 +457,7 @@ export class MySqlDatabase {
     update: IFileUpdate
   ) {
     debug(`Updating file ${fileId} in library ${libraryId}.`);
-    const dbFile = await this.callSelectOneProc<IDbFile>('get_file', [
+    const dbFile = await this.callSelectOneProc<IDbFile>('pst_get_file', [
       userId,
       libraryId,
       fileId
@@ -480,7 +478,7 @@ export class MySqlDatabase {
         );
       }
 
-      await this.callChangeProc<any>('set_file_tags', [
+      await this.callChangeProc<any>('pst_set_file_tags', [
         userId,
         libraryId,
         fileId,
@@ -490,7 +488,7 @@ export class MySqlDatabase {
       });
     }
 
-    return this.callChangeProc<IDbFile>('update_file', [
+    return this.callChangeProc<IDbFile>('pst_update_file', [
       userId,
       libraryId,
       fileId,
@@ -523,7 +521,7 @@ export class MySqlDatabase {
     debug(
       `Updating dimensions and size of file ${fileId} in library ${libraryId}.`
     );
-    const dbFile = await this.callSelectOneProc<IDbFile>('get_file', [
+    const dbFile = await this.callSelectOneProc<IDbFile>('pst_get_file', [
       userId,
       libraryId,
       fileId
@@ -531,7 +529,7 @@ export class MySqlDatabase {
       throw err;
     });
 
-    return this.callChangeProc<IDbFile>('update_file', [
+    return this.callChangeProc<IDbFile>('pst_update_file', [
       userId,
       libraryId,
       fileId,
@@ -560,7 +558,7 @@ export class MySqlDatabase {
     debug(
       `Updating ${thumbSize} thumbnail on ${fileId} in library ${libraryId}.`
     );
-    return this.callChangeProc<IDbFile>('update_file_thumbnail', [
+    return this.callChangeProc<IDbFile>('pst_update_file_thumbnail', [
       libraryId,
       fileId,
       thumbSize,
@@ -578,7 +576,7 @@ export class MySqlDatabase {
     debug(
       `Updating converted video size on ${fileId} in library ${libraryId}.`
     );
-    return this.callChangeProc<IDbFile>('update_file_cnv_video', [
+    return this.callChangeProc<IDbFile>('pst_update_file_cnv_video', [
       libraryId,
       fileId,
       fileSize
@@ -589,7 +587,7 @@ export class MySqlDatabase {
 
   public deleteFile(userId: string, libraryId: string, fileId: string) {
     debug(`Deleting file ${fileId} in library ${libraryId}.`);
-    return this.callChangeProc<IDbFile>('delete_file', [
+    return this.callChangeProc<IDbFile>('pst_delete_file', [
       userId,
       libraryId,
       fileId

@@ -95,7 +95,7 @@ migrateDb() {
 	ADMIN_PASSWORD=$(my_print_defaults -s $LOGIN_PATH | grep password | cut -d "=" -f 2)
 
 	# Tell flyway to migrate the database.
-	$FLYWAY migrate -url="$JDBC_CONNECT_URL" -user=$ADMIN_USER -password=$ADMIN_PASSWORD -table="picstrata_schema_history" -locations=filesystem:./migrate
+	$FLYWAY migrate -url="$JDBC_CONNECT_URL" -user=$ADMIN_USER -password=$ADMIN_PASSWORD -table="pst_schema_history" -locations=filesystem:./migrate
 }
 
 deleteDb() {
