@@ -2,11 +2,11 @@
 
 usage() {
 	echo
-	echo "picstrata - Build and container management utility for Picstrata."
+	echo "pst - Build and container management utility for Picstrata."
 	echo
 	echo "Usage:"
 	echo
-	echo "   picstrata <command>"
+	echo "   pst <command>"
 	echo 
 	echo "Available commands:"
 	echo

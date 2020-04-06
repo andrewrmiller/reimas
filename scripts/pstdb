@@ -2,11 +2,11 @@
 
 usage() {
 	echo
-	echo "picstratadb - Picstrata database management utility."
+	echo "pstdb - Picstrata database management utility."
 	echo
 	echo "Usage:"
 	echo
-	echo "   picstratadb <command>"
+	echo "   pstdb <command>"
 	echo 
 	echo "Available commands:"
 	echo
