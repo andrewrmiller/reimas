@@ -1,8 +1,8 @@
 import AWS from 'aws-sdk';
+import { Paths } from 'common';
 import createDebug from 'debug';
 import fs from 'fs';
-import { IS3FileSystemConfig } from '../../IFileSystemConfig';
-import { Paths } from '../../Paths';
+import { IS3FileSystemConfig } from '../config/IFileSystemConfig';
 import { IFileSystem } from './IFileSystem';
 
 const fsPromises = fs.promises;
@@ -126,7 +126,6 @@ export class S3FileSystem implements IFileSystem {
       .promise()
       .then(() => {
         // Return the filename to the caller so they know what file we ended up using.
-        debug(`Import successful.  Deleting ${localPath}.`);
         return Paths.getLastSubpath(targetPath);
       });
   }
@@ -180,7 +179,10 @@ export class S3FileSystem implements IFileSystem {
    * Retrieve a properly configured S3 client object.
    */
   private getS3Client() {
-    const credentials = new AWS.SharedIniFileCredentials({ profile: 'reimas' });
+    const credentials = new AWS.Credentials(
+      this.config.accessKeyId,
+      this.config.secretAccessKey
+    );
     AWS.config.credentials = credentials;
     AWS.config.update({ region: 'us-west-2' });
     return new AWS.S3({ apiVersion: '2006-03-01' });

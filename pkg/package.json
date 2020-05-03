@@ -3,13 +3,15 @@
   "workspaces": [
     "ffmpeg",
     "common",
+    "storage",
     "workers",
     "api",
     "apitest"
   ],
   "scripts": {
-    "build": "npm run build-common && npm run build-workers && npm run build-api && npm run build-apitest",
+    "build": "npm run build-common && npm run build-storage && npm run build-workers && npm run build-api && npm run build-apitest",
     "build-common": "npm run build --prefix common",
+    "build-storage": "npm run build --prefix storage",
     "build-workers": "npm run build --prefix workers",
     "build-api": "npm run build --prefix api",
     "build-apitest": "npm run build --prefix api"

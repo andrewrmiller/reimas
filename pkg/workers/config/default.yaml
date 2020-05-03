@@ -8,7 +8,9 @@ FileSystem:
   localFileSystem:
     root: /var/lib/picstrata/libraries
   s3FileSystem:
-    bucket: picstrata-localdev  
+    accessKeyId: 'use environment variable'
+    secretAccessKey: 'use environment variable'
+    bucket: picstrata-localdev
 MessageQueue:
   url: amqp://localhost
 TimeZoneDb:

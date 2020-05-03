@@ -1,6 +1,7 @@
-import { HttpStatusCode, PictureStore } from 'common';
+import { HttpStatusCode } from 'common';
 import express from 'express';
 import createHttpError from 'http-errors';
+import { PictureStore } from 'storage';
 import { getApiKey, getUserIdHeader } from '../common/HttpHeader';
 
 export function createPictureStore(

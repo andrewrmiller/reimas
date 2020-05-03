@@ -1,8 +1,9 @@
-import { IProcessVideoMsg, PictureStore, VideoExtension } from 'common';
+import { VideoExtension } from 'common';
 import createDebug from 'debug';
 import ffmpeg, { Video } from 'ffmpeg';
 import fs from 'fs';
 import rimraf from 'rimraf';
+import { IProcessVideoMsg, PictureStore } from 'storage';
 import { path as buildTempPath } from 'temp';
 import { getLocalFilePath } from './getLocalFilePath';
 import { createThumbnails, updateMetadata } from './processPicture';
@@ -10,51 +11,79 @@ import { createThumbnails, updateMetadata } from './processPicture';
 const fsPromises = fs.promises;
 const debug = createDebug('workers:processVideo');
 
-export function processVideo(
-  message: IProcessVideoMsg,
-  callback: (ok: boolean) => void
-) {
+export async function processVideo(message: IProcessVideoMsg) {
   debug(
     `Processing video file ${message.fileId} in library ${message.libraryId}.`
   );
   const pictureStore = PictureStore.createForSystemOp();
 
-  return getLocalFilePath(message.libraryId, message.fileId)
-    .then(async localFilePath => {
-      await updateMetadata(
-        pictureStore,
-        message.libraryId,
-        message.fileId,
-        localFilePath
-      );
+  const localFilePath = await getLocalFilePath(
+    message.libraryId,
+    message.fileId
+  ).catch(err => {
+    debug(`Error getting local path for ${message.fileId}: ${err.message}`);
+    return null;
+  });
 
-      return new ffmpeg(localFilePath)
-        .then(video => {
-          return createVideoThumbnails(pictureStore, message, video).then(
-            () => {
-              if (message.convertToMp4) {
-                return convertToMp4(pictureStore, message, video);
-              } else {
-                debug(
-                  `Video ${message.fileId} is already MP4.  No conversion necessary.`
-                );
-                return null;
-              }
-            }
-          );
-        })
-        .finally(() => {
-          if (!pictureStore.isLocalFileSystem()) {
-            fsPromises.unlink(localFilePath);
-          }
-        });
-    })
+  if (localFilePath === null) {
+    return false;
+  }
+
+  return processLocalVideoFile(pictureStore, message, localFilePath)
     .then(() => {
-      callback(true);
+      return true;
     })
     .catch(err => {
-      debug(`Error processing video: %o`, err);
-      callback(false);
+      debug(
+        `Error caught while processing video file %s: %O`,
+        message.fileId,
+        err
+      );
+      return false;
+    })
+    .finally(() => {
+      if (!pictureStore.isLocalFileSystem()) {
+        fsPromises.unlink(localFilePath).catch(unlinkErr => {
+          debug(
+            'Error deleting temporary file for video %s: %O',
+            message.fileId,
+            unlinkErr
+          );
+        });
+      }
+    });
+}
+
+async function processLocalVideoFile(
+  pictureStore: PictureStore,
+  message: IProcessVideoMsg,
+  localFilePath: string
+) {
+  await updateMetadata(
+    pictureStore,
+    message.libraryId,
+    message.fileId,
+    localFilePath
+  );
+
+  return new ffmpeg(localFilePath)
+    .then(video => {
+      return createVideoThumbnails(pictureStore, message, video).then(() => {
+        if (message.convertToMp4) {
+          return convertToMp4(pictureStore, message, video);
+        } else {
+          debug(
+            'Video %s is already MP4.  No conversion necessary.',
+            message.fileId
+          );
+          return null;
+        }
+      });
+    })
+    .finally(() => {
+      if (!pictureStore.isLocalFileSystem()) {
+        fsPromises.unlink(localFilePath);
+      }
     });
 }
 
@@ -67,7 +96,7 @@ function createVideoThumbnails(
     prefix: `frame`
   });
 
-  debug(`Extracting frame from video file into ${tempFrameDir}.`);
+  debug('Extracting frame from video file into %s.', tempFrameDir);
   return fsPromises.mkdir(tempFrameDir).then(() => {
     return video
       .fnExtractFrameToJPG(tempFrameDir!, {
@@ -77,7 +106,6 @@ function createVideoThumbnails(
         file_name: 'exframe.jpg'
       })
       .then(frameFiles => {
-        debug(`Creating thumbnails from frame file ${frameFiles[0]}.`);
         return createThumbnails(
           pictureStore,
           message.libraryId,
@@ -89,13 +117,13 @@ function createVideoThumbnails(
         if (tempFrameDir) {
           rimraf(tempFrameDir, err => {
             if (err) {
-              debug(`Error cleaning up temporary frame directory: %o`, err);
+              debug('Error cleaning up temporary frame directory: %O', err);
             }
           });
         }
       })
       .catch(err => {
-        debug('Error extracting frame from video: %o', err);
+        debug('Error extracting frame from video: %O', err);
         throw err;
       });
   });
@@ -110,10 +138,10 @@ function convertToMp4(
     suffix: `.${VideoExtension.MP4}`
   });
 
-  debug(`Converting video file to MP4 at '${mp4Path}'`);
+  debug('Converting video file to MP4 at %s', mp4Path);
   video.setVideoFormat('mp4');
   return video.save(mp4Path).then(mp4File => {
-    debug(`Importing converted video file '${mp4File}' into library.`);
+    debug('Importing converted video file %s into library.', mp4File);
     return fsPromises
       .stat(mp4File)
       .then(stats => {
@@ -125,7 +153,7 @@ function convertToMp4(
         );
       })
       .catch(err => {
-        debug(`Error importing converted video: %o`, err);
+        debug('Error importing converted video: %O', err);
         fsPromises.unlink(mp4File);
         throw err;
       });

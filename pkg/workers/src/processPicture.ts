@@ -1,11 +1,5 @@
 import { IFileUpdate, ThumbnailSize } from '@picstrata/client';
-import {
-  Dates,
-  IProcessPictureMsg,
-  PictureExtension,
-  PictureStore,
-  ThumbnailDimensions
-} from 'common';
+import { Dates, PictureExtension, ThumbnailDimensions } from 'common';
 import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
@@ -13,6 +7,7 @@ import jo from 'jpeg-autorotate';
 import fetch from 'node-fetch';
 import queryString from 'query-string';
 import sharp from 'sharp';
+import { IProcessPictureMsg, PictureStore } from 'storage';
 import { path as buildTempPath } from 'temp';
 import { ExifTool } from './ExifTool';
 import { getLocalFilePath } from './getLocalFilePath';
@@ -20,58 +15,113 @@ import { getLocalFilePath } from './getLocalFilePath';
 const fsPromises = fs.promises;
 const debug = createDebug('workers:processPicture');
 
-export function processPicture(
-  message: IProcessPictureMsg,
-  callback: (ok: boolean) => void
-) {
+export async function processPicture(message: IProcessPictureMsg) {
   debug(
-    `Processing picture file ${message.fileId} in library ${message.libraryId}.`
+    'Processing picture %s in library %s.',
+    message.fileId,
+    message.libraryId
   );
   const pictureStore = PictureStore.createForSystemOp();
 
-  return getLocalFilePath(message.libraryId, message.fileId)
-    .then(async localFilePath => {
-      const metadata = await updateMetadata(
-        pictureStore,
-        message.libraryId,
-        message.fileId,
-        localFilePath
-      );
+  const localFilePath = await getLocalFilePath(
+    message.libraryId,
+    message.fileId
+  ).catch(err => {
+    debug('Error getting local path for %s: %O', message.fileId, err);
+    return null;
+  });
 
-      const orientation = metadata.Orientation;
-      if (orientation && orientation !== 1) {
-        await autoRotate(
-          pictureStore,
-          message.libraryId,
-          message.fileId,
-          localFilePath
-        );
-      }
+  if (localFilePath === null) {
+    return false;
+  }
 
-      return createThumbnails(
-        pictureStore,
-        message.libraryId,
-        message.fileId,
-        localFilePath
-      )
-        .then(() => {
-          // If we downloaded a temporary file, make sure we clean up.
-          if (!pictureStore.isLocalFileSystem()) {
-            fsPromises.unlink(localFilePath).catch(unlinkErr => {
-              debug(`Error deleting temporary file: ${unlinkErr}`);
-            });
-          }
-          callback(true);
-          return null;
-        })
-        .catch(thumbnailError => {
-          fs.promises.unlink(localFilePath);
-          throw thumbnailError;
-        });
+  return processLocalPictureFile(
+    pictureStore,
+    message.libraryId,
+    message.fileId,
+    localFilePath
+  )
+    .then(() => {
+      return true;
     })
     .catch(err => {
-      debug(`Error processing picture : %o`, err);
-      callback(false);
+      debug(
+        'Error caught while processing picture %s: %O',
+        message.fileId,
+        err
+      );
+      return false;
+    })
+    .finally(() => {
+      if (!pictureStore.isLocalFileSystem()) {
+        fsPromises.unlink(localFilePath).catch(unlinkErr => {
+          debug(
+            'Error deleting temporary file for picture %s: %O',
+            message.fileId,
+            unlinkErr
+          );
+        });
+      }
+    });
+}
+
+/**
+ * Extracts metadata, rotates automatically and generates thumbnails for a
+ * local picture file.
+ *
+ * @param pictureStore PictureStore instance to use.
+ * @param libraryId Unique ID of the library where the picture lives.
+ * @param fileId Unique ID of the picture file.
+ * @param localFilePath Local path to the file.
+ */
+async function processLocalPictureFile(
+  pictureStore: PictureStore,
+  libraryId: string,
+  fileId: string,
+  localFilePath: string
+) {
+  let deleteLocalFile = false;
+
+  const metadata = await updateMetadata(
+    pictureStore,
+    libraryId,
+    fileId,
+    localFilePath
+  ).catch(err => {
+    debug('Error caught while updating metadata for %s: %O', fileId, err);
+    throw err;
+  });
+
+  const orientation = metadata.Orientation;
+  if (orientation && orientation !== 1) {
+    localFilePath = await autoRotate(
+      pictureStore,
+      libraryId,
+      fileId,
+      localFilePath
+    ).catch(err => {
+      debug('Error caught while rotating picture %s: %O', fileId, err);
+      throw err;
+    });
+
+    // A new local file was created containing the rotated picture.
+    deleteLocalFile = true;
+  }
+
+  return createThumbnails(pictureStore, libraryId, fileId, localFilePath)
+    .then(() => {
+      return null;
+    })
+    .catch(err => {
+      debug('Error caught while thumbnailing %s: %O', fileId, err);
+      throw err;
+    })
+    .finally(() => {
+      if (deleteLocalFile) {
+        fsPromises.unlink(localFilePath).catch(unlinkErr => {
+          debug(`Error deleting rotation file for %s: %O`, fileId, unlinkErr);
+        });
+      }
     });
 }
 
@@ -88,6 +138,8 @@ export function createThumbnails(
   fileId: string,
   localFilePath: string
 ) {
+  debug('Creating thumbnails for %s stored at %s', fileId, localFilePath);
+
   return createThumbnail(
     pictureStore,
     libraryId,
@@ -143,7 +195,7 @@ export function updateMetadata(
           metadata.GPSLatitude,
           metadata.GPSLongitude
         ).catch(err => {
-          debug('Error: Failed to determine time zone from GPS coordiantes.');
+          debug('Error: Failed to determine time zone from GPS coordinates.');
           debug(err.message);
           debug('Using library default time zone instead.');
         });
@@ -207,7 +259,7 @@ async function getGpsTimeZone(latitude: string, longitude: string) {
     }
 
     return response.json().then(info => {
-      debug(`GPS coordinates mapped to time zone: ${info.zoneName}`);
+      debug('GPS coordinates mapped to time zone: %s', info.zoneName);
       return info.zoneName;
     });
   });
@@ -228,35 +280,37 @@ async function autoRotate(
   fileId: string,
   localFilePath: string
 ) {
-  debug(`Rotating picture ${fileId}`);
+  debug('Rotating picture %s stored at %s', fileId, localFilePath);
 
-  await jo
+  return jo
     .rotate(localFilePath, { quality: 90 })
-    .then(result => {
-      // Save the rotated file to disk, save it back to the store
-      // and make sure the database is updated.
+    .then(async result => {
       const rotatedFilePath = buildTempPath({
         prefix: 'rot',
         suffix: `.${PictureExtension.Jpg}`
       });
 
-      return fs.promises.writeFile(rotatedFilePath, result.buffer).then(_ => {
-        return pictureStore.updatePicture(
+      await fs.promises.writeFile(rotatedFilePath, result.buffer).catch(err => {
+        throw err;
+      });
+
+      await pictureStore
+        .updatePicture(
           libraryId,
           fileId,
           rotatedFilePath,
           result.buffer.byteLength,
           result.dimensions.height,
           result.dimensions.width
-        );
-      });
-    })
-    .then(file => {
-      debug('File auto rotated successfully.');
-      return file;
+        )
+        .catch(err => {
+          throw err;
+        });
+
+      return rotatedFilePath;
     })
     .catch(err => {
-      debug(`Auto rotation failed: ${err.message}`);
+      debug('%s auto rotation failed: %O', fileId, err);
       throw err;
     });
 }

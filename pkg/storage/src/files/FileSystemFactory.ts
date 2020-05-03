@@ -1,5 +1,5 @@
 import config from 'config';
-import { FileSystemType, IFileSystemConfig } from '../../IFileSystemConfig';
+import { FileSystemType, IFileSystemConfig } from '../config/IFileSystemConfig';
 import { IFileSystem } from './IFileSystem';
 import { LocalFileSystem } from './LocalFileSystem';
 import { S3FileSystem } from './S3FileSystem';

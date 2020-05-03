@@ -8,6 +8,8 @@ export interface ILocalFileSystemConfig {
 }
 
 export interface IS3FileSystemConfig {
+  accessKeyId: string;
+  secretAccessKey: string;
   bucket: string;
 }
 

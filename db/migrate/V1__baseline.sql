@@ -174,7 +174,7 @@ SET character_set_client = @saved_cs_client;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` FUNCTION `pst_compress_guid`(p_guid VARCHAR(36)) RETURNS binary(16)
+CREATE FUNCTION `pst_compress_guid`(p_guid VARCHAR(36)) RETURNS binary(16)
     DETERMINISTIC
 BEGIN
 
@@ -196,7 +196,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` FUNCTION `pst_expand_guid`(p_guid BINARY(16)) RETURNS varchar(36) CHARSET latin1
+CREATE FUNCTION `pst_expand_guid`(p_guid BINARY(16)) RETURNS varchar(36) CHARSET latin1
     DETERMINISTIC
 BEGIN
 
@@ -225,7 +225,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` FUNCTION `pst_get_role_rank`(p_role VARCHAR(20)) RETURNS int
+CREATE FUNCTION `pst_get_role_rank`(p_role VARCHAR(20)) RETURNS int
     DETERMINISTIC
 BEGIN
   -- Owners are most privileged.
@@ -261,7 +261,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` FUNCTION `pst_get_user_role`(
+CREATE FUNCTION `pst_get_user_role`(
                     p_user_id VARCHAR(254), 
                     p_library_id BINARY(16), 
                     p_folder_id BINARY(16)) RETURNS varchar(20) CHARSET utf8mb4
@@ -340,7 +340,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` FUNCTION `pst_is_valid_role`(p_role VARCHAR(20)) RETURNS BOOL
+CREATE FUNCTION `pst_is_valid_role`(p_role VARCHAR(20)) RETURNS BOOL
     DETERMINISTIC
 BEGIN
   RETURN 
@@ -362,7 +362,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` FUNCTION `pst_split_string`(
+CREATE FUNCTION `pst_split_string`(
 	p_str LONGTEXT,
 	p_delim VARCHAR(12),
 	p_pos INT
@@ -394,7 +394,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_add_file`(
+CREATE PROCEDURE `pst_add_file`(
                     IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36),
@@ -519,7 +519,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_add_folder`(
+CREATE PROCEDURE `pst_add_folder`(
                   IN p_user_id VARCHAR(254),
                   IN p_library_id VARCHAR(36), 
                   IN p_folder_id VARCHAR(36), 
@@ -602,7 +602,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_add_folder_core`(
+CREATE PROCEDURE `pst_add_folder_core`(
                   IN p_user_id VARCHAR(254),
                   IN p_library_id VARCHAR(36), 
                   IN p_folder_id VARCHAR(36), 
@@ -687,7 +687,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_add_folder_user`(
+CREATE PROCEDURE `pst_add_folder_user`(
                       IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36),
                       IN p_folder_id VARCHAR(36),
@@ -751,7 +751,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_add_library`(
+CREATE PROCEDURE `pst_add_library`(
                       IN p_user_id VARCHAR(254),
 											IN p_library_id VARCHAR(36), 
 											IN p_name VARCHAR(80), 
@@ -824,7 +824,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_delete_file`(
+CREATE PROCEDURE `pst_delete_file`(
                       IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36), 
                       IN p_file_id VARCHAR(36))
@@ -895,7 +895,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_delete_folder`(
+CREATE PROCEDURE `pst_delete_folder`(
                     IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36))
@@ -1013,7 +1013,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_delete_library`(
+CREATE PROCEDURE `pst_delete_library`(
                       IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36))
 this_proc:BEGIN
@@ -1111,7 +1111,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_file`(
+CREATE PROCEDURE `pst_get_file`(
                     IN p_user_id VARCHAR(254), 
                     IN p_library_id VARCHAR(36), 
                     IN p_file_id VARCHAR(36))
@@ -1161,7 +1161,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_files`(
+CREATE PROCEDURE `pst_get_files`(
                     IN p_user_id VARCHAR(254), 
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36))
@@ -1237,7 +1237,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_file_content_info`(
+CREATE PROCEDURE `pst_get_file_content_info`(
                         IN p_user_id VARCHAR(254),
                         IN p_library_id VARCHAR(36), 
                         IN p_file_id VARCHAR(36))
@@ -1303,7 +1303,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_file_ex`(IN p_library_id BINARY(16), p_file_id BINARY(16))
+CREATE PROCEDURE `pst_get_file_ex`(IN p_library_id BINARY(16), p_file_id BINARY(16))
 this_proc:BEGIN
 
   SELECT
@@ -1357,7 +1357,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_folder`(
+CREATE PROCEDURE `pst_get_folder`(
                     IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_folder_id VARCHAR(36))
@@ -1424,7 +1424,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_folders`(
+CREATE PROCEDURE `pst_get_folders`(
                       IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36), 
                       IN p_parent_id VARCHAR(36))
@@ -1498,7 +1498,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_folder_breadcrumbs`(
+CREATE PROCEDURE `pst_get_folder_breadcrumbs`(
                     p_user_id VARCHAR(254), 
                     p_library_id VARCHAR(36), 
                     p_folder_id VARCHAR(36))
@@ -1569,7 +1569,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_libraries`(IN p_user_id VARCHAR(254))
+CREATE PROCEDURE `pst_get_libraries`(IN p_user_id VARCHAR(254))
 BEGIN
 	
   SELECT
@@ -1608,7 +1608,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_library`(
+CREATE PROCEDURE `pst_get_library`(
                     IN p_user_id VARCHAR(254), 
                     IN p_library_id VARCHAR(36))
 BEGIN
@@ -1650,7 +1650,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_get_statistics`()
+CREATE PROCEDURE `pst_get_statistics`()
 BEGIN
 
   SELECT
@@ -1680,7 +1680,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_recalc_folder`(
+CREATE PROCEDURE `pst_recalc_folder`(
           IN p_library_id VARCHAR(36), 
           IN p_folder_id VARCHAR(36))
 BEGIN
@@ -1789,7 +1789,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_set_file_tags`(
+CREATE PROCEDURE `pst_set_file_tags`(
           IN p_user_id VARCHAR(254),
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
@@ -1867,7 +1867,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_update_file`(
+CREATE PROCEDURE `pst_update_file`(
           IN p_user_id VARCHAR(254),
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36),
@@ -1966,7 +1966,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_update_file_cnv_video`(
+CREATE PROCEDURE `pst_update_file_cnv_video`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_file_size INT)
@@ -2015,7 +2015,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_update_file_thumbnail`(
+CREATE PROCEDURE `pst_update_file_thumbnail`(
           IN p_library_id VARCHAR(36), 
           IN p_file_id VARCHAR(36), 
           IN p_thumbnail_size CHAR(2),
@@ -2072,7 +2072,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_update_folder`(
+CREATE PROCEDURE `pst_update_folder`(
                       IN p_user_id VARCHAR(254),
                       IN p_library_id VARCHAR(36), 
                       IN p_folder_id VARCHAR(36), 
@@ -2200,7 +2200,7 @@ DELIMITER ;
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION' */ ;
 DELIMITER ;;
-CREATE DEFINER=`psadmin`@`localhost` PROCEDURE `pst_update_library`(
+CREATE PROCEDURE `pst_update_library`(
                     IN p_user_id VARCHAR(254),
                     IN p_library_id VARCHAR(36), 
                     IN p_name VARCHAR(80), 
@@ -2288,7 +2288,7 @@ DELIMITER ;
 /*!50001 SET character_set_results     = utf8mb4 */;
 /*!50001 SET collation_connection      = utf8mb4_0900_ai_ci */;
 /*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`psadmin`@`localhost` SQL SECURITY DEFINER */
+/*!50013 SQL SECURITY DEFINER */
 /*!50001 VIEW `pst_vw_file_tags` AS select `pst_file_tags`.`library_id` AS `library_id`,`pst_file_tags`.`file_id` AS `file_id`,group_concat(`pst_file_tags`.`tag` separator '¬') AS `tags` from `pst_file_tags` group by `pst_file_tags`.`library_id`,`pst_file_tags`.`file_id` */;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;
@@ -2306,7 +2306,7 @@ DELIMITER ;
 /*!50001 SET character_set_results     = utf8mb4 */;
 /*!50001 SET collation_connection      = utf8mb4_0900_ai_ci */;
 /*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`psadmin`@`localhost` SQL SECURITY DEFINER */
+/*!50013 SQL SECURITY DEFINER */
 /*!50001 VIEW `pst_library_user_roles` AS select `l`.`library_id` AS `library_id`,`l`.`name` AS `name`,`l`.`description` AS `description`,`ur`.`user_id` AS `user_id`,`ur`.`role` AS `user_role` from ((`pst_libraries` `l` join `pst_folders` `f` on((`l`.`library_id` = `f`.`library_id`))) left join `pst_folder_user_roles` `ur` on(((`f`.`library_id` = `ur`.`library_id`) and (`f`.`folder_id` = `ur`.`folder_id`)))) where (`f`.`parent_id` is null) */;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;

@@ -1,60 +1,34 @@
 import amqp from 'amqplib';
+import createDebug from 'debug';
 import {
+  AmqpConnectionWrapper,
   IMessage,
-  IMessageQueueConfig,
   IProcessPictureMsg,
   IProcessVideoMsg,
   IRecalcFolderMsg,
   JobsChannelName,
   MessageType
-} from 'common';
-import config from 'config';
-import createDebug from 'debug';
+} from 'storage';
 import { processPicture } from './processPicture';
 import { processVideo } from './processVideo';
 import { recalcFolder } from './recalcFolder';
 
 const debug = createDebug('workers:consumer');
-let amqpConn: amqp.Connection | undefined;
+
+const amqpWrapper = new AmqpConnectionWrapper(startWorker);
 let amqpChan: amqp.Channel | undefined;
-
-const messageQueueConfig: IMessageQueueConfig = config.get('MessageQueue');
-
-/**
- * Connects to the RabbitMQ server.  If successful then starts
- * the worker which processes incoming messages.
- */
-function connect() {
-  debug(`Connecting to RabbitMQ server at ${messageQueueConfig.url}`);
-  amqp
-    .connect(`${messageQueueConfig.url}?heartbeat=60`)
-    .then(conn => {
-      conn.on('error', err => {
-        if (err.message !== 'Connection closing') {
-          debug('Error communicating with RabbitMQ: ' + err.message);
-        }
-      });
-
-      conn.on('close', () => {
-        debug('RabbitMQ connection closed.  Reconnecting...');
-        return setTimeout(connect, 1000);
-      });
-
-      debug('RabbitMQ connection established.');
-      amqpConn = conn;
-      startWorker();
-    })
-    .catch(err => {
-      debug('Unexpected RabbitMQ error: ' + err.message);
-      return setTimeout(connect, 1000);
-    });
-}
 
 /**
  * Creates the RabbitMQ channel and initializes the queue consumer.
  */
 function startWorker() {
-  amqpConn!
+  const conn = amqpWrapper.getConnection();
+  if (!conn) {
+    debug(`Error: Unable to connect to RabbitMQ to start worker.`);
+    return;
+  }
+
+  conn!
     .createChannel()
     .then(ch => {
       amqpChan = ch;
@@ -68,7 +42,7 @@ function startWorker() {
       });
 
       // We process up to three async jobs at a time.
-      ch.prefetch(3);
+      ch.prefetch(1);
 
       return ch.assertQueue(JobsChannelName, { durable: true }).then(ok => {
         return ch
@@ -116,28 +90,45 @@ function handleMessageReceived(msg: amqp.ConsumeMessage | null) {
  * @param msg The message to process.
  * @param callback Invoked when processing is complete.
  */
-function processMessage(
+async function processMessage(
   msg: amqp.ConsumeMessage,
   callback: (ok: boolean) => void
 ) {
   const message = JSON.parse(msg.content.toString()) as IMessage;
+  let p: Promise<boolean>;
 
   switch (message.type) {
     case MessageType.ProcessPicture:
-      processPicture(message as IProcessPictureMsg, callback);
+      debug(`Delivery tag ${msg.fields.deliveryTag}: Processing picture.`);
+      p = processPicture(message as IProcessPictureMsg);
       break;
 
     case MessageType.ProcessVideo:
-      processVideo(message as IProcessVideoMsg, callback);
+      debug(`Delivery tag ${msg.fields.deliveryTag}: Processing video.`);
+      p = processVideo(message as IProcessVideoMsg);
       break;
 
     case MessageType.RecalcFolder:
-      recalcFolder(message as IRecalcFolderMsg, callback);
+      debug(`Delivery tag ${msg.fields.deliveryTag}: Recalculating folder.`);
+      p = recalcFolder(message as IRecalcFolderMsg);
       break;
 
     default:
       throw new Error('Uknown message type found in queue.');
   }
+
+  // Wait for the processing to complete and then continue.
+  await p
+    .then(result => {
+      debug(
+        `Delivery tag ${msg.fields.deliveryTag} processing result: ${result}.`
+      );
+      callback(result);
+    })
+    .catch(err => {
+      debug(`Error caught while processing message: ${err.message}`);
+      callback(false);
+    });
 }
 
 /**
@@ -153,12 +144,9 @@ function errorHandler(err: Error) {
     amqpChan = undefined;
   }
 
-  if (amqpConn) {
-    amqpConn.close();
-    amqpConn = undefined;
+  if (amqpWrapper) {
+    amqpWrapper.close();
   }
 
   return true;
 }
-
-connect();

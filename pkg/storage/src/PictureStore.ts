@@ -10,6 +10,14 @@ import {
   ThumbnailSize
 } from '@picstrata/client';
 import amqp from 'amqplib';
+import {
+  HttpStatusCode,
+  Paths,
+  PictureExtension,
+  PictureMimeType,
+  VideoExtension,
+  VideoMimeType
+} from 'common';
 import config from 'config';
 import createDebug from 'debug';
 import ffmpeg from 'ffmpeg';
@@ -19,24 +27,16 @@ import sizeOf from 'image-size';
 import { path as buildTempPath } from 'temp';
 import * as util from 'util';
 import { v1 as createGuid } from 'uuid';
-import {
-  PictureExtension,
-  PictureMimeType,
-  VideoExtension,
-  VideoMimeType
-} from '../FileTypes';
-import { HttpStatusCode } from '../httpConstants';
-import { IMessageQueueConfig } from '../IMessageQueueConfig';
+import { AmqpConnectionWrapper } from './AmqpConnectionWrapper';
+import { DbFactory } from './db/DbFactory';
+import { FileSystemFactory } from './files/FileSystemFactory';
 import {
   IProcessPictureMsg,
   IProcessVideoMsg,
   IRecalcFolderMsg,
   MessageType
-} from '../messages';
-import { Paths } from '../Paths';
-import { JobsChannelName } from '../workers';
-import { DbFactory } from './db/DbFactory';
-import { FileSystemFactory } from './files/FileSystemFactory';
+} from './messages';
+import { JobsChannelName } from './workers';
 
 const debug = createDebug('storage:picturestore');
 const fsPromises = fs.promises;
@@ -75,6 +75,8 @@ interface IFileMetadata {
   keywords?: string;
   orientation?: number;
 }
+
+const amqpWrapper = new AmqpConnectionWrapper();
 
 /**
  * Service which wraps the database and the file system to
@@ -1154,21 +1156,25 @@ export class PictureStore {
   }
 
   private enqueue(callback: (ch: amqp.Channel) => any) {
-    const messageQueueConfig: IMessageQueueConfig = config.get('MessageQueue');
-    debug(`Connecting to RabbitMQ server at ${messageQueueConfig.url}`);
-    return amqp
-      .connect(messageQueueConfig.url)
-      .then(conn => {
-        debug('Creating RabbitMQ channel and asserting the queue...');
-        return conn.createChannel().then(ch => {
-          return ch.assertQueue(JobsChannelName).then(() => {
-            return callback(ch);
-          });
+    const conn = amqpWrapper.getConnection();
+    if (!conn) {
+      debug(`Error: Unable to connect to RabbitMQ to enqueue message.`);
+      return;
+    }
+
+    debug('Creating RabbitMQ channel and enqueing message...');
+    return conn.createChannel().then(ch => {
+      return ch
+        .assertQueue(JobsChannelName)
+        .then(() => {
+          const result = callback(ch);
+          ch.close();
+          return result;
+        })
+        .catch(err => {
+          debug(`Error while communicating with RabbitMQ: ${err}`);
+          throw err;
         });
-      })
-      .catch(err => {
-        debug('Error while communicating with RabbitMQ: ' + err);
-        throw err;
-      });
+    });
   }
 }

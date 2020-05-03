@@ -85,7 +85,7 @@ export class ExifTool {
   ): Promise<IExifResponse> {
     return new Promise((resolve, reject) => {
       child_process.exec(
-        `${exifToolPath} -j -n ${filePath}`,
+        `${exifToolPath} -j -n "${filePath}"`,
         (err, stdout, stderr) => {
           if (err) {
             return reject(err);

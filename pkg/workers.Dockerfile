@@ -5,12 +5,14 @@ RUN apk upgrade
 RUN apk add bash
 RUN apk add ffmpeg
 RUN apk add exiftool
+RUN apk add curl
 
 WORKDIR /usr/src/app
 
 COPY package.json package.json
 
 COPY common/ common/
+COPY storage/ storage/
 COPY ffmpeg/ ffmpeg/
 COPY workers/ workers/
 RUN yarn --prod

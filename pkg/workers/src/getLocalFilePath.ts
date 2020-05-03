@@ -1,5 +1,5 @@
-import { PictureStore } from 'common';
 import createDebug from 'debug';
+import { PictureStore } from 'storage';
 
 const debug = createDebug('workers:getLocalFilePath');
 

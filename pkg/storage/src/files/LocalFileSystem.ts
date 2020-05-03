@@ -1,11 +1,9 @@
+import { Paths } from 'common';
 import createDebug from 'debug';
 import fs from 'fs';
-import createHttpError from 'http-errors';
 import rimraf from 'rimraf';
 import * as util from 'util';
-import { HttpStatusCode } from '../../httpConstants';
-import { ILocalFileSystemConfig } from '../../IFileSystemConfig';
-import { Paths } from '../../Paths';
+import { ILocalFileSystemConfig } from '../config/IFileSystemConfig';
 import { IFileSystem } from './IFileSystem';
 
 const debug = createDebug('storage:localfilesystem');

@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "build",
+    "downlevelIteration": true
+  },
+  "exclude": ["build", "**/test/*.ts", "**/__mock__/*.ts"]
+}

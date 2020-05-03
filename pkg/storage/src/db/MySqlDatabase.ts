@@ -14,11 +14,17 @@ import {
   Role,
   ThumbnailSize
 } from '@picstrata/client';
+import { ChangeCase } from 'common';
 import config from 'config';
 import createDebug from 'debug';
-import mysql, { FieldInfo, MysqlError, Query, queryCallback } from 'mysql';
-import { ChangeCase } from '../../ChangeCase';
-import { IDatabaseConfig } from '../../IDatabaseConfig';
+import mysql, {
+  Connection,
+  FieldInfo,
+  MysqlError,
+  Query,
+  queryCallback
+} from 'mysql';
+import { IDatabaseConfig } from '../config/IDatabaseConfig';
 import { DbError, DbErrorCode } from './DbError';
 import {
   IDbBreadcrumb,
@@ -35,6 +41,29 @@ const FileBitFields = ['is_video', 'is_processing'];
 
 // We use the logical not sign (&#172, 0xAC) to separate tags.
 const TagSeparator = '¬';
+
+const dbConfig = config.get('Database') as IDatabaseConfig;
+const connectionPool = mysql.createPool({
+  connectionLimit: 20,
+  host: dbConfig.host,
+  user: dbConfig.user,
+  password: dbConfig.password,
+  database: dbConfig.name,
+  // We store dates using the DATETIME type which has no
+  // timezone information in MySQL.  The dates are provided
+  // to MySQL in UTC.  When we get them back from the database
+  // we don't want any timezone translation to occur so we
+  // configure the mysql client with timezone='Z'.
+  timezone: 'Z',
+
+  // We use the DECIMAL type to store GPS coordinates.
+  supportBigNumbers: true,
+
+  // It would be nice to set bigNumberStrings to true as well so that
+  // we don't have to worry about precision loss, but it affects count
+  // values as well and we want those to be numbers.
+  bigNumberStrings: false
+});
 
 /**
  * MySQL Reimas database interface.
@@ -133,48 +162,9 @@ export class MySqlDatabase {
   }
 
   private config: IDatabaseConfig;
-  private conn?: mysql.Connection;
 
   constructor() {
     this.config = config.get('Database');
-  }
-
-  /**
-   * Connects to the database using configuration information.
-   */
-  public connect() {
-    debug(
-      `Connecting to MySQL database ${this.config.name} on host ${this.config.host}.`
-    );
-    this.conn = mysql.createConnection({
-      host: this.config.host,
-      user: this.config.user,
-      password: this.config.password,
-      database: this.config.name,
-      // We store dates using the DATETIME type which has no
-      // timezone information in MySQL.  The dates are provided
-      // to MySQL in UTC.  When we get them back from the database
-      // we don't want any timezone translation to occur so we
-      // configure the mysql client with timezone='Z'.
-      timezone: 'Z',
-
-      // We use the DECIMAL type to store GPS coordinates.
-      supportBigNumbers: true,
-
-      // It would be nice to set bigNumberStrings to true as well so that
-      // we don't have to worry about precision loss, but it affects count
-      // values as well and we want those to be numbers.
-      bigNumberStrings: false
-    });
-
-    this.conn.connect();
-  }
-
-  /**
-   * Disconnects from the database.
-   */
-  public disconnect() {
-    this.conn!.end();
   }
 
   public getStatistics() {
@@ -603,48 +593,54 @@ export class MySqlDatabase {
    * @param parameters Parameters to pass to the procedure.
    */
   private callSelectManyProc<TResult>(procName: string, parameters: any[]) {
-    this.connect();
-
     const p = new Promise<TResult[]>((resolve, reject) => {
-      this.invokeStoredProc(
-        procName,
-        parameters,
-        (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
-          if (error) {
-            debug(
-              `callSelectManyProc: Call to ${procName} failed: ${error.message}`
-            );
-            reject(error);
-          } else {
-            try {
-              debug('Number of result sets:' + results.length);
+      connectionPool.getConnection((err, conn) => {
+        if (err) {
+          reject(err);
+          return;
+        }
 
-              // The first one-row result set contains success/failure
-              // information.  If the select operation failed (e.g. due
-              // to insufficient permissions) then the promise is rejected.
-              const result = results[0][0] as IDmlResponse;
-              if (result.err_code !== DbErrorCode.NoError) {
-                debug(
-                  `callSelectManyProc: Call to ${procName} failed with err_code: ${result.err_code}`
-                );
-                debug(`and err_context: ${result.err_context}`);
-                reject(this.createDbError(result));
-              }
-
-              // The second result set contains the selected items.
-              resolve(results[1] as TResult[]);
-            } catch (error) {
+        this.invokeStoredProc(
+          conn,
+          procName,
+          parameters,
+          (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
+            if (error) {
               debug(
-                `callSelectManyProc: Result processing failed: ${error.message}`
+                `callSelectManyProc: Call to ${procName} failed: ${error.message}`
               );
               reject(error);
+            } else {
+              try {
+                debug('Number of result sets:' + results.length);
+
+                // The first one-row result set contains success/failure
+                // information.  If the select operation failed (e.g. due
+                // to insufficient permissions) then the promise is rejected.
+                const result = results[0][0] as IDmlResponse;
+                if (result.err_code !== DbErrorCode.NoError) {
+                  debug(
+                    `callSelectManyProc: Call to ${procName} failed with err_code: ${result.err_code}`
+                  );
+                  debug(`and err_context: ${result.err_context}`);
+                  reject(this.createDbError(result));
+                }
+
+                // The second result set contains the selected items.
+                resolve(results[1] as TResult[]);
+              } catch (error) {
+                debug(
+                  `callSelectManyProc: Result processing failed: ${error.message}`
+                );
+                reject(error);
+              }
             }
           }
-        }
-      );
+        );
+        conn.release();
+      });
     });
 
-    this.disconnect();
     return p;
   }
 
@@ -655,55 +651,61 @@ export class MySqlDatabase {
    * @param parameters Parameters to pass to the procedure.
    */
   private callSelectOneProc<TResult>(procName: string, parameters: any[]) {
-    this.connect();
-
     const p = new Promise<TResult>((resolve, reject) => {
-      this.invokeStoredProc(
-        procName,
-        parameters,
-        (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
-          if (error) {
-            debug(
-              `callSelectOneProc: Call to ${procName} failed: ${error.message}`
-            );
-            reject(error);
-          } else {
-            try {
-              debug('Number of result sets:' + results.length);
+      connectionPool.getConnection((err, conn) => {
+        if (err) {
+          reject(err);
+          return;
+        }
 
-              // The first one-row result set contains success/failure
-              // information.  If the select operation failed (e.g. due
-              // to insufficient permissions) then the promise is rejected.
-              const result = results[0][0] as IDmlResponse;
-              if (result.err_code !== DbErrorCode.NoError) {
-                debug(
-                  `callSelectOneProc: Call to ${procName} failed with err_code: ${result.err_code}`
-                );
-                debug(`and err_context: ${result.err_context}`);
-                reject(this.createDbError(result));
-              }
-
-              // The second result set contains the selected item.
-              const dataResult = results[1];
-              if (dataResult.length === 0) {
-                reject(
-                  new DbError(DbErrorCode.ItemNotFound, 'Item not found.')
-                );
-              } else {
-                resolve(dataResult[0] as TResult);
-              }
-            } catch (error) {
+        this.invokeStoredProc(
+          conn,
+          procName,
+          parameters,
+          (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
+            if (error) {
               debug(
-                `callSelectOneProc: Result processing failed: ${error.message}`
+                `callSelectOneProc: Call to ${procName} failed: ${error.message}`
               );
               reject(error);
+            } else {
+              try {
+                debug('Number of result sets:' + results.length);
+
+                // The first one-row result set contains success/failure
+                // information.  If the select operation failed (e.g. due
+                // to insufficient permissions) then the promise is rejected.
+                const result = results[0][0] as IDmlResponse;
+                if (result.err_code !== DbErrorCode.NoError) {
+                  debug(
+                    `callSelectOneProc: Call to ${procName} failed with err_code: ${result.err_code}`
+                  );
+                  debug(`and err_context: ${result.err_context}`);
+                  reject(this.createDbError(result));
+                }
+
+                // The second result set contains the selected item.
+                const dataResult = results[1];
+                if (dataResult.length === 0) {
+                  reject(
+                    new DbError(DbErrorCode.ItemNotFound, 'Item not found.')
+                  );
+                } else {
+                  resolve(dataResult[0] as TResult);
+                }
+              } catch (error) {
+                debug(
+                  `callSelectOneProc: Result processing failed: ${error.message}`
+                );
+                reject(error);
+              }
             }
           }
-        }
-      );
+        );
+        conn.release();
+      });
     });
 
-    this.disconnect();
     return p;
   }
 
@@ -718,42 +720,56 @@ export class MySqlDatabase {
    * @param parameters Parameters to provide to the procedure.
    */
   private callChangeProc<TResult>(procName: string, parameters: any[]) {
-    this.connect();
-
     const p = new Promise<TResult>((resolve, reject) => {
-      this.invokeStoredProc(procName, parameters, (error, results, fields) => {
-        if (error) {
-          debug(`callChangeProc: Call to ${procName} failed: ${error.message}`);
-          reject(error);
-        } else {
-          try {
-            debug('Number of result sets:' + results.length);
-
-            // The first one-row result set contains success/failure
-            // information.  If the DML operation failed then the
-            // promise is rejected.
-            const result = results[0][0] as IDmlResponse;
-            if (result.err_code !== DbErrorCode.NoError) {
-              debug(
-                `callChangeProc: Call to ${procName} failed with err_code: ${result.err_code}`
-              );
-              debug(`and err_context: ${result.err_context}`);
-              reject(this.createDbError(result));
-            }
-
-            // The DML operation was successful.  The second one-row result
-            // set contains information about the item that was inserted,
-            // updated or deleted.
-            resolve(results[1][0] as TResult);
-          } catch (error) {
-            debug(`callChangeProc: Result processing failed: ${error.message}`);
-            reject(error);
-          }
+      connectionPool.getConnection((err, conn) => {
+        if (err) {
+          reject(err);
+          return;
         }
+
+        this.invokeStoredProc(
+          conn,
+          procName,
+          parameters,
+          (error, results, fields) => {
+            if (error) {
+              debug(
+                `callChangeProc: Call to ${procName} failed: ${error.message}`
+              );
+              reject(error);
+            } else {
+              try {
+                debug('Number of result sets:' + results.length);
+
+                // The first one-row result set contains success/failure
+                // information.  If the DML operation failed then the
+                // promise is rejected.
+                const result = results[0][0] as IDmlResponse;
+                if (result.err_code !== DbErrorCode.NoError) {
+                  debug(
+                    `callChangeProc: Call to ${procName} failed with err_code: ${result.err_code}`
+                  );
+                  debug(`and err_context: ${result.err_context}`);
+                  reject(this.createDbError(result));
+                }
+
+                // The DML operation was successful.  The second one-row result
+                // set contains information about the item that was inserted,
+                // updated or deleted.
+                resolve(results[1][0] as TResult);
+              } catch (error) {
+                debug(
+                  `callChangeProc: Result processing failed: ${error.message}`
+                );
+                reject(error);
+              }
+            }
+          }
+        );
+        conn.release();
       });
     });
 
-    this.disconnect();
     return p;
   }
 
@@ -765,6 +781,7 @@ export class MySqlDatabase {
    * @param callback Function to call with the results.
    */
   private invokeStoredProc(
+    conn: Connection,
     procName: string,
     parameters: any[],
     callback?: queryCallback
@@ -773,6 +790,7 @@ export class MySqlDatabase {
       ? '?' + ',?'.repeat(parameters.length - 1)
       : '';
     return this.query(
+      conn,
       `call ${procName}(${placeholders})`,
       parameters,
       callback
@@ -782,12 +800,18 @@ export class MySqlDatabase {
   /**
    * Executes a database query.
    *
+   * @param conn Database connection to use.
    * @param options Query to execute.
    * @param values Parameter values  to provide to the query.
    * @param callback Function to call with results.
    */
-  private query(options: string, values: any, callback?: queryCallback): Query {
-    return this.conn!.query(options, values, callback);
+  private query(
+    conn: Connection,
+    options: string,
+    values: any,
+    callback?: queryCallback
+  ): Query {
+    return conn.query(options, values, callback);
   }
 
   /**

@@ -1,12 +1,9 @@
-import { IRecalcFolderMsg, PictureStore } from 'common';
 import createDebug from 'debug';
+import { IRecalcFolderMsg, PictureStore } from 'storage';
 
 const debug = createDebug('workers:recalcFolder');
 
-export function recalcFolder(
-  message: IRecalcFolderMsg,
-  callback: (ok: boolean) => void
-) {
+export function recalcFolder(message: IRecalcFolderMsg) {
   debug(
     `Recalculating folder ${message.folderId} in library ${message.libraryId}.`
   );
@@ -15,10 +12,10 @@ export function recalcFolder(
   return pictureStore
     .recalcFolder(message.libraryId, message.folderId)
     .then(folder => {
-      callback(true);
+      return true;
     })
     .catch(err => {
-      debug(`Error: ${err}`);
-      callback(false);
+      debug(`Error caught while recalculating folder: ${err.message}`);
+      return false;
     });
 }
