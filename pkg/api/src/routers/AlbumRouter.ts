@@ -1,15 +1,45 @@
-import { IFile, IFileUpdate, ThumbnailSize } from '@picstrata/client';
+import { IAlbum } from '@picstrata/client';
+import { HttpStatusCode } from 'common';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
-import multer from 'multer';
 import { createPictureStore } from './RouterHelpers';
 
-const upload = multer({ dest: 'uploads/' });
-
 const router = express.Router();
-
 const debug = createDebug('api:routers');
+
+const BuiltInAlbums: { [key: string]: string } = {
+  favorites: 'Favorites',
+  videos: 'Videos'
+};
+
+/**
+ * Gets the information for an album.
+ */
+router.get(
+  '/:libraryId/albums/:albumId',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+
+    if (Object.keys(BuiltInAlbums).indexOf(params.albumId) < 0) {
+      res.status(HttpStatusCode.NOT_FOUND);
+      res.send('Library or album not found.');
+      return;
+    }
+
+    createPictureStore(req)
+      .getLibrary(req.params.libraryId)
+      .then(_ => {
+        res.send({
+          libraryId: req.params.libraryId,
+          albumId: req.params.albumId,
+          name: BuiltInAlbums[req.params.albumId],
+          isDynamic: true
+        } as IAlbum);
+      })
+      .catch(next);
+  }
+);
 
 /**
  * Gets a list of files in the favorites album.

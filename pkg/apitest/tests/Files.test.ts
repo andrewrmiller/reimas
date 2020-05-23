@@ -575,6 +575,17 @@ describe('File Tests', () => {
 
   test('Verify dynamic albums', async () => {
     await sendRequest(
+      `libraries/${testLibraryId}/albums/favorites`,
+      OwnerUserId,
+      HttpMethod.Get
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.json().then(album => {
+        expect(album.name).toBe('Favorites');
+      });
+    });
+
+    await sendRequest(
       `libraries/${testLibraryId}/albums/favorites/files`,
       OwnerUserId,
       HttpMethod.Get
@@ -582,6 +593,17 @@ describe('File Tests', () => {
       expect(response.status).toBe(HttpStatusCode.OK);
       return response.json().then(files => {
         expect(files).toHaveLength(1);
+      });
+    });
+
+    await sendRequest(
+      `libraries/${testLibraryId}/albums/videos`,
+      OwnerUserId,
+      HttpMethod.Get
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.json().then(album => {
+        expect(album.name).toBe('Videos');
       });
     });
 
