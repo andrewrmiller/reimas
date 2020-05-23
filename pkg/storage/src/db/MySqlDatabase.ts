@@ -7,6 +7,7 @@ import {
   IFolder,
   IFolderAdd,
   IFolderUpdate,
+  IFolderUser,
   ILibrary,
   ILibraryAdd,
   ILibraryUpdate,
@@ -256,14 +257,14 @@ export class MySqlDatabase {
     debug(
       `Adding user ${newUserId} to library ${libraryId} with role ${role} on folder ${folderId}.`
     );
-    return this.callChangeProc<IDbLibrary>('pst_add_folder_user', [
+    return this.callChangeProc<IFolderUser>('pst_add_folder_user', [
       userId,
       libraryId,
       folderId,
       newUserId,
       role
-    ]).then((library: IDbLibrary) => {
-      return ChangeCase.toCamelObject(library) as ILibrary;
+    ]).then((user: IFolderUser) => {
+      return ChangeCase.toCamelObject(user) as IFolderUser;
     });
   }
 
@@ -488,7 +489,11 @@ export class MySqlDatabase {
         ? MySqlDatabase.utcDateTimeToDbDateTime(update.takenOn)
         : dbFile.taken_on,
       update.name ? update.name : dbFile.name,
-      update.rating ? update.rating : dbFile.rating,
+      update.rating !== undefined
+        ? update.rating === 0
+          ? null
+          : update.rating
+        : dbFile.rating,
       update.title ? update.title : dbFile.title,
       update.comments ? update.comments : dbFile.comments,
       update.latitude ? update.latitude : dbFile.latitude,
