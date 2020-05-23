@@ -1056,6 +1056,26 @@ export class PictureStore {
   }
 
   /**
+   * Retrieves a list of favorite files in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   */
+  public getFavoriteFiles(libraryId: string) {
+    const db = DbFactory.createInstance();
+    return db.getFavoriteFiles(this.getUserId(), libraryId);
+  }
+
+  /**
+   * Retrieves a list of video files in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   */
+  public getVideoFiles(libraryId: string) {
+    const db = DbFactory.createInstance();
+    return db.getVideoFiles(this.getUserId(), libraryId);
+  }
+
+  /**
    * Retrieves the path to the file in the local file system.
    *
    * @param libraryId Unique ID of the parent library.

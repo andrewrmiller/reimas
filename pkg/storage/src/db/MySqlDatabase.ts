@@ -591,6 +591,26 @@ export class MySqlDatabase {
     });
   }
 
+  public getFavoriteFiles(userId: string, libraryId: string) {
+    debug(`Retrieving favorite files in library ${libraryId}.`);
+    return this.callSelectManyProc<IDbFile>('pst_get_favorite_files', [
+      userId,
+      libraryId
+    ]).then(dbFiles => {
+      return dbFiles.map(MySqlDatabase.convertDbFile);
+    });
+  }
+
+  public getVideoFiles(userId: string, libraryId: string) {
+    debug(`Retrieving video files in library ${libraryId}.`);
+    return this.callSelectManyProc<IDbFile>('pst_get_video_files', [
+      userId,
+      libraryId
+    ]).then(dbFiles => {
+      return dbFiles.map(MySqlDatabase.convertDbFile);
+    });
+  }
+
   /**
    * Invokes a procedure which selects zero or more items from the database.
    *

@@ -421,12 +421,14 @@ describe('File Tests', () => {
       OwnerUserId,
       HttpMethod.Patch,
       JSON.stringify({
-        name: 'Aurora1.jpg'
+        name: 'Aurora1.jpg',
+        rating: 3
       })
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.OK);
       return response.json().then((file: IFile) => {
         expect(file.name).toBe('Aurora1.jpg');
+        expect(file.rating).toBe(3);
       });
     });
 
@@ -567,6 +569,30 @@ describe('File Tests', () => {
           expect(videoFile.width).toBeGreaterThan(0);
           expect(videoFile.height).toBeGreaterThan(0);
         }
+      });
+    });
+  });
+
+  test('Verify dynamic albums', async () => {
+    await sendRequest(
+      `libraries/${testLibraryId}/albums/favorites/files`,
+      OwnerUserId,
+      HttpMethod.Get
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.json().then(files => {
+        expect(files).toHaveLength(1);
+      });
+    });
+
+    await sendRequest(
+      `libraries/${testLibraryId}/albums/videos/files`,
+      OwnerUserId,
+      HttpMethod.Get
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.json().then(files => {
+        expect(files).toHaveLength(4);
       });
     });
   });
