@@ -1,34 +1,63 @@
 import AWS from 'aws-sdk';
 import { Paths } from 'common';
+import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
-import { IS3FileSystemConfig } from '../config/IFileSystemConfig';
+import {
+  FileSystemType,
+  IFileSystemConfig,
+  IS3FileSystemConfig
+} from '../config/IFileSystemConfig';
 import { IFileSystem } from './IFileSystem';
 
 const fsPromises = fs.promises;
 const debug = createDebug('storage:s3filesystem');
+
+/**
+ * Retrieve a properly configured S3 client object.
+ */
+function getS3Client() {
+  const fileSystemConfig = config.get('FileSystem') as IFileSystemConfig;
+
+  // If the system is not currently configured to store files in S3
+  // we do not need to create a connection.
+  if (fileSystemConfig.type !== FileSystemType.S3) {
+    return undefined;
+  }
+
+  const s3Config = fileSystemConfig.s3FileSystem!;
+  const credentials = new AWS.Credentials(
+    s3Config.accessKeyId,
+    s3Config.secretAccessKey
+  );
+  AWS.config.credentials = credentials;
+  AWS.config.update({ region: 'us-west-2' });
+  const s3 = new AWS.S3({ apiVersion: '2006-03-01' });
+
+  s3.listBuckets((err, data) => {
+    if (err) {
+      debug(`Error: Unable to list AWS S3 buckets: ${err}`);
+      throw err;
+    }
+
+    if (data.Buckets!.findIndex(b => b.Name === s3Config.bucket) === -1) {
+      debug(`Error: Bucket ${s3Config.bucket} not found.`);
+      throw new Error('Configured bucket not found.');
+    }
+
+    debug(`Using bucket ${s3Config.bucket}.`);
+  });
+
+  return s3;
+}
+
+const s3Client = getS3Client()!;
 
 export class S3FileSystem implements IFileSystem {
   private config: IS3FileSystemConfig;
 
   constructor(s3Config: IS3FileSystemConfig) {
     this.config = s3Config;
-
-    debug('Connecting to AWS S3...');
-    const s3 = this.getS3Client();
-    s3.listBuckets((err, data) => {
-      if (err) {
-        debug(`Error: Unable to list AWS S3 buckets: ${err}`);
-        throw err;
-      }
-
-      if (data.Buckets!.findIndex(b => b.Name === this.config.bucket) === -1) {
-        debug(`Error: Bucket ${this.config.bucket} not found.`);
-        throw new Error('Configured bucket not found.');
-      }
-
-      debug(`Using bucket ${this.config.bucket}.`);
-    });
   }
 
   /**
@@ -47,7 +76,7 @@ export class S3FileSystem implements IFileSystem {
   public createFolder(path: string): Promise<any> {
     debug(`Creating AWS S3 folder ${path} in bucket ${this.config.bucket}.`);
 
-    return this.getS3Client()
+    return s3Client
       .upload({
         Bucket: this.config.bucket,
         Key: `${path}/`,
@@ -64,8 +93,6 @@ export class S3FileSystem implements IFileSystem {
    */
   public deleteFolder(path: string): Promise<any> {
     debug(`Delete AWS S3 folder ${path} in bucket ${this.config.bucket}.`);
-
-    const s3Client = this.getS3Client();
 
     // Get a list of all the items in the folder.
     return s3Client
@@ -117,7 +144,7 @@ export class S3FileSystem implements IFileSystem {
     );
 
     const stream = fs.createReadStream(localPath);
-    return this.getS3Client()
+    return s3Client
       .upload({
         Bucket: this.config.bucket,
         Key: targetPath,
@@ -140,7 +167,7 @@ export class S3FileSystem implements IFileSystem {
       `Retrieving a read-only stream of file ${path} from AWS S3 bucket ${this.config.bucket}.`
     );
 
-    return this.getS3Client()
+    return s3Client
       .getObject({
         Bucket: this.config.bucket,
         Key: path
@@ -156,7 +183,7 @@ export class S3FileSystem implements IFileSystem {
   public deleteFile(path: string) {
     debug(`Deleting file ${path} from AWS S3 bucket ${this.config.bucket}.`);
 
-    return this.getS3Client()
+    return s3Client
       .deleteObject({
         Bucket: this.config.bucket,
         Key: path
@@ -173,18 +200,5 @@ export class S3FileSystem implements IFileSystem {
    */
   public getLocalFilePath(path: string): string {
     throw new Error('Local file paths are not supported.');
-  }
-
-  /**
-   * Retrieve a properly configured S3 client object.
-   */
-  private getS3Client() {
-    const credentials = new AWS.Credentials(
-      this.config.accessKeyId,
-      this.config.secretAccessKey
-    );
-    AWS.config.credentials = credentials;
-    AWS.config.update({ region: 'us-west-2' });
-    return new AWS.S3({ apiVersion: '2006-03-01' });
   }
 }
