@@ -202,12 +202,7 @@ export function updateMetadata(
       }
 
       // The taken on timestamp could come from one of two places.
-      let takenOn = metadata.DateTimeOriginal || metadata.CreateDate;
-
-      // In some files the date may not be set to anything meaningful.
-      if (takenOn && takenOn.startsWith('0000')) {
-        takenOn = undefined;
-      }
+      const takenOn = metadata.DateTimeOriginal || metadata.CreateDate;
 
       // Convert the EXIF date/time (which includes no time zone info) to
       // an instant using the time zone we selected.
@@ -217,7 +212,7 @@ export function updateMetadata(
         .updateFile(libraryId, fileId, {
           takenOn: takenOnInstant ? takenOnInstant.toString() : undefined,
           rating: metadata.Rating,
-          title: metadata.Title,
+          title: metadata.Title || metadata.ImageDescription,
           comments: metadata.Comment,
           latitude: metadata.GPSLatitude,
           longitude: metadata.GPSLongitude,

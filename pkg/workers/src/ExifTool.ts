@@ -54,6 +54,7 @@ export interface IExifResponse {
   Megapixels: number;
   Orientation?: number;
   Title?: string;
+  ImageDescription?: string;
   Comment?: string;
   Rating?: number;
   Keyword?: string[];
