@@ -62,18 +62,14 @@ interface IApiKeysConfig {
   key2: string;
 }
 
-// Interface for metadata which can be extracted from a file.
+// Interface for key bits of metadata which can be quickly extracted
+// from a file.  More extenstive metadata inspection happens during
+// background processing for the file.
 interface IFileMetadata {
   type?: string;
   isVideo: boolean;
   height?: number;
   width?: number;
-  takenOn?: string;
-  rating?: string;
-  title?: string;
-  comments?: string;
-  keywords?: string;
-  orientation?: number;
 }
 
 const amqpWrapper = new AmqpConnectionWrapper();
@@ -591,12 +587,18 @@ export class PictureStore {
    * Retrieves a stream of the file contents and also a mime
    * type for the file stream.  Note that if the file was
    * converted to a more friendly/compatible format, the returned
-   * stream will be for the converted file, not the original file.
+   * stream will be for the converted file, not the original file,
+   * unless the originalFile flag is set to true.
    *
    * @param libraryId Unique ID of the parent library.
    * @param fileId Unique ID of the file.
+   * @param originalFile True to download the original file.
    */
-  public getFileContents(libraryId: string, fileId: string) {
+  public getFileContents(
+    libraryId: string,
+    fileId: string,
+    originalFile: boolean
+  ) {
     debug(`Retrieving the contents of file ${fileId} in library ${libraryId}`);
     const db = DbFactory.createInstance();
     return db
@@ -606,14 +608,21 @@ export class PictureStore {
 
         // If the file is a video and it is not in MP4 format, we retrieve
         // the converted MP4 video instead of the file itself.
-        if (contents.isVideo && contents.mimeType !== VideoMimeType.MP4) {
+        if (
+          contents.isVideo &&
+          !originalFile &&
+          contents.mimeType !== VideoMimeType.MP4
+        ) {
           filePath = Paths.deleteLastSubpath(filePath);
           filePath = `${filePath}/cnv/${contents.fileId}`;
         }
 
         return {
           stream: this.getFileStream(libraryId, filePath),
-          mimeType: contents.isVideo ? VideoMimeType.MP4 : contents.mimeType,
+          mimeType:
+            contents.isVideo && !originalFile
+              ? VideoMimeType.MP4
+              : contents.mimeType,
           filename: contents.name
         };
       });
@@ -672,7 +681,7 @@ export class PictureStore {
       .then(contentInfo => {
         // Generate a temporary path and filename.
         const tempPath = buildTempPath({
-          suffix: contentInfo.name
+          suffix: contentInfo.fileId
         });
 
         return new Promise<string>((resolve, reject) => {
