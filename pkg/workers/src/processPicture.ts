@@ -15,7 +15,9 @@ import { getLocalFilePath } from './getLocalFilePath';
 const fsPromises = fs.promises;
 const debug = createDebug('workers:processPicture');
 
-export async function processPicture(message: IProcessPictureMsg) {
+export async function processPicture(
+  message: IProcessPictureMsg
+): Promise<boolean> {
   debug(
     'Processing picture %s in library %s.',
     message.fileId,

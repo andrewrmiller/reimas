@@ -3,7 +3,7 @@ import { IRecalcFolderMsg, PictureStore } from 'storage';
 
 const debug = createDebug('workers:recalcFolder');
 
-export function recalcFolder(message: IRecalcFolderMsg) {
+export function recalcFolder(message: IRecalcFolderMsg): Promise<boolean> {
   debug(
     `Recalculating folder ${message.folderId} in library ${message.libraryId}.`
   );

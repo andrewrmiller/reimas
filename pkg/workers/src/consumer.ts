@@ -1,115 +1,41 @@
-import amqp from 'amqplib';
 import createDebug from 'debug';
 import {
-  AmqpConnectionWrapper,
   IMessage,
   IProcessPictureMsg,
   IProcessVideoMsg,
   IRecalcFolderMsg,
-  JobsChannelName,
-  MessageType
+  MessageType,
+  QueueFactory
 } from 'storage';
 import { processPicture } from './processPicture';
 import { processVideo } from './processVideo';
 import { recalcFolder } from './recalcFolder';
 
 const debug = createDebug('workers:consumer');
-
-const amqpWrapper = new AmqpConnectionWrapper(startWorker);
-let amqpChan: amqp.Channel | undefined;
-
-/**
- * Creates the RabbitMQ channel and initializes the queue consumer.
- */
-function startWorker() {
-  const conn = amqpWrapper.getConnection();
-  if (!conn) {
-    debug(`Error: Unable to connect to RabbitMQ to start worker.`);
-    return;
-  }
-
-  conn!
-    .createChannel()
-    .then(ch => {
-      amqpChan = ch;
-
-      ch.on('error', err => {
-        debug('RabbitMQ channel error: ' + err.message);
-      });
-
-      ch.on('close', () => {
-        debug('RabbitMQ channel closed.');
-      });
-
-      // We process up to three async jobs at a time.
-      ch.prefetch(1);
-
-      return ch.assertQueue(JobsChannelName, { durable: true }).then(ok => {
-        return ch
-          .consume(JobsChannelName, handleMessageReceived, { noAck: false })
-          .then(() => {
-            debug('Worker initialized successfully.');
-          });
-      });
-    })
-    .catch(errorHandler);
-}
-
-/**
- * Handles the receipt of an incoming message from the queue.
- *
- * @param msg Message to process.
- */
-function handleMessageReceived(msg: amqp.ConsumeMessage | null) {
-  if (msg) {
-    processMessage(msg, (ok: boolean) => {
-      try {
-        // Channel may have gone down while the message was
-        // being processed.  In this case the message will
-        // be requeued.
-        if (!amqpChan) {
-          return;
-        }
-
-        if (ok) {
-          amqpChan.ack(msg);
-        } else {
-          // We retry once on failure.
-          amqpChan.nack(msg, true, !msg.fields.redelivered);
-        }
-      } catch (err) {
-        errorHandler(err);
-      }
-    });
-  }
-}
+const queue = QueueFactory.createConsumerInstance(processMessage);
 
 /**
  * Processes a message received from the queue.
  *
- * @param msg The message to process.
- * @param callback Invoked when processing is complete.
+ * @param message The message to process.
+ * @param tag Identifying string associated with the message.
  */
-async function processMessage(
-  msg: amqp.ConsumeMessage,
-  callback: (ok: boolean) => void
-) {
-  const message = JSON.parse(msg.content.toString()) as IMessage;
+function processMessage(message: IMessage, tag: string): Promise<boolean> {
   let p: Promise<boolean>;
 
   switch (message.type) {
     case MessageType.ProcessPicture:
-      debug(`Delivery tag ${msg.fields.deliveryTag}: Processing picture.`);
+      debug(`Tag ${tag}: Processing picture.`);
       p = processPicture(message as IProcessPictureMsg);
       break;
 
     case MessageType.ProcessVideo:
-      debug(`Delivery tag ${msg.fields.deliveryTag}: Processing video.`);
+      debug(`Tag ${tag}: Processing video.`);
       p = processVideo(message as IProcessVideoMsg);
       break;
 
     case MessageType.RecalcFolder:
-      debug(`Delivery tag ${msg.fields.deliveryTag}: Recalculating folder.`);
+      debug(`Tag ${tag}: Recalculating folder.`);
       p = recalcFolder(message as IRecalcFolderMsg);
       break;
 
@@ -117,36 +43,13 @@ async function processMessage(
       throw new Error('Uknown message type found in queue.');
   }
 
-  // Wait for the processing to complete and then continue.
-  await p
-    .then(result => {
-      debug(
-        `Delivery tag ${msg.fields.deliveryTag} processing result: ${result}.`
-      );
-      callback(result);
+  return p
+    .then(success => {
+      debug(`Tag ${tag} processing result: ${success}.`);
+      return success;
     })
     .catch(err => {
       debug(`Error caught while processing message: ${err.message}`);
-      callback(false);
+      return false;
     });
-}
-
-/**
- * Handles errors received from AMQP.
- *
- * @param err Error received from AMQP.
- */
-function errorHandler(err: Error) {
-  debug('RabbitMQ error: ' + err);
-
-  if (amqpChan) {
-    amqpChan.close();
-    amqpChan = undefined;
-  }
-
-  if (amqpWrapper) {
-    amqpWrapper.close();
-  }
-
-  return true;
 }

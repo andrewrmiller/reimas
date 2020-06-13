@@ -11,8 +11,9 @@ FileSystem:
     accessKeyId: 'use environment variable'
     secretAccessKey: 'use environment variable'
     bucket: picstrata-localdev
-MessageQueue:
-  url: amqp://localhost
+Queue:
+  type: rabbitmq
+  host: localhost
 ApiKeys:
   key1: 'use environment variable'
   key2: 'use environment variable'

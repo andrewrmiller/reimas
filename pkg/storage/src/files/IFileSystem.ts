@@ -1,4 +1,3 @@
-import fs from 'fs';
 import * as stream from 'stream';
 
 export interface IFileSystem {

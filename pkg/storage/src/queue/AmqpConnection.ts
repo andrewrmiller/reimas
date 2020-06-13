@@ -1,24 +1,21 @@
 import amqp from 'amqplib';
-import config from 'config';
 import createDebug from 'debug';
-import { IMessageQueueConfig } from './config/IMessageQueueConfig';
 
-const debug = createDebug('storage:messagequeue');
+const debug = createDebug('storage:queue');
 const RetryConnectDelayMs = 1000;
-const messageQueueConfig: IMessageQueueConfig = config.get('MessageQueue');
 
 /**
  * Wrapper class for an AMQP connection instance.  Ensures that the connection
  * is established even if the MQ server is not available initially.  Also
  * reestablishes connections that are closed unexpectedly.
  */
-export class AmqpConnectionWrapper {
-  private onConnect?: () => void;
-  private connection: amqp.Connection | undefined;
+export class AmqpConnection {
+  protected connection: amqp.Connection | undefined;
+  private host: string;
 
-  public constructor(onConnect?: () => void) {
-    debug(`Connecting to RabbitMQ server at ${messageQueueConfig.url}`);
-    this.onConnect = onConnect;
+  public constructor(host: string) {
+    debug(`Connecting to RabbitMQ server at amqp://${host}`);
+    this.host = host;
     this.connect = this.connect.bind(this);
     this.connect();
   }
@@ -34,9 +31,13 @@ export class AmqpConnectionWrapper {
     }
   }
 
+  protected onConnected() {
+    // Override in derived classes as necessary.
+  }
+
   private connect() {
     amqp
-      .connect(`${messageQueueConfig.url}?heartbeat=60`)
+      .connect(`amqp://${this.host}?heartbeat=60`)
       .then(conn => {
         conn.on('error', err => {
           if (err.message !== 'Connection closing') {
@@ -53,9 +54,7 @@ export class AmqpConnectionWrapper {
         debug('RabbitMQ connection established.');
         this.connection = conn;
 
-        if (this.onConnect) {
-          this.onConnect();
-        }
+        this.onConnected();
       })
       .catch(err => {
         debug('Unexpected RabbitMQ error: ' + err.message);

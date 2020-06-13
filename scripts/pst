@@ -16,20 +16,22 @@ usage() {
 	echo "   ls                 Lists the Picstrata containers"
 	echo "   logs [container]   Shows the logs for a given container"
 	echo
-	echo "Where [container] is one of 'api', 'wrk', or 'mq'"
+	echo "Where [container] is one of 'api', 'wrk', or 'wq'"
 	echo
 }
 
 CONTAINER_PREFIX=picstrata
-RABBIT_MQ_HOST=$CONTAINER_PREFIX-rabbit
-RABBIT_MQ_CONTAINER=$RABBIT_MQ_HOST-1
 API_CONTAINER=$CONTAINER_PREFIX-api
 WORKERS_CONTAINER=$CONTAINER_PREFIX-workers
+BEANSTALKD_CONTAINER=$CONTAINER_PREFIX-beanstalkd
+RABBIT_MQ_HOST=$CONTAINER_PREFIX-rabbit
+RABBIT_MQ_CONTAINER=$RABBIT_MQ_HOST-1
 
 VERSION=0.8.0
 
 buildContainers () {
 	cd pkg
+	docker build --rm -f beanstalkd.Dockerfile -t picstrata/beanstalkd:$VERSION -t picstrata/beanstalkd:latest .
 	npm run build
 	docker build --rm -f api.Dockerfile -t picstrata/api:$VERSION -t picstrata/api:latest .
 	docker build --rm -f workers.Dockerfile -t picstrata/workers:$VERSION -t picstrata/workers:latest .
@@ -43,14 +45,27 @@ startServices() {
 	HOST_IP=`hostname -I | awk '{print $1}'`
 	echo Starting storage layer containers on host $HOST_IP
 
-	if docker ps -a | grep -q $RABBIT_MQ_CONTAINER; then
-  	docker start $RABBIT_MQ_CONTAINER
+	# Picstrata uses beanstalkd as a work queue by default.  To use
+	# RabbitMQ instead set the PST_QUEUE_TYPE environment var.
+	if [ "$PST_QUEUE_TYPE" = "rabbitmq" ]; then
+		if docker ps -a | grep -q $RABBIT_MQ_CONTAINER; then
+			docker start $RABBIT_MQ_CONTAINER
+		else
+			docker run -d --hostname $RABBIT_MQ_HOST \
+									--name $RABBIT_MQ_CONTAINER \
+									-p5672:5672 -p 15672:15672 \
+									rabbitmq:3-management
+		fi
 	else
-  	docker run -d --hostname $RABBIT_MQ_HOST \
-								--name $RABBIT_MQ_CONTAINER \
-								-p5672:5672 -p 15672:15672 \
-								rabbitmq:3-management
+		if docker ps -a | grep -q $BEANSTALKD_CONTAINER; then
+			docker start $BEANSTALKD_CONTAINER
+		else
+			docker run -d --name $BEANSTALKD_CONTAINER \
+									-p11300:11300 \
+									picstrata/beanstalkd:latest
+		fi
 	fi
+
 
 	if docker ps -a | grep -q $WORKERS_CONTAINER; then
   	docker start $WORKERS_CONTAINER
@@ -60,7 +75,7 @@ startServices() {
 							-e PST_DATABASE_HOST=$HOST_IP \
 							-e PST_DATABASE_USER=$PST_DATABASE_USER \
 							-e PST_DATABASE_PASSWORD=$PST_DATABASE_PASSWORD \
-							-e PST_MESSAGE_QUEUE_URL=amqp://$HOST_IP \
+							-e PST_QUEUE_HOST=$HOST_IP \
 							-e PST_TIMEZONE_DB_API_KEY=$PST_TIMEZONE_DB_API_KEY \
 							-e DEBUG=* \
 							picstrata/workers:latest
@@ -76,7 +91,7 @@ startServices() {
 							-e PST_DATABASE_PASSWORD=$PST_DATABASE_PASSWORD \
 							-e PST_API_KEY_1=$PST_API_KEY_1 \
 							-e PST_API_KEY_2=$PST_API_KEY_2 \
-							-e PST_MESSAGE_QUEUE_URL=amqp://$HOST_IP \
+							-e PST_QUEUE_HOST=$HOST_IP \
 							-e DEBUG=* \
 							-p3100:3000 \
 							picstrata/api:latest
@@ -91,8 +106,13 @@ stopServices() {
   docker rm $API_CONTAINER
   docker stop $WORKERS_CONTAINER
   docker rm $WORKERS_CONTAINER
-  docker stop $RABBIT_MQ_CONTAINER
-  docker rm $RABBIT_MQ_CONTAINER
+	if [ "$PST_QUEUE_TYPE" = "rabbitmq" ]; then
+		docker stop $RABBIT_MQ_CONTAINER
+		docker rm $RABBIT_MQ_CONTAINER
+	else
+		docker stop $BEANSTALKD_CONTAINER
+		docker rm $BEANSTALKD_CONTAINER
+	fi
   echo Containers stopped.
 }
 
@@ -110,8 +130,12 @@ viewContainerLogs () {
 	"wrk")
 		docker logs $WORKERS_CONTAINER 2>&1
 		;;
-	"mq")
-		docker logs $RABBIT_MQ_CONTAINER 2>&1
+	"wq")
+		if [ "$PST_QUEUE_TYPE" = "rabbitmq" ]; then
+			docker logs $RABBIT_MQ_CONTAINER 2>&1
+		else
+			docker logs $BEANSTALKD_CONTAINER 2>&1
+		fi
 		;;
 	*)
 		usage

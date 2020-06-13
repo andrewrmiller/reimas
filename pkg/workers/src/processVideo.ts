@@ -11,7 +11,9 @@ import { createThumbnails, updateMetadata } from './processPicture';
 const fsPromises = fs.promises;
 const debug = createDebug('workers:processVideo');
 
-export async function processVideo(message: IProcessVideoMsg) {
+export async function processVideo(
+  message: IProcessVideoMsg
+): Promise<boolean> {
   debug(
     `Processing video file ${message.fileId} in library ${message.libraryId}.`
   );

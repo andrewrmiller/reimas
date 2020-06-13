@@ -67,7 +67,7 @@ const connectionPool = mysql.createPool({
 });
 
 /**
- * MySQL Reimas database interface.
+ * MySQL Picstrata database interface.
  */
 export class MySqlDatabase {
   /**

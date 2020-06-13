@@ -1,5 +1,4 @@
 import {
-  IFile,
   IFileAdd,
   IFileUpdate,
   IFolderAdd,
@@ -9,7 +8,6 @@ import {
   ILibraryUpdate,
   ThumbnailSize
 } from '@picstrata/client';
-import amqp from 'amqplib';
 import {
   HttpStatusCode,
   Paths,
@@ -27,16 +25,9 @@ import sizeOf from 'image-size';
 import { path as buildTempPath } from 'temp';
 import * as util from 'util';
 import { v1 as createGuid } from 'uuid';
-import { AmqpConnectionWrapper } from './AmqpConnectionWrapper';
 import { DbFactory } from './db/DbFactory';
 import { FileSystemFactory } from './files/FileSystemFactory';
-import {
-  IProcessPictureMsg,
-  IProcessVideoMsg,
-  IRecalcFolderMsg,
-  MessageType
-} from './messages';
-import { JobsChannelName } from './workers';
+import { QueueFactory } from './queue/QueueFactory';
 
 const debug = createDebug('storage:picturestore');
 const fsPromises = fs.promises;
@@ -72,7 +63,7 @@ interface IFileMetadata {
   width?: number;
 }
 
-const amqpWrapper = new AmqpConnectionWrapper();
+const queue = QueueFactory.createProducerInstance();
 
 /**
  * Service which wraps the database and the file system to
@@ -546,7 +537,7 @@ export class PictureStore {
     const db = DbFactory.createInstance();
     return db.recalcFolder(libraryId, folderId).then(folder => {
       if (folder.parentId) {
-        this.enqueueRecalcFolderJob(folder.libraryId, folder.parentId);
+        queue.enqueueRecalcFolderJob(folder.libraryId, folder.parentId);
       }
       return folder;
     });
@@ -755,24 +746,24 @@ export class PictureStore {
             localPath,
             this.buildLibraryPath(libraryId, folder.path, fileId)
           )
-          .then(_ => {
+          .then(async _ => {
             PictureStore.deleteFile(localPath);
 
             // File has been imported into the file system.  Now
             // create a row in the database with the file's metadata.
-            return db
-              .addFile(userId, libraryId, folderId, fileId, {
-                name: filename,
-                mimeType,
-                isVideo: metadata.isVideo,
-                height: metadata.height,
-                width: metadata.width,
-                fileSize,
-                isProcessing: true
-              } as IFileAdd)
-              .then(file => {
-                return this.enqueueProcessFileJob(file);
-              });
+            const file = await db.addFile(userId, libraryId, folderId, fileId, {
+              name: filename,
+              mimeType,
+              isVideo: metadata.isVideo,
+              height: metadata.height,
+              width: metadata.width,
+              fileSize,
+              isProcessing: true
+            } as IFileAdd);
+
+            await queue.enqueueProcessFileJob(file);
+
+            return file;
           });
       })
       .catch(err => {
@@ -831,7 +822,7 @@ export class PictureStore {
                 fileSize
               )
               .then(_ => {
-                return this.enqueueRecalcFolderJob(
+                return queue.enqueueRecalcFolderJob(
                   libraryId,
                   fileInfo.folderId
                 );
@@ -895,7 +886,7 @@ export class PictureStore {
               return db
                 .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
                 .then(file => {
-                  return this.enqueueRecalcFolderJob(
+                  return queue.enqueueRecalcFolderJob(
                     libraryId,
                     fileInfo.folderId
                   );
@@ -964,7 +955,7 @@ export class PictureStore {
               return db
                 .updateFileConvertedVideo(libraryId, fileId, fileSize)
                 .then(file => {
-                  return this.enqueueRecalcFolderJob(
+                  return queue.enqueueRecalcFolderJob(
                     libraryId,
                     fileInfo.folderId
                   );
@@ -1050,7 +1041,7 @@ export class PictureStore {
             );
           })
           .then(() => {
-            this.enqueueRecalcFolderJob(file.libraryId, file.folderId);
+            queue.enqueueRecalcFolderJob(file.libraryId, file.folderId);
             // Return the result from the database delete.
             return result;
           })
@@ -1135,75 +1126,5 @@ export class PictureStore {
     return parentFolderPath && parentFolderPath.length > 0
       ? `${libraryId}/${parentFolderPath}/${itemName}`
       : `${libraryId}/${itemName}`;
-  }
-
-  private enqueueRecalcFolderJob(libraryId: string, folderId: string) {
-    this.enqueue(ch => {
-      debug('Publishing recalc folder message.');
-      const message: IRecalcFolderMsg = {
-        type: MessageType.RecalcFolder,
-        libraryId,
-        folderId
-      };
-      if (
-        !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
-      ) {
-        throw new Error('Failed to enqueue recalc folder message.');
-      }
-      return null;
-    });
-  }
-
-  private enqueueProcessFileJob(file: IFile) {
-    let message: IProcessPictureMsg | IProcessVideoMsg;
-    return this.enqueue(ch => {
-      if (!file.isVideo) {
-        debug('Publishing thumbnail creation jobs.');
-        message = {
-          type: MessageType.ProcessPicture,
-          libraryId: file.libraryId,
-          fileId: file.fileId
-        } as IProcessPictureMsg;
-      } else {
-        debug('Publishing video conversion job.');
-        message = {
-          type: MessageType.ProcessVideo,
-          libraryId: file.libraryId,
-          fileId: file.fileId,
-          convertToMp4: Paths.getFileExtension(file.name) !== VideoExtension.MP4
-        } as IProcessVideoMsg;
-      }
-
-      if (
-        !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
-      ) {
-        throw new Error('Failed to enqueue process picture/video message.');
-      }
-
-      return file;
-    });
-  }
-
-  private enqueue(callback: (ch: amqp.Channel) => any) {
-    const conn = amqpWrapper.getConnection();
-    if (!conn) {
-      debug(`Error: Unable to connect to RabbitMQ to enqueue message.`);
-      return;
-    }
-
-    debug('Creating RabbitMQ channel and enqueing message...');
-    return conn.createChannel().then(ch => {
-      return ch
-        .assertQueue(JobsChannelName)
-        .then(() => {
-          const result = callback(ch);
-          ch.close();
-          return result;
-        })
-        .catch(err => {
-          debug(`Error while communicating with RabbitMQ: ${err}`);
-          throw err;
-        });
-    });
   }
 }

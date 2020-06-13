@@ -11,8 +11,9 @@ FileSystem:
     accessKeyId: PST_S3_ACCESS_KEY_ID
     secretAccessKey: PST_S3_SECRET_ACCESS_KEY
     bucket: PST_S3_FILE_SYSTEM_BUCKET
-MessageQueue:
-  url: PST_MESSAGE_QUEUE_URL
+Queue:
+  type: PST_QUEUE_TYPE
+  host: PST_QUEUE_HOST
 ApiKeys:
   key1: PST_API_KEY_1
   key2: PST_API_KEY_2

@@ -573,6 +573,13 @@
   dependencies:
     "@babel/types" "^7.3.0"
 
+"@types/beanstalkd@^2.2.0":
+  version "2.2.0"
+  resolved "https://registry.yarnpkg.com/@types/beanstalkd/-/beanstalkd-2.2.0.tgz#979ea9953ea30bc6a7fd68813ae7454d1b917dd8"
+  integrity sha512-ryHl/WlMxrPrTuLZdG+Ra6yjOWYC5LeDPtXip6nLzvpRfGRN9MJI/bfh/SNSwAuMRsWnwTBWylZz5nUZvwSGxQ==
+  dependencies:
+    "@types/node" "*"
+
 "@types/bluebird@*":
   version "3.5.29"
   resolved "https://registry.yarnpkg.com/@types/bluebird/-/bluebird-3.5.29.tgz#7cd933c902c4fc83046517a1bef973886d00bdb6"
@@ -1105,6 +1112,13 @@ babel-preset-jest@^25.2.6:
     "@babel/plugin-syntax-object-rest-spread" "^7.0.0"
     babel-plugin-jest-hoist "^25.2.6"
 
+babel-runtime@^5.8.25:
+  version "5.8.38"
+  resolved "https://registry.yarnpkg.com/babel-runtime/-/babel-runtime-5.8.38.tgz#1c0b02eb63312f5f087ff20450827b425c9d4c19"
+  integrity sha1-HAsC62MxL18If/IEUIJ7QlydTBk=
+  dependencies:
+    core-js "^1.0.0"
+
 balanced-match@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/balanced-match/-/balanced-match-1.0.0.tgz#89b4d199ab2bee49de164ea02b89ce462d71b767"
@@ -1142,6 +1156,23 @@ bcrypt-pbkdf@^1.0.0:
   dependencies:
     tweetnacl "^0.14.3"
 
+beanstalkd-protocol@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/beanstalkd-protocol/-/beanstalkd-protocol-1.0.0.tgz#735195c7ecde0679b9f9d8ac2badbe185f2dc51e"
+  integrity sha1-c1GVx+zeBnm5+disK62+GF8txR4=
+
+beanstalkd@^2.2.4:
+  version "2.2.4"
+  resolved "https://registry.yarnpkg.com/beanstalkd/-/beanstalkd-2.2.4.tgz#162a86c957c71ade2fc387af65f78047ac971c28"
+  integrity sha512-AC5mI40a8cRdulEc2rblUPoqF77sw0m8CvNa7DmS+aMCmIpX1iJ9QdDo1p8PR7VIzXYD/JGQ30JSZZ3OwP+zzQ==
+  dependencies:
+    babel-runtime "^5.8.25"
+    beanstalkd-protocol "^1.0.0"
+    bluebird "^3.4.7"
+    debug "^2.2.0"
+    js-yaml "^3.13.1"
+    lodash.camelcase "^4.3.0"
+
 bignumber.js@9.0.0:
   version "9.0.0"
   resolved "https://registry.yarnpkg.com/bignumber.js/-/bignumber.js-9.0.0.tgz#805880f84a329b5eac6e7cb6f8274b6d82bdf075"
@@ -1163,7 +1194,7 @@ bl@^3.0.0:
   dependencies:
     readable-stream "^3.0.1"
 
-bluebird@^3.5.2:
+bluebird@^3.4.7, bluebird@^3.5.2:
   version "3.7.2"
   resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-3.7.2.tgz#9f229c15be272454ffa973ace0dbee79a1b0c36f"
   integrity sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==
@@ -1536,6 +1567,11 @@ copy-descriptor@^0.1.0:
   version "0.1.1"
   resolved "https://registry.yarnpkg.com/copy-descriptor/-/copy-descriptor-0.1.1.tgz#676f6eb3c39997c2ee1ac3a924fd6124748f578d"
   integrity sha1-Z29us8OZl8LuGsOpJP1hJHSPV40=
+
+core-js@^1.0.0:
+  version "1.2.7"
+  resolved "https://registry.yarnpkg.com/core-js/-/core-js-1.2.7.tgz#652294c14651db28fa93bd2d5ff2983a4f08c636"
+  integrity sha1-ZSKUwUZR2yj6k70tX/KYOk8IxjY=
 
 core-util-is@1.0.2, core-util-is@~1.0.0:
   version "1.0.2"
@@ -3163,6 +3199,11 @@ locate-path@^5.0.0:
   integrity sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==
   dependencies:
     p-locate "^4.1.0"
+
+lodash.camelcase@^4.3.0:
+  version "4.3.0"
+  resolved "https://registry.yarnpkg.com/lodash.camelcase/-/lodash.camelcase-4.3.0.tgz#b28aa6288a2b9fc651035c7711f65ab6190331a6"
+  integrity sha1-soqmKIorn8ZRA1x3EfZathkDMaY=
 
 lodash.memoize@4.x:
   version "4.1.2"

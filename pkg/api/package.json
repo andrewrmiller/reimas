@@ -13,7 +13,6 @@
     "@picstrata/client": "^0.5.1",
     "amqplib": "^0.5.5",
     "common": "0.1.0",
-    "storage": "0.1.0",
     "concurrently": "^4.1.2",
     "config": "^3.2.2",
     "cookie-parser": "~1.4.4",
@@ -24,6 +23,7 @@
     "js-yaml": "^3.13.1",
     "morgan": "~1.9.1",
     "multer": "^1.4.2",
+    "storage": "0.1.0",
     "typescript": "^3.5.3"
   },
   "devDependencies": {
