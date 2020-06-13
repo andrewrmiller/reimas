@@ -78,7 +78,9 @@ const TestPictures = [
     width: 2016,
     byteLength: 889411,
     // This file is rotated on upload.
-    processedByteLength: 933484
+    processedByteLength: 933484,
+    cameraMake: 'Apple',
+    cameraModel: 'iPhone XR'
   }
 ];
 
@@ -359,6 +361,7 @@ describe('File Tests', () => {
     }
 
     // Files should be rotated if necessary and GPS coords should be imported.
+    // Also camera make and model should be imported.
     await sendRequest(
       `libraries/${testLibraryId}/files/${fileIds[4]}`,
       ReaderUserId
@@ -366,6 +369,8 @@ describe('File Tests', () => {
       response.json().then((file: IFile) => {
         expect(file.width).toBe(TestPictures[4].height);
         expect(file.height).toBe(TestPictures[4].width);
+        expect(file.cameraMake).toBe(TestPictures[4].cameraMake);
+        expect(file.cameraModel).toBe(TestPictures[4].cameraModel);
         expect(file.fileSize).toBe(TestPictures[4].processedByteLength);
         expect(file.latitude).toBe('56.3349722222');
         expect(file.longitude).toBe('-6.3922305556');

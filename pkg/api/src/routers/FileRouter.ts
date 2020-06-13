@@ -87,10 +87,11 @@ router.get(
   '/:libraryId/files/:fileId/contents',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    const asAttachment = req.query.attachment === 'true';
     createPictureStore(req)
-      .getFileContents(params.libraryId, params.fileId)
+      .getFileContents(params.libraryId, params.fileId, asAttachment)
       .then(contents => {
-        if (req.query.attachment === 'true') {
+        if (asAttachment) {
           res.setHeader(
             'Content-Disposition',
             `attachment; filename=${contents.filename}`

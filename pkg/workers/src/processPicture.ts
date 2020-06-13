@@ -214,6 +214,8 @@ export function updateMetadata(
           rating: metadata.Rating,
           title: metadata.Title || metadata.ImageDescription,
           comments: metadata.Comment,
+          cameraMake: metadata.Make,
+          cameraModel: metadata.Model,
           latitude: metadata.GPSLatitude,
           longitude: metadata.GPSLongitude,
           altitude: metadata.GPSAltitude,

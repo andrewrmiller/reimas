@@ -511,10 +511,10 @@
   resolved "https://registry.yarnpkg.com/@js-joda/timezone/-/timezone-2.2.0.tgz#6085937d83791cd0bda0b43b533273f2f76b678b"
   integrity sha512-Ks1F35VAEhQjlXQd9iqkbCkYGOUmCtMPfrjurgdoAGFqy4Q83Ob/p865E6N+mFAhlpWW1iFpwsznhdrVmtSZ2w==
 
-"@picstrata/client@^0.4.0":
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.4.0.tgz#92ebf762faab24a1a4f6dd07a97ce73adeaf4cfd"
-  integrity sha512-7/6eDHmbWIajuwDWN0tM5VfPIfFZjUBGTyeFtBgWKEeUGUJKjoRg428OVNJa4ULOKoCAvIuBKtEYxLTgGmU87Q==
+"@picstrata/client@^0.5.1":
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.5.1.tgz#585093023e44850362872a02766481e9e484b073"
+  integrity sha512-QLGsiGIhaJq6tDTF8GuKVi0OFURKoHOUAZ4EvR4acmvtMZB/ERhSmaJJSgBT9CclAL0WfAw5OY7YVl0xNHjaxQ==
   dependencies:
     typescript "^3.7.2"
 

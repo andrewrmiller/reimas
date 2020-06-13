@@ -68,6 +68,8 @@ export interface IDbFile {
   rating?: number;
   title?: string;
   comments?: string;
+  camera_make?: string;
+  camera_model?: string;
   latitude?: string;
   longitude?: string;
   altitude?: string;

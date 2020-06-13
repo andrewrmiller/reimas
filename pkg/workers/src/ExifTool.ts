@@ -59,6 +59,8 @@ export interface IExifResponse {
   Rating?: number;
   Keyword?: string[];
   Subject?: string[];
+  Make?: string;
+  Model?: string;
 
   // These numeric values stored as strings for accuracy.
   GPSLatitude?: string; // Decimal degrees
