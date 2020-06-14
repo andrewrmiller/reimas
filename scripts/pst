@@ -18,6 +18,15 @@ usage() {
 	echo
 	echo "Where [container] is one of 'api', 'wrk', or 'wq'"
 	echo
+	echo "The following environment variables must be set:"
+	echo
+	echo "   PST_DATABASE_HOST"
+	echo "   PST_DATABASE_USER"
+	echo "   PST_DATABASE_PASSWORD"
+	echo "   PST_QUEUE_TYPE"
+	echo "   PST_TIMEZONE_DB_API_KEY"
+	echo "   PST_API_KEY_1"
+	echo
 }
 
 CONTAINER_PREFIX=picstrata
@@ -45,8 +54,7 @@ startServices() {
 	HOST_IP=`hostname -I | awk '{print $1}'`
 	echo Starting storage layer containers on host $HOST_IP
 
-	# Picstrata uses beanstalkd as a work queue by default.  To use
-	# RabbitMQ instead set the PST_QUEUE_TYPE environment var.
+	# Picstrata can use beanstalkd or rabbitmq as work queue.
 	if [ "$PST_QUEUE_TYPE" = "rabbitmq" ]; then
 		if docker ps -a | grep -q $RABBIT_MQ_CONTAINER; then
 			docker start $RABBIT_MQ_CONTAINER

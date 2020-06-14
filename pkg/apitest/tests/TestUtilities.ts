@@ -9,12 +9,7 @@ const debug = createDebug('apitest:libraries');
 
 export const ApiBaseUrl = `http://localhost:${process.env.APITEST_PORT}`;
 
-// Tests need to connect to the RabbitMQ server to check queue
-// status.  To do that we need to provide authorization information.
-// We currently use basic auth and the default 'guest' login with
-// 'guest' password.  Probably should make this more secure at some point.
 const AuthorizationHeader = 'Authorization';
-const RabbitAuthHeaderValue = 'Basic Z3Vlc3Q6Z3Vlc3Q=';
 const WaitRetryCount = 20;
 
 const ApiKey = process.env.PST_API_KEY_1;
@@ -151,37 +146,20 @@ export async function getProcessingCount() {
  * Waits for the asynchronous queue to drain.
  */
 export async function waitForQueueDrain() {
-  debug('Waiting for message queue to drain...');
   let retry = 0;
 
   while (retry < WaitRetryCount) {
     // If the queue length is 0 we're done.
-    const len = await getQueueLen();
-    if (len === 0) {
+    const stats = await getStats();
+    if (stats.queueLength === 0) {
       return;
     }
 
     // Check again in a bit.
+    debug(`Queue length is ${stats.queueLength}.  Waiting...`);
     retry++;
     await sleep(1000);
   }
 
   expect(retry).toBeLessThan(WaitRetryCount);
-}
-
-/**
- * Gets the number of messages in the async queue.
- */
-export async function getQueueLen() {
-  const headers = new Headers();
-  headers.append(AuthorizationHeader, RabbitAuthHeaderValue);
-
-  return fetch('http://localhost:15672/api/queues', { headers }).then(
-    response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then(queues => {
-        return queues[0].messages as number;
-      });
-    }
-  );
 }

@@ -13,7 +13,7 @@
   "dependencies": {
     "@js-joda/core": "^2.0.0",
     "@js-joda/timezone": "^2.2.0",
-    "@picstrata/client": "^0.5.1",
+    "@picstrata/client": "^0.6.0",
     "aws-sdk": "^2.535.0",
     "config": "^3.2.2",
     "debug": "^4.1.1",

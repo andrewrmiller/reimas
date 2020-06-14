@@ -1,27 +1,20 @@
-import { IFile } from '@picstrata/client';
 import amqp from 'amqplib';
-import { Paths, VideoExtension } from 'common';
 import createDebug from 'debug';
 import { AmqpConnection } from './AmqpConnection';
-import { IQueueProducer } from './IQueueProducer';
-import {
-  IMessage,
-  IProcessPictureMsg,
-  IProcessVideoMsg,
-  IRecalcFolderMsg,
-  MessageType
-} from './messages';
+import { IQueueClient } from './IQueueClient';
+import { IMessage } from './messages';
 import { JobsChannelName } from './workers';
 
 const debug = createDebug('storage:queueconsumer');
 
-export class RabbitQueueConsumer extends AmqpConnection {
-  private messageHandler?: (message: IMessage, tag: string) => Promise<boolean>;
+export class RabbitQueueConsumer extends AmqpConnection
+  implements IQueueClient {
+  private messageHandler: (message: IMessage, tag: string) => Promise<boolean>;
   private consumerChannel?: amqp.Channel;
 
   constructor(
     host: string,
-    messageHandler?: (message: IMessage, tag: string) => Promise<boolean>
+    messageHandler: (message: IMessage, tag: string) => Promise<boolean>
   ) {
     super(host);
     this.handleMessageReceived = this.handleMessageReceived.bind(this);
@@ -74,7 +67,7 @@ export class RabbitQueueConsumer extends AmqpConnection {
   private handleMessageReceived(msg: amqp.ConsumeMessage | null) {
     if (msg) {
       const message = JSON.parse(msg.content.toString()) as IMessage;
-      this.messageHandler!(message, `${msg.fields.deliveryTag}`)
+      this.messageHandler(message, `${msg.fields.deliveryTag}`)
         .then(success => {
           // Channel may have gone down while the message was
           // being processed.  In this case the message will

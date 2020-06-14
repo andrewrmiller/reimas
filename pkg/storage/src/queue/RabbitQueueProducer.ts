@@ -3,7 +3,7 @@ import amqp from 'amqplib';
 import { Paths, VideoExtension } from 'common';
 import createDebug from 'debug';
 import { AmqpConnection } from './AmqpConnection';
-import { IQueueProducer } from './IQueueProducer';
+import { IQueueProducer } from './IQueueClient';
 import {
   IProcessPictureMsg,
   IProcessVideoMsg,

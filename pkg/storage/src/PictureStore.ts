@@ -284,9 +284,11 @@ export class PictureStore {
   /**
    * Retrieves statistics for the service as a whole.
    */
-  public getStatistics() {
+  public async getStatistics() {
     const db = DbFactory.createInstance();
-    return db.getStatistics();
+    const stats = await db.getStatistics();
+    stats.queueLength = await queue.getQueueLength();
+    return stats;
   }
 
   /**
@@ -781,6 +783,9 @@ export class PictureStore {
   /**
    * Updates an existing picture in a library.
    *
+   * Note that unlike importFile, the source file is not deleted when
+   * the operation is complete.
+   *
    * @param libraryId Unique ID of the parent library.
    * @param fileId Unique ID of the file.
    * @param localPath Local path to the updated picture.
@@ -809,8 +814,6 @@ export class PictureStore {
         return fileSystem
           .importFile(localPath, `${libraryId}/${fileInfo.path}`)
           .then(() => {
-            PictureStore.deleteFile(localPath);
-
             // File has been imported into the file system.  Update the database.
             return db
               .updateFileDimsAndSize(

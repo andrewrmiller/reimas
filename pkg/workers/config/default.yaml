@@ -12,7 +12,7 @@ FileSystem:
     secretAccessKey: 'use environment variable'
     bucket: picstrata-localdev
 Queue:
-  type: rabbitmq
+  type: beanstalkd
   host: localhost
 TimeZoneDb:
   apiKey: 'use environment variable'
