@@ -16,7 +16,7 @@ usage() {
 	echo "   ls                 Lists the Picstrata containers"
 	echo "   logs [container]   Shows the logs for a given container"
 	echo
-	echo "Where [container] is one of 'api', 'wrk', or 'wq'"
+	echo "Where [container] is one of 'api', 'wrk1', 'wrk2', or 'wq'"
 	echo
 	echo "The following environment variables must be set:"
 	echo
@@ -32,9 +32,7 @@ usage() {
 CONTAINER_PREFIX=picstrata
 API_CONTAINER=$CONTAINER_PREFIX-api
 WORKERS_CONTAINER=$CONTAINER_PREFIX-workers
-BEANSTALKD_CONTAINER=$CONTAINER_PREFIX-beanstalkd
-RABBIT_MQ_HOST=$CONTAINER_PREFIX-rabbit
-RABBIT_MQ_CONTAINER=$RABBIT_MQ_HOST-1
+QUEUE_CONTAINER=$CONTAINER_PREFIX-queue
 
 VERSION=0.8.0
 
@@ -51,76 +49,20 @@ buildContainers () {
 }
 
 startServices() {
+	echo Starting Picstrata containers...
+	cd pkg
 	HOST_IP=`hostname -I | awk '{print $1}'`
-	echo Starting storage layer containers on host $HOST_IP
-
-	# Picstrata can use beanstalkd or rabbitmq as work queue.
-	if [ "$PST_QUEUE_TYPE" = "rabbitmq" ]; then
-		if docker ps -a | grep -q $RABBIT_MQ_CONTAINER; then
-			docker start $RABBIT_MQ_CONTAINER
-		else
-			docker run -d --hostname $RABBIT_MQ_HOST \
-									--name $RABBIT_MQ_CONTAINER \
-									-p5672:5672 -p 15672:15672 \
-									rabbitmq:3-management
-		fi
-	else
-		if docker ps -a | grep -q $BEANSTALKD_CONTAINER; then
-			docker start $BEANSTALKD_CONTAINER
-		else
-			docker run -d --name $BEANSTALKD_CONTAINER \
-									-p11300:11300 \
-									picstrata/beanstalkd:latest
-		fi
-	fi
-
-
-	if docker ps -a | grep -q $WORKERS_CONTAINER; then
-  	docker start $WORKERS_CONTAINER
-	else
-  	docker run -d --name $WORKERS_CONTAINER \
-							--volume /var/lib/picstrata:/var/lib/picstrata \
-							-e PST_DATABASE_HOST=$HOST_IP \
-							-e PST_DATABASE_USER=$PST_DATABASE_USER \
-							-e PST_DATABASE_PASSWORD=$PST_DATABASE_PASSWORD \
-							-e PST_QUEUE_HOST=$HOST_IP \
-							-e PST_TIMEZONE_DB_API_KEY=$PST_TIMEZONE_DB_API_KEY \
-							-e DEBUG=* \
-							picstrata/workers:latest
-	fi
-
-	if docker ps -a | grep -q $API_CONTAINER; then
-  	docker start $API_CONTAINER
-	else
-  	docker run -d --name $API_CONTAINER \
-							--volume /var/lib/picstrata:/var/lib/picstrata \
-							-e PST_DATABASE_HOST=$HOST_IP \
-							-e PST_DATABASE_USER=$PST_DATABASE_USER \
-							-e PST_DATABASE_PASSWORD=$PST_DATABASE_PASSWORD \
-							-e PST_API_KEY_1=$PST_API_KEY_1 \
-							-e PST_API_KEY_2=$PST_API_KEY_2 \
-							-e PST_QUEUE_HOST=$HOST_IP \
-							-e DEBUG=* \
-							-p3100:3000 \
-							picstrata/api:latest
-	fi
-
+	export PST_DATABASE_HOST=$HOST_IP
+	docker-compose --compatibility up -d
   echo Containers started.
 }
 
 stopServices() {
-  echo Stopping storage layer containers...
-  docker stop $API_CONTAINER
-  docker rm $API_CONTAINER
-  docker stop $WORKERS_CONTAINER
-  docker rm $WORKERS_CONTAINER
-	if [ "$PST_QUEUE_TYPE" = "rabbitmq" ]; then
-		docker stop $RABBIT_MQ_CONTAINER
-		docker rm $RABBIT_MQ_CONTAINER
-	else
-		docker stop $BEANSTALKD_CONTAINER
-		docker rm $BEANSTALKD_CONTAINER
-	fi
+  echo Stopping Picstrata containers...
+	cd pkg
+	HOST_IP=`hostname -I | awk '{print $1}'`
+	export PST_DATABASE_HOST=$HOST_IP
+	docker-compose --compatibility down
   echo Containers stopped.
 }
 
@@ -135,15 +77,14 @@ viewContainerLogs () {
 	"api")
 		docker logs $API_CONTAINER 2>&1
 		;;
-	"wrk")
-		docker logs $WORKERS_CONTAINER 2>&1
+	"wrk1")
+		docker logs $WORKERS_CONTAINER-1 2>&1
+		;;
+	"wrk2")
+		docker logs $WORKERS_CONTAINER-2 2>&1
 		;;
 	"wq")
-		if [ "$PST_QUEUE_TYPE" = "rabbitmq" ]; then
-			docker logs $RABBIT_MQ_CONTAINER 2>&1
-		else
-			docker logs $BEANSTALKD_CONTAINER 2>&1
-		fi
+		docker logs $QUEUE_CONTAINER 2>&1
 		;;
 	*)
 		usage

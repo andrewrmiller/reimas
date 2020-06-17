@@ -1,0 +1,78 @@
+version: '3'
+services:
+  queue:
+    container_name: picstrata-queue
+    image: "picstrata/beanstalkd:latest"
+    ports:
+      - "11300:11300"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
+  # queue:
+  #   container_name: picstrata-queue
+  #   host_name: picstrata-rabbit
+  #   image: "rabbitmq:3-management"
+  #   ports:
+  #     - "5672:5672"
+  #     - "15672:15672"
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '0.50'
+  #         memory: 256M
+  worker1:
+    container_name: picstrata-workers-1
+    image: "picstrata/workers:latest"
+    volumes:
+      - /var/lib/picstrata:/var/lib/picstrata
+    environment:
+      - PST_DATABASE_HOST
+      - PST_DATABASE_USER
+      - PST_DATABASE_PASSWORD
+      - "PST_QUEUE_HOST=picstrata-queue"
+      - PST_TIMEZONE_DB_API_KEY
+      - DEBUG=*
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 512M
+  worker2:
+    container_name: picstrata-workers-2
+    image: "picstrata/workers:latest"
+    volumes:
+      - /var/lib/picstrata:/var/lib/picstrata
+    environment:
+      - PST_DATABASE_HOST
+      - PST_DATABASE_USER
+      - PST_DATABASE_PASSWORD
+      - "PST_QUEUE_HOST=picstrata-queue"
+      - PST_TIMEZONE_DB_API_KEY
+      - DEBUG=*
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 512M
+  api:
+    container_name: picstrata-api
+    image: "picstrata/api:latest"
+    volumes:
+      - /var/lib/picstrata:/var/lib/picstrata
+    ports:
+      - "3100:3000"
+    environment:
+      - PST_DATABASE_HOST
+      - PST_DATABASE_USER
+      - PST_DATABASE_PASSWORD
+      - "PST_QUEUE_HOST=picstrata-queue"
+      - PST_API_KEY_1
+      - PST_API_KEY_2
+      - DEBUG=*
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 256M
