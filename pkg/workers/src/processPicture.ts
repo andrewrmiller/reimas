@@ -3,7 +3,7 @@ import { Dates, PictureExtension, ThumbnailDimensions } from 'common';
 import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
-import jo from 'jpeg-autorotate';
+import jo, { RotateDimensions } from 'jpeg-autorotate';
 import fetch from 'node-fetch';
 import queryString from 'query-string';
 import sharp from 'sharp';
@@ -14,6 +14,16 @@ import { getLocalFilePath } from './getLocalFilePath';
 
 const fsPromises = fs.promises;
 const debug = createDebug('workers:processPicture');
+
+/**
+ * Result returned from the jpeg-autrotate library.
+ */
+interface IRotateResult {
+  buffer: Buffer;
+  orientation: number;
+  dimensions: RotateDimensions;
+  quality: number;
+}
 
 export async function processPicture(
   message: IProcessPictureMsg
@@ -96,7 +106,7 @@ async function processLocalPictureFile(
 
   const orientation = metadata.Orientation;
   if (orientation && orientation !== 1) {
-    localFilePath = await autoRotate(
+    const rotatedFilePath = await autoRotate(
       pictureStore,
       libraryId,
       fileId,
@@ -106,8 +116,14 @@ async function processLocalPictureFile(
       throw err;
     });
 
-    // A new local file was created containing the rotated picture.
-    deleteLocalFile = true;
+    // If we were successful rotating the picture use the rotated
+    // picture moving forward and make sure we clean up.  If rotation
+    // failed for some reason, rotatedFilePath will be null.  In this
+    // case we proceed with the original file.
+    if (rotatedFilePath != null) {
+      localFilePath = rotatedFilePath;
+      deleteLocalFile = true;
+    }
   }
 
   return createThumbnails(pictureStore, libraryId, fileId, localFilePath)
@@ -191,9 +207,9 @@ export function updateMetadata(
       // By default we use the time zone of the library when figuring out
       // the date/time of the file.  But if there are GPS coordinates we
       // try to use those coordinates to figure out the actual time zone.
-      let timeZone = library.timeZone;
+      let gpsTimeZone: string | undefined;
       if (metadata.GPSLatitude && metadata.GPSLongitude) {
-        timeZone = await getGpsTimeZone(
+        gpsTimeZone = await getGpsTimeZone(
           metadata.GPSLatitude,
           metadata.GPSLongitude
         ).catch(err => {
@@ -202,6 +218,9 @@ export function updateMetadata(
           debug('Using library default time zone instead.');
         });
       }
+
+      const timeZone = gpsTimeZone || library.timeZone;
+      debug(`Time zone: ${timeZone}`);
 
       // The taken on timestamp could come from one of two places.
       const takenOn = metadata.DateTimeOriginal || metadata.CreateDate;
@@ -268,6 +287,10 @@ async function getGpsTimeZone(latitude: string, longitude: string) {
  * Automatically rotates the picture to the right orientation and pushes
  * the rotated file back into the store.
  *
+ * Returns null if the picture could not be rotated for some reason.  Otherwise
+ * returns the path of the rotated file.  In this case the caller is responsible
+ * for cleaning up the rotated file.
+ *
  * @param pictureStore The PictureStore instance to use.
  * @param libraryId Unique ID of the parent library.
  * @param fileId Unique ID of the file to update.
@@ -281,32 +304,41 @@ async function autoRotate(
 ) {
   debug('Rotating picture %s stored at %s', fileId, localFilePath);
 
-  return jo
+  // Try to autorotate the picture.
+  const rotated: IRotateResult | undefined = await jo
     .rotate(localFilePath, { quality: 90 })
-    .then(async result => {
-      const rotatedFilePath = buildTempPath({
-        prefix: 'rot',
-        suffix: `.${PictureExtension.Jpg}`
-      });
+    .catch(async rotateErr => {
+      debug('Error caught trying to rotate file %s: %O', fileId, rotateErr);
+      return undefined;
+    });
 
-      await fs.promises.writeFile(rotatedFilePath, result.buffer).catch(err => {
-        throw err;
-      });
+  // If we don't have rotated data then the auto rotate library
+  // failed us.  This can happen if the metadata isn't quite right.
+  // Return null which indicates that the file should be used as-is.
+  if (rotated === undefined) {
+    return null;
+  }
 
-      await pictureStore
+  const rotatedFilePath = buildTempPath({
+    prefix: 'rot',
+    suffix: `.${PictureExtension.Jpg}`
+  });
+
+  return fs.promises
+    .writeFile(rotatedFilePath, rotated.buffer)
+    .then(fsResult => {
+      return pictureStore
         .updatePicture(
           libraryId,
           fileId,
           rotatedFilePath,
-          result.buffer.byteLength,
-          result.dimensions.height,
-          result.dimensions.width
+          rotated!.buffer.byteLength,
+          rotated!.dimensions.height,
+          rotated!.dimensions.width
         )
-        .catch(err => {
-          throw err;
+        .then(dbResult => {
+          return rotatedFilePath;
         });
-
-      return rotatedFilePath;
     })
     .catch(err => {
       debug('%s auto rotation failed: %O', fileId, err);
