@@ -1,11 +1,14 @@
 import {
+  IAlbumAdd,
+  IAlbumUpdate,
   IFileAdd,
   IFileUpdate,
   IFolderAdd,
   IFolderUpdate,
-  IFolderUserAdd,
   ILibraryAdd,
   ILibraryUpdate,
+  IObjectUserAdd,
+  ObjectType,
   ThumbnailSize
 } from '@picstrata/client';
 import {
@@ -24,7 +27,7 @@ import createHttpError from 'http-errors';
 import sizeOf from 'image-size';
 import { path as buildTempPath } from 'temp';
 import * as util from 'util';
-import { v1 as createGuid } from 'uuid';
+import { v4 as createGuid } from 'uuid';
 import { DbFactory } from './db/DbFactory';
 import { FileSystemFactory } from './files/FileSystemFactory';
 import { QueueFactory } from './queue/QueueFactory';
@@ -292,6 +295,35 @@ export class PictureStore {
   }
 
   /**
+   * Adds a new user to the membership of a library object.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param objectType Type of object.
+   * @param objectId Unique ID of the folder.
+   * @param newObjectUser User identifier and role to add.
+   */
+  public addRoleAssignment(
+    libraryId: string,
+    objectType: ObjectType,
+    objectId: string,
+    newObjectUser: IObjectUserAdd
+  ) {
+    const db = DbFactory.createInstance();
+    return db
+      .addRoleAssignment(
+        this.getUserId(),
+        libraryId,
+        objectType,
+        objectId,
+        newObjectUser.userId,
+        newObjectUser.role
+      )
+      .then(result => {
+        return result;
+      });
+  }
+
+  /**
    * Retrieves a list of the libraries in the system.
    */
   public getLibraries() {
@@ -380,7 +412,6 @@ export class PictureStore {
   /**
    * Retrieves a list of folders in a library.
    *
-   * @param userId Unique ID of the user making the request.
    * @param libraryId Unique ID of the parent library.
    * @param parent Unique ID of the parent folder,
    *
@@ -463,11 +494,9 @@ export class PictureStore {
     const db = DbFactory.createInstance();
     const userId = this.getUserId();
 
-    return db.getFolder(userId, libraryId, folderId).then(folder => {
-      return db.updateFolder(userId, libraryId, folderId, update).catch(err => {
-        debug(`ERROR: Patching folder ${folderId} failed.`);
-        throw err;
-      });
+    return db.updateFolder(userId, libraryId, folderId, update).catch(err => {
+      debug(`ERROR: Patching folder ${folderId} failed.`);
+      throw err;
     });
   }
 
@@ -500,33 +529,6 @@ export class PictureStore {
           });
       });
     });
-  }
-
-  /**
-   * Adds a new user to a folder.
-   *
-   * @param libraryId Unique ID of the parent library.
-   * @param folderId Unique ID of the folder.
-   * @param newUserId Unique ID of the new user.
-   * @param role Role the user should have in the folder.
-   */
-  public addFolderUser(
-    libraryId: string,
-    folderId: string,
-    newFolderUser: IFolderUserAdd
-  ) {
-    const db = DbFactory.createInstance();
-    return db
-      .addFolderUser(
-        this.getUserId(),
-        libraryId,
-        folderId,
-        newFolderUser.userId,
-        newFolderUser.role
-      )
-      .then(result => {
-        return result;
-      });
   }
 
   /**
@@ -887,7 +889,13 @@ export class PictureStore {
 
               // File has been imported into the file system.  Update the database.
               return db
-                .updateFileThumbnail(libraryId, fileId, thumbSize, fileSize)
+                .updateFileThumbnail(
+                  this.getUserId(),
+                  libraryId,
+                  fileId,
+                  thumbSize,
+                  fileSize
+                )
                 .then(file => {
                   return queue.enqueueRecalcFolderJob(
                     libraryId,
@@ -956,7 +964,12 @@ export class PictureStore {
 
               // File has been imported into the file system.  Update the database.
               return db
-                .updateFileConvertedVideo(libraryId, fileId, fileSize)
+                .updateFileConvertedVideo(
+                  this.getUserId(),
+                  libraryId,
+                  fileId,
+                  fileSize
+                )
                 .then(file => {
                   return queue.enqueueRecalcFolderJob(
                     libraryId,
@@ -1059,23 +1072,86 @@ export class PictureStore {
   }
 
   /**
-   * Retrieves a list of favorite files in a library.
+   * Adds a new album to an existing library.
    *
    * @param libraryId Unique ID of the parent library.
+   * @param add Information about the new folder.
    */
-  public getFavoriteFiles(libraryId: string) {
+  public addAlbum(libraryId: string, add: IAlbumAdd) {
     const db = DbFactory.createInstance();
-    return db.getFavoriteFiles(this.getUserId(), libraryId);
+    const userId = this.getUserId();
+    const albumId = createGuid();
+
+    return db.addAlbum(userId, libraryId, albumId, add).catch(err => {
+      debug(`ERROR: Create album failed for album ${add.name}.`);
+      throw err;
+    });
   }
 
   /**
-   * Retrieves a list of video files in a library.
+   * Retrieves a list of albums in a library.
    *
    * @param libraryId Unique ID of the parent library.
    */
-  public getVideoFiles(libraryId: string) {
+  public getAlbums(libraryId: string) {
     const db = DbFactory.createInstance();
-    return db.getVideoFiles(this.getUserId(), libraryId);
+    return db.getAlbums(this.getUserId(), libraryId);
+  }
+
+  /**
+   * Retrieves a specific album in a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param albumId Unique ID of the album to retrieve.
+   */
+  public getAlbum(libraryId: string, albumId: string) {
+    const db = DbFactory.createInstance();
+    return db.getAlbum(this.getUserId(), libraryId, albumId);
+  }
+
+  /**
+   * Updates an existing album.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param albumId Unique ID of the album to update.
+   * @param update Information to update.
+   */
+  public updateAlbum(libraryId: string, albumId: string, update: IAlbumUpdate) {
+    const db = DbFactory.createInstance();
+    const userId = this.getUserId();
+
+    return db.updateAlbum(userId, libraryId, albumId, update).catch(err => {
+      debug(`ERROR: Patching album ${albumId} failed.`);
+      throw err;
+    });
+  }
+
+  /**
+   * Deletes an existing album.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param albumId Unique ID of the album to delete.
+   */
+  public deleteAlbum(libraryId: string, albumId: string) {
+    const db = DbFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
+    const userId = this.getUserId();
+
+    // Grab the album info first and then delete the album in the database.
+    return db.deleteAlbum(userId, libraryId, albumId).then(album => {
+      return album;
+    });
+  }
+
+  /**
+   * Retrieves a list of files in an album.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param albumId Unique ID of the album.
+   */
+  public getAlbumFiles(libraryId: string, albumId: string) {
+    const db = DbFactory.createInstance();
+    return db.getAlbumFiles(this.getUserId(), libraryId, albumId);
   }
 
   /**

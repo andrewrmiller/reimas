@@ -1,4 +1,9 @@
-import { IFolderAdd, IFolderUpdate, IFolderUserAdd } from '@picstrata/client';
+import {
+  IFolderAdd,
+  IFolderUpdate,
+  IObjectUserAdd,
+  ObjectType
+} from '@picstrata/client';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
@@ -13,6 +18,22 @@ const debug = createDebug('api:routers');
  * Note that folders are always contained in a library, so this router
  * is attached to '/libraries/:libraryid' in app.ts.
  */
+
+/**
+ * Creates a new folder in a library.
+ */
+router.post(
+  '/:libraryId/folders',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .addFolder(params.libraryId, req.body as IFolderAdd)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(next);
+  }
+);
 
 /**
  * Gets a list of folders in a library.
@@ -78,22 +99,6 @@ router.get(
 );
 
 /**
- * Creates a new folder in a library.
- */
-router.post(
-  '/:libraryId/folders',
-  (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const params = req.params as ParamsDictionary;
-    createPictureStore(req)
-      .addFolder(params.libraryId, req.body as IFolderAdd)
-      .then(data => {
-        res.send(data);
-      })
-      .catch(next);
-  }
-);
-
-/**
  * Updates an existing folder in a library.
  */
 router.patch(
@@ -146,6 +151,22 @@ router.get(
 );
 
 /**
+ * Gets a list of files in a library folder.
+ */
+router.get(
+  '/:libraryId/folders/:folderId/files',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .getFiles(params.libraryId, params.folderId)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
  * Adds a new user to a folder in a library.
  */
 router.post(
@@ -153,10 +174,11 @@ router.post(
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
     createPictureStore(req)
-      .addFolderUser(
+      .addRoleAssignment(
         params.libraryId,
+        ObjectType.Folder,
         params.folderId,
-        req.body as IFolderUserAdd
+        req.body as IObjectUserAdd
       )
       .then(result => {
         res.send(result);

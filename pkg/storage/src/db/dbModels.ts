@@ -30,7 +30,6 @@ export interface IDbFolder {
   folder_id: string;
   name: string;
   parent_id: string;
-  type: number;
   root_id: string;
   path: string;
   file_count: number;
@@ -39,9 +38,6 @@ export interface IDbFolder {
   file_size_md: number;
   file_size_lg: number;
   file_size_cnv_video: number;
-  data: string;
-  where: string;
-  order_by: string;
 }
 
 export interface IDbBreadcrumb {
@@ -96,4 +92,13 @@ export interface IDbFileContentInfo {
   mime_type: string;
   path: string;
   is_processing: boolean;
+}
+
+export interface IDbAlbum {
+  library_id: string;
+  album_id: string;
+  name: string;
+  query: string;
+  where: string;
+  order_by: string;
 }

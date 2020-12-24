@@ -1,5 +1,9 @@
-import { IAlbum } from '@picstrata/client';
-import { HttpStatusCode } from 'common';
+import {
+  IAlbumAdd,
+  IAlbumUpdate,
+  IObjectUserAdd,
+  ObjectType
+} from '@picstrata/client';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
@@ -14,6 +18,39 @@ const BuiltInAlbums: { [key: string]: string } = {
 };
 
 /**
+ * Creates a new album in a library.
+ */
+router.post(
+  '/:libraryId/albums',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .addAlbum(params.libraryId, req.body as IAlbumAdd)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Gets the list of albums in the library.
+ */
+router.get(
+  '/:libraryId/albums',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+
+    createPictureStore(req)
+      .getAlbums(req.params.libraryId)
+      .then(albums => {
+        res.send(albums);
+      })
+      .catch(next);
+  }
+);
+
+/**
  * Gets the information for an album.
  */
 router.get(
@@ -21,35 +58,24 @@ router.get(
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
 
-    if (Object.keys(BuiltInAlbums).indexOf(params.albumId) < 0) {
-      res.status(HttpStatusCode.NOT_FOUND);
-      res.send('Library or album not found.');
-      return;
-    }
-
     createPictureStore(req)
-      .getLibrary(req.params.libraryId)
-      .then(_ => {
-        res.send({
-          libraryId: req.params.libraryId,
-          albumId: req.params.albumId,
-          name: BuiltInAlbums[req.params.albumId],
-          isDynamic: true
-        } as IAlbum);
+      .getAlbum(req.params.libraryId, req.params.albumId)
+      .then(album => {
+        res.send(album);
       })
       .catch(next);
   }
 );
 
 /**
- * Gets a list of files in the favorites album.
+ * Updates an existing folder in a library.
  */
-router.get(
-  '/:libraryId/albums/favorites/files',
+router.patch(
+  '/:libraryId/albums/:albumId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
     createPictureStore(req)
-      .getFavoriteFiles(params.libraryId)
+      .updateAlbum(params.libraryId, params.albumId, req.body as IAlbumUpdate)
       .then(data => {
         res.send(data);
       })
@@ -58,16 +84,53 @@ router.get(
 );
 
 /**
- * Gets a list of files in the videos album.
+ * Deletes an existing album in a library.
  */
-router.get(
-  '/:libraryId/albums/videos/files',
+router.delete(
+  '/:libraryId/albums/:albumId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
     createPictureStore(req)
-      .getVideoFiles(params.libraryId)
+      .deleteAlbum(params.libraryId, params.albumId)
       .then(data => {
         res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Gets a list of files in an album.
+ */
+router.get(
+  '/:libraryId/albums/:albumId/files',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .getAlbumFiles(params.libraryId, params.albumId)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Adds a new user to an album in a library.
+ */
+router.post(
+  '/:libraryId/albums/:albumId/users',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .addRoleAssignment(
+        params.libraryId,
+        ObjectType.Album,
+        params.albumId,
+        req.body as IObjectUserAdd
+      )
+      .then(result => {
+        res.send(result);
       })
       .catch(next);
   }

@@ -1,5 +1,5 @@
 /**
- * Codes returned from the database when errors occur.
+ * Database error codes.
  */
 export enum DbErrorCode {
   NoError = 0,

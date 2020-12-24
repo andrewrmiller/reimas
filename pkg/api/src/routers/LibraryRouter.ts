@@ -1,4 +1,9 @@
-import { ILibraryAdd, ILibraryUpdate } from '@picstrata/client';
+import {
+  ILibraryAdd,
+  ILibraryUpdate,
+  IObjectUserAdd,
+  ObjectType
+} from '@picstrata/client';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import { createPictureStore } from './RouterHelpers';
@@ -78,6 +83,27 @@ router.delete(
       .deleteLibrary(params.libraryId)
       .then(data => {
         res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Adds a new user to a library.
+ */
+router.post(
+  '/:libraryId/users',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .addRoleAssignment(
+        params.libraryId,
+        ObjectType.Library,
+        params.libraryId,
+        req.body as IObjectUserAdd
+      )
+      .then(result => {
+        res.send(result);
       })
       .catch(next);
   }

@@ -17,22 +17,6 @@ const debug = createDebug('api:routers');
  */
 
 /**
- * Gets a list of files in a library folder.
- */
-router.get(
-  '/:libraryId/folders/:folderId/files',
-  (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const params = req.params as ParamsDictionary;
-    createPictureStore(req)
-      .getFiles(params.libraryId, params.folderId)
-      .then(data => {
-        res.send(data);
-      })
-      .catch(next);
-  }
-);
-
-/**
  * Adds one or more pictures to a folder in a library.
  */
 router.post(

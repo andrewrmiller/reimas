@@ -1,5 +1,4 @@
 import {
-  FolderType,
   IFile,
   IFolder,
   IFolderAdd,
@@ -130,7 +129,7 @@ describe('File Tests', () => {
       expect(stats.libraryCount).toBe(0);
       expect(stats.folderCount).toBe(0);
       expect(stats.fileCount).toBe(0);
-      expect(stats.folderUserRoleCount).toBe(0);
+      expect(stats.objectUserCount).toBe(0);
     });
   });
 
@@ -531,8 +530,7 @@ describe('File Tests', () => {
       HttpMethod.Post,
       JSON.stringify({
         parentId: allPicturesFolderId,
-        name: 'VideoSubFolder',
-        type: FolderType.Picture
+        name: 'VideoSubFolder'
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.OK);
@@ -574,52 +572,6 @@ describe('File Tests', () => {
           expect(videoFile.width).toBeGreaterThan(0);
           expect(videoFile.height).toBeGreaterThan(0);
         }
-      });
-    });
-  });
-
-  test('Verify dynamic albums', async () => {
-    await sendRequest(
-      `libraries/${testLibraryId}/albums/favorites`,
-      OwnerUserId,
-      HttpMethod.Get
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then(album => {
-        expect(album.name).toBe('Favorites');
-      });
-    });
-
-    await sendRequest(
-      `libraries/${testLibraryId}/albums/favorites/files`,
-      OwnerUserId,
-      HttpMethod.Get
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then(files => {
-        expect(files).toHaveLength(1);
-      });
-    });
-
-    await sendRequest(
-      `libraries/${testLibraryId}/albums/videos`,
-      OwnerUserId,
-      HttpMethod.Get
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then(album => {
-        expect(album.name).toBe('Videos');
-      });
-    });
-
-    await sendRequest(
-      `libraries/${testLibraryId}/albums/videos/files`,
-      OwnerUserId,
-      HttpMethod.Get
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then(files => {
-        expect(files).toHaveLength(4);
       });
     });
   });
@@ -704,7 +656,7 @@ describe('File Tests', () => {
       expect(stats.libraryCount).toBe(0);
       expect(stats.folderCount).toBe(0);
       expect(stats.fileCount).toBe(0);
-      expect(stats.folderUserRoleCount).toBe(0);
+      expect(stats.objectUserCount).toBe(0);
     });
   });
 });

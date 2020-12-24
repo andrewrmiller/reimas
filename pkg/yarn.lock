@@ -511,17 +511,10 @@
   resolved "https://registry.yarnpkg.com/@js-joda/timezone/-/timezone-2.2.0.tgz#6085937d83791cd0bda0b43b533273f2f76b678b"
   integrity sha512-Ks1F35VAEhQjlXQd9iqkbCkYGOUmCtMPfrjurgdoAGFqy4Q83Ob/p865E6N+mFAhlpWW1iFpwsznhdrVmtSZ2w==
 
-"@picstrata/client@^0.5.1":
-  version "0.5.1"
-  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.5.1.tgz#585093023e44850362872a02766481e9e484b073"
-  integrity sha512-QLGsiGIhaJq6tDTF8GuKVi0OFURKoHOUAZ4EvR4acmvtMZB/ERhSmaJJSgBT9CclAL0WfAw5OY7YVl0xNHjaxQ==
-  dependencies:
-    typescript "^3.7.2"
-
-"@picstrata/client@^0.6.0":
-  version "0.6.0"
-  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-0.6.0.tgz#2e3ed5417f041c90e4ab616f5f83cfc851de122c"
-  integrity sha512-85noOZiyQ7Cfg6R5bdxoFywUmACzR9vW+OvBsxm8gFUbmB4QoVEXfJn6ZE/STu8JiD7H9SkcDN+f8gmnrTVruA==
+"@picstrata/client@^1.0.6":
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-1.0.6.tgz#62d4e1ab5bfb595fa8ecee4fa5a8fbc599464381"
+  integrity sha512-QC+f7HPFnkt8mNQwF0lxE6rCX2OdiorslFD3TjWqYB+cQosxD0AN/yiXiGGMOTR3UD+TSDCiPYwrzIM0e13wYQ==
   dependencies:
     typescript "^3.7.2"
 

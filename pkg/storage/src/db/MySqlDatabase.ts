@@ -1,4 +1,7 @@
 import {
+  IAlbum,
+  IAlbumAdd,
+  IAlbumUpdate,
   IBreadcrumb,
   IFile,
   IFileAdd,
@@ -7,11 +10,12 @@ import {
   IFolder,
   IFolderAdd,
   IFolderUpdate,
-  IFolderUser,
   ILibrary,
   ILibraryAdd,
   ILibraryUpdate,
+  IObjectUser,
   IStatistics,
+  ObjectType,
   Role,
   ThumbnailSize
 } from '@picstrata/client';
@@ -28,6 +32,7 @@ import mysql, {
 import { IDatabaseConfig } from '../config/IDatabaseConfig';
 import { DbError, DbErrorCode } from './DbError';
 import {
+  IDbAlbum,
   IDbBreadcrumb,
   IDbFile,
   IDbFileContentInfo,
@@ -35,10 +40,19 @@ import {
   IDbLibrary,
   IDmlResponse
 } from './dbModels';
+import { MySqlQueryBuilder } from './MySqlQueryBuilder';
 
 const debug = createDebug('storage:database');
 
 const FileBitFields = ['is_video', 'is_processing'];
+
+// See: https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html
+enum MySqlErrNo {
+  ER_SIGNAL_NOT_FOUND = 1643,
+  ER_ACCESS_DENIED_ERROR = 1045,
+  ER_DUP_KEY = 1022,
+  ER_WRONG_VALUE = 1525
+}
 
 // We use the logical not sign (&#172, 0xAC) to separate tags.
 const TagSeparator = '¬';
@@ -162,6 +176,15 @@ export class MySqlDatabase {
     } as IFile;
   }
 
+  private static convertDbAlbum(dbAlbum: IDbAlbum) {
+    return {
+      libraryId: dbAlbum.library_id,
+      albumId: dbAlbum.album_id,
+      name: dbAlbum.name,
+      query: dbAlbum.query ? JSON.parse(dbAlbum.query) : undefined
+    } as IAlbum;
+  }
+
   private config: IDatabaseConfig;
 
   constructor() {
@@ -176,6 +199,33 @@ export class MySqlDatabase {
       }
     );
   }
+
+  public addRoleAssignment(
+    userId: string,
+    libraryId: string,
+    objectType: ObjectType,
+    objectId: string,
+    newUserId: string,
+    role: Role
+  ) {
+    debug(
+      `Adding user ${newUserId} as ${role} to ${objectType} ${objectId} in library ${libraryId}.`
+    );
+    return this.callChangeProc<IObjectUser>('pst_add_object_user', [
+      userId,
+      libraryId,
+      objectType,
+      objectId,
+      newUserId,
+      role
+    ]).then((user: IObjectUser) => {
+      return ChangeCase.toCamelObject(user) as IObjectUser;
+    });
+  }
+
+  // TODO: Implement updateRoleAsignment method
+
+  // TODO: Implement deleteRoleAssignment method
 
   public getLibraries(userId: string) {
     debug(`Retrieving all libraries for user ${userId}.`);
@@ -247,31 +297,6 @@ export class MySqlDatabase {
     });
   }
 
-  public addFolderUser(
-    userId: string,
-    libraryId: string,
-    folderId: string | null,
-    newUserId: string,
-    role: Role
-  ) {
-    debug(
-      `Adding user ${newUserId} to library ${libraryId} with role ${role} on folder ${folderId}.`
-    );
-    return this.callChangeProc<IFolderUser>('pst_add_folder_user', [
-      userId,
-      libraryId,
-      folderId,
-      newUserId,
-      role
-    ]).then((user: IFolderUser) => {
-      return ChangeCase.toCamelObject(user) as IFolderUser;
-    });
-  }
-
-  // TODO: Implement updateFolderUser method
-
-  // TODO: Implement deleteFolderUser method
-
   public getFolders(
     userId: string,
     libraryId: string,
@@ -330,8 +355,7 @@ export class MySqlDatabase {
       libraryId,
       folderId,
       add.name,
-      add.parentId,
-      add.type
+      add.parentId
     ]).then((folder: IDbFolder) => {
       return ChangeCase.toCamelObject(folder) as IFolder;
     });
@@ -549,6 +573,7 @@ export class MySqlDatabase {
   }
 
   public updateFileThumbnail(
+    userId: string,
     libraryId: string,
     fileId: string,
     thumbSize: ThumbnailSize,
@@ -558,6 +583,7 @@ export class MySqlDatabase {
       `Updating ${thumbSize} thumbnail on ${fileId} in library ${libraryId}.`
     );
     return this.callChangeProc<IDbFile>('pst_update_file_thumbnail', [
+      userId,
       libraryId,
       fileId,
       thumbSize,
@@ -568,6 +594,7 @@ export class MySqlDatabase {
   }
 
   public updateFileConvertedVideo(
+    userId: string,
     libraryId: string,
     fileId: string,
     fileSize: number
@@ -576,6 +603,7 @@ export class MySqlDatabase {
       `Updating converted video size on ${fileId} in library ${libraryId}.`
     );
     return this.callChangeProc<IDbFile>('pst_update_file_cnv_video', [
+      userId,
       libraryId,
       fileId,
       fileSize
@@ -595,21 +623,112 @@ export class MySqlDatabase {
     });
   }
 
-  public getFavoriteFiles(userId: string, libraryId: string) {
-    debug(`Retrieving favorite files in library ${libraryId}.`);
-    return this.callSelectManyProc<IDbFile>('pst_get_favorite_files', [
+  public addAlbum(
+    userId: string,
+    libraryId: string,
+    albumId: string,
+    add: IAlbumAdd
+  ) {
+    debug(`Adding a new album ${add.name} to library ${libraryId}.`);
+
+    let where: string | undefined;
+    let orderBy: string | undefined;
+    if (add.query) {
+      where = MySqlQueryBuilder.buildWhereClause(
+        connectionPool,
+        add.query.criteria
+      );
+      orderBy = MySqlQueryBuilder.buildOrderByClause(add.query.orderBy);
+    }
+
+    return this.callChangeProc<IDbAlbum>('pst_add_album', [
       userId,
-      libraryId
-    ]).then(dbFiles => {
-      return dbFiles.map(MySqlDatabase.convertDbFile);
+      libraryId,
+      albumId,
+      add.name,
+      add.query ? JSON.stringify(add.query) : null,
+      where || null,
+      orderBy || null
+    ]).then((dbAlbum: IDbAlbum) => {
+      return MySqlDatabase.convertDbAlbum(dbAlbum);
     });
   }
 
-  public getVideoFiles(userId: string, libraryId: string) {
-    debug(`Retrieving video files in library ${libraryId}.`);
-    return this.callSelectManyProc<IDbFile>('pst_get_video_files', [
+  public getAlbums(userId: string, libraryId: string) {
+    debug(`Retrieving albums in library ${libraryId}.`);
+    return this.callSelectManyProc<IDbAlbum>('pst_get_albums', [
       userId,
       libraryId
+    ]).then(dbAlbums => {
+      return dbAlbums.map(dbAlbum => {
+        return MySqlDatabase.convertDbAlbum(dbAlbum);
+      });
+    });
+  }
+
+  public getAlbum(userId: string, libraryId: string, albumId: string) {
+    debug(`Retrieving album ${albumId} in library ${libraryId}.`);
+    return this.callSelectOneProc<IDbAlbum>('pst_get_album', [
+      userId,
+      libraryId,
+      albumId
+    ]).then(dbAlbum => {
+      return MySqlDatabase.convertDbAlbum(dbAlbum);
+    });
+  }
+
+  public updateAlbum(
+    userId: string,
+    libraryId: string,
+    albumId: string,
+    update: IAlbumUpdate
+  ) {
+    debug(`Updating album ${albumId} in library ${libraryId}.`);
+    return this.callSelectOneProc<IDbAlbum>('pst_get_album', [
+      userId,
+      libraryId,
+      albumId
+    ]).then(dbAlbum => {
+      let where: string | undefined = dbAlbum.where;
+      let orderBy: string | undefined = dbAlbum.order_by;
+      if (update.query) {
+        where = MySqlQueryBuilder.buildWhereClause(
+          connectionPool,
+          update.query.criteria
+        );
+        orderBy = MySqlQueryBuilder.buildOrderByClause(update.query.orderBy);
+      }
+      return this.callChangeProc<IDbAlbum>('pst_update_album', [
+        userId,
+        libraryId,
+        albumId,
+        update.name ? update.name : dbAlbum.name,
+        update.query ? JSON.stringify(update.query) : dbAlbum.query,
+        where,
+        orderBy
+      ]).then((updated: IDbAlbum) => {
+        return MySqlDatabase.convertDbAlbum(updated);
+      });
+    });
+  }
+
+  public deleteAlbum(userId: string, libraryId: string, albumId: string) {
+    debug(`Deleting album ${albumId} in library ${libraryId}.`);
+    return this.callChangeProc<IDbAlbum>('pst_delete_album', [
+      userId,
+      libraryId,
+      albumId
+    ]).then((dbAlbum: IDbAlbum) => {
+      return ChangeCase.toCamelObject(dbAlbum);
+    });
+  }
+
+  public getAlbumFiles(userId: string, libraryId: string, albumId: string) {
+    debug(`Retrieving files in album ${albumId} in library ${libraryId}.`);
+    return this.callSelectManyProc<IDbFile>('pst_get_album_files', [
+      userId,
+      libraryId,
+      albumId
     ]).then(dbFiles => {
       return dbFiles.map(MySqlDatabase.convertDbFile);
     });
@@ -623,9 +742,9 @@ export class MySqlDatabase {
    */
   private callSelectManyProc<TResult>(procName: string, parameters: any[]) {
     const p = new Promise<TResult[]>((resolve, reject) => {
-      connectionPool.getConnection((err, conn) => {
-        if (err) {
-          reject(err);
+      connectionPool.getConnection((connectError, conn) => {
+        if (connectError) {
+          reject(this.createDbError(connectError));
           return;
         }
 
@@ -638,25 +757,10 @@ export class MySqlDatabase {
               debug(
                 `callSelectManyProc: Call to ${procName} failed: ${error.message}`
               );
-              reject(error);
+              reject(this.createDbError(error));
             } else {
               try {
-                debug('Number of result sets:' + results.length);
-
-                // The first one-row result set contains success/failure
-                // information.  If the select operation failed (e.g. due
-                // to insufficient permissions) then the promise is rejected.
-                const result = results[0][0] as IDmlResponse;
-                if (result.err_code !== DbErrorCode.NoError) {
-                  debug(
-                    `callSelectManyProc: Call to ${procName} failed with err_code: ${result.err_code}`
-                  );
-                  debug(`and err_context: ${result.err_context}`);
-                  reject(this.createDbError(result));
-                }
-
-                // The second result set contains the selected items.
-                resolve(results[1] as TResult[]);
+                resolve(results[0] as TResult[]);
               } catch (error) {
                 debug(
                   `callSelectManyProc: Result processing failed: ${error.message}`
@@ -681,9 +785,9 @@ export class MySqlDatabase {
    */
   private callSelectOneProc<TResult>(procName: string, parameters: any[]) {
     const p = new Promise<TResult>((resolve, reject) => {
-      connectionPool.getConnection((err, conn) => {
-        if (err) {
-          reject(err);
+      connectionPool.getConnection((connectError, conn) => {
+        if (connectError) {
+          reject(this.createDbError(connectError));
           return;
         }
 
@@ -696,25 +800,10 @@ export class MySqlDatabase {
               debug(
                 `callSelectOneProc: Call to ${procName} failed: ${error.message}`
               );
-              reject(error);
+              reject(this.createDbError(error));
             } else {
               try {
-                debug('Number of result sets:' + results.length);
-
-                // The first one-row result set contains success/failure
-                // information.  If the select operation failed (e.g. due
-                // to insufficient permissions) then the promise is rejected.
-                const result = results[0][0] as IDmlResponse;
-                if (result.err_code !== DbErrorCode.NoError) {
-                  debug(
-                    `callSelectOneProc: Call to ${procName} failed with err_code: ${result.err_code}`
-                  );
-                  debug(`and err_context: ${result.err_context}`);
-                  reject(this.createDbError(result));
-                }
-
-                // The second result set contains the selected item.
-                const dataResult = results[1];
+                const dataResult = results[0];
                 if (dataResult.length === 0) {
                   reject(
                     new DbError(DbErrorCode.ItemNotFound, 'Item not found.')
@@ -750,9 +839,9 @@ export class MySqlDatabase {
    */
   private callChangeProc<TResult>(procName: string, parameters: any[]) {
     const p = new Promise<TResult>((resolve, reject) => {
-      connectionPool.getConnection((err, conn) => {
-        if (err) {
-          reject(err);
+      connectionPool.getConnection((connectError, conn) => {
+        if (connectError) {
+          reject(this.createDbError(connectError));
           return;
         }
 
@@ -765,27 +854,17 @@ export class MySqlDatabase {
               debug(
                 `callChangeProc: Call to ${procName} failed: ${error.message}`
               );
-              reject(error);
+              reject(this.createDbError(error));
             } else {
               try {
-                debug('Number of result sets:' + results.length);
+                debug(
+                  'callChangeProc: Number of result sets:' + results.length
+                );
 
-                // The first one-row result set contains success/failure
-                // information.  If the DML operation failed then the
-                // promise is rejected.
-                const result = results[0][0] as IDmlResponse;
-                if (result.err_code !== DbErrorCode.NoError) {
-                  debug(
-                    `callChangeProc: Call to ${procName} failed with err_code: ${result.err_code}`
-                  );
-                  debug(`and err_context: ${result.err_context}`);
-                  reject(this.createDbError(result));
-                }
-
-                // The DML operation was successful.  The second one-row result
+                // The DML operation was successful.  The result
                 // set contains information about the item that was inserted,
                 // updated or deleted.
-                resolve(results[1][0] as TResult);
+                resolve(results[0][0] as TResult);
               } catch (error) {
                 debug(
                   `callChangeProc: Result processing failed: ${error.message}`
@@ -843,56 +922,42 @@ export class MySqlDatabase {
     return conn.query(options, values, callback);
   }
 
-  /**
-   * Creates a new DbError from a DML response.
-   *
-   * @param response The DML response to convert.
-   */
-  private createDbError(response: IDmlResponse) {
-    let errorMessage: string;
-    switch (response.err_code) {
-      case DbErrorCode.ItemNotFound:
-        errorMessage = 'Item not found.';
-        break;
+  private createDbError(error: MysqlError) {
+    switch (error.errno) {
+      case MySqlErrNo.ER_SIGNAL_NOT_FOUND:
+        return new DbError(
+          DbErrorCode.ItemNotFound,
+          'Item not found',
+          error.sqlMessage
+        );
 
-      case DbErrorCode.DuplicateItemExists:
-        errorMessage = 'Duplicate item already exists.';
-        break;
+      case MySqlErrNo.ER_ACCESS_DENIED_ERROR:
+        return new DbError(
+          DbErrorCode.NotAuthorized,
+          'Access denied.',
+          error.sqlMessage
+        );
 
-      case DbErrorCode.QuotaExceeded:
-        errorMessage = 'Quote has been exceeded.';
-        break;
+      case MySqlErrNo.ER_DUP_KEY:
+        return new DbError(
+          DbErrorCode.DuplicateItemExists,
+          'Duplicate item exists.',
+          error.sqlMessage
+        );
 
-      case DbErrorCode.MaximumSizeExceeded:
-        errorMessage = 'The maximum size has been exceeded.';
-        break;
+      case MySqlErrNo.ER_WRONG_VALUE:
+        return new DbError(
+          DbErrorCode.InvalidFieldValue,
+          'Invalid field value.',
+          error.sqlMessage
+        );
 
-      case DbErrorCode.ItemTooLarge:
-        errorMessage = 'Item is too large.';
-        break;
-
-      case DbErrorCode.ItemIsExpired:
-        errorMessage = 'Item is expired.';
-        break;
-
-      case DbErrorCode.ItemAlreadyProcessed:
-        errorMessage = 'Item has already been processed.';
-        break;
-
-      case DbErrorCode.InvalidFieldValue:
-        errorMessage = 'Invalid field value.';
-        break;
-
-      case DbErrorCode.NotAuthorized:
-        errorMessage = 'Not authorized';
-        break;
-
-      case DbErrorCode.UnexpectedError:
       default:
-        errorMessage = `An unexpected error occurred (Error Code: ${response.err_code}).`;
-        break;
+        return new DbError(
+          DbErrorCode.UnexpectedError,
+          `An unexpected error occurred (sqlState: ${error.sqlState}).`,
+          `sqlMessage: ${error.sqlMessage} sql: ${error.sql}`
+        );
     }
-
-    return new DbError(response.err_code, errorMessage, response.err_context);
   }
 }

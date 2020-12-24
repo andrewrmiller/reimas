@@ -1,5 +1,4 @@
 import {
-  FolderType,
   IFolder,
   IFolderAdd,
   IFolderUpdate,
@@ -45,7 +44,7 @@ describe('Folder Tests', () => {
       expect(stats.libraryCount).toBe(0);
       expect(stats.folderCount).toBe(0);
       expect(stats.fileCount).toBe(0);
-      expect(stats.folderUserRoleCount).toBe(0);
+      expect(stats.objectUserCount).toBe(0);
     });
   });
 
@@ -84,8 +83,7 @@ describe('Folder Tests', () => {
       HttpMethod.Post,
       JSON.stringify({
         parentId: allPicturesFolderId,
-        name: 'SubFolder1',
-        type: FolderType.Picture
+        name: 'SubFolder1'
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.OK);
@@ -120,8 +118,7 @@ describe('Folder Tests', () => {
       HttpMethod.Post,
       JSON.stringify({
         parentId: allPicturesFolderId,
-        name: 'SubFolder2',
-        type: FolderType.Picture
+        name: 'SubFolder2'
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.OK);
@@ -138,8 +135,7 @@ describe('Folder Tests', () => {
       HttpMethod.Post,
       JSON.stringify({
         parentId: subFolder2Id,
-        name: 'SubFolder2 Child 1',
-        type: FolderType.Picture
+        name: 'SubFolder2 Child 1'
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.OK);
@@ -166,6 +162,32 @@ describe('Folder Tests', () => {
         expect(user.userId).toBe(ReaderUserId);
         expect(user.role).toBe(Role.Reader);
       });
+    });
+
+    // Verify that adding the same reader again fails.
+    await sendRequest(
+      `libraries/${testLibraryId}/folders/${subFolder2Id}/users`,
+      OwnerUserId,
+      HttpMethod.Post,
+      JSON.stringify({
+        userId: ReaderUserId,
+        role: Role.Reader
+      })
+    ).then(result => {
+      expect(result.status).toBe(HttpStatusCode.CONFLICT);
+    });
+
+    // Verify that the reader cannot add anyone else because they don't have permissions
+    await sendRequest(
+      `libraries/${testLibraryId}/folders/${subFolder2Id}/users`,
+      ReaderUserId,
+      HttpMethod.Post,
+      JSON.stringify({
+        userId: createGuid(),
+        role: Role.Reader
+      })
+    ).then(result => {
+      expect(result.status).toBe(HttpStatusCode.UNAUTHORIZED);
     });
   });
 
@@ -290,7 +312,7 @@ describe('Folder Tests', () => {
       return result.json().then((folders: IFolder[]) => {
         expect(folders).toHaveLength(1);
         expect(folders[0].folderId).toBe(subFolder2Child1Id);
-        expect(folders[0].userRole).toBe(undefined);
+        expect(folders[0].userRole).toBe(Role.Reader);
       });
     });
 
@@ -372,8 +394,7 @@ describe('Folder Tests', () => {
       HttpMethod.Post,
       JSON.stringify({
         parentId: subFolder1Id,
-        name: 'Contributor Folder A',
-        type: FolderType.Picture
+        name: 'Contributor Folder A'
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.OK);
@@ -416,8 +437,7 @@ describe('Folder Tests', () => {
       HttpMethod.Post,
       JSON.stringify({
         parentId: subFolder2Id,
-        name: 'Reader Folder B',
-        type: FolderType.Picture
+        name: 'Reader Folder B'
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.UNAUTHORIZED);
@@ -446,8 +466,7 @@ describe('Folder Tests', () => {
       HttpMethod.Post,
       JSON.stringify({
         parentId: allPicturesFolderId,
-        name: 'SubFolder1',
-        type: FolderType.Picture
+        name: 'SubFolder1'
       } as IFolderAdd)
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.CONFLICT);
@@ -503,9 +522,7 @@ describe('Folder Tests', () => {
 
     await getStats().then((stats: IStatistics) => {
       expect(stats.folderCount).toEqual(startingStats.folderCount - 1);
-      expect(stats.folderUserRoleCount).toEqual(
-        startingStats.folderUserRoleCount - 2
-      );
+      expect(stats.objectUserCount).toEqual(startingStats.objectUserCount - 2);
     });
   });
 
@@ -522,7 +539,7 @@ describe('Folder Tests', () => {
       expect(stats.libraryCount).toBe(0);
       expect(stats.folderCount).toBe(0);
       expect(stats.fileCount).toBe(0);
-      expect(stats.folderUserRoleCount).toBe(0);
+      expect(stats.objectUserCount).toBe(0);
     });
   });
 });

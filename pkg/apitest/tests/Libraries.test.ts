@@ -34,7 +34,7 @@ describe('Library Tests', () => {
       expect(stats.libraryCount).toBe(0);
       expect(stats.folderCount).toBe(0);
       expect(stats.fileCount).toBe(0);
-      expect(stats.folderUserRoleCount).toBe(0);
+      expect(stats.objectUserCount).toBe(0);
     });
   });
 
@@ -101,7 +101,7 @@ describe('Library Tests', () => {
   test('Verify addition of users to a library', async () => {
     // Owner should be able to add a contributor.
     await sendRequest(
-      `libraries/${testLibraryId}/folders/${allPicturesFolderId}/users`,
+      `libraries/${testLibraryId}/users`,
       OwnerUserId,
       HttpMethod.Post,
       JSON.stringify({
@@ -118,7 +118,7 @@ describe('Library Tests', () => {
 
     // Owner should also be able to add a reader.
     await sendRequest(
-      `libraries/${testLibraryId}/folders/${allPicturesFolderId}/users`,
+      `libraries/${testLibraryId}/users`,
       OwnerUserId,
       HttpMethod.Post,
       JSON.stringify({
@@ -135,7 +135,7 @@ describe('Library Tests', () => {
 
     // Adding the same user a second time should return an error.
     await sendRequest(
-      `libraries/${testLibraryId}/folders/${allPicturesFolderId}/users`,
+      `libraries/${testLibraryId}/users`,
       OwnerUserId,
       HttpMethod.Post,
       JSON.stringify({
@@ -307,7 +307,7 @@ describe('Library Tests', () => {
       expect(stats.libraryCount).toBe(0);
       expect(stats.folderCount).toBe(0);
       expect(stats.fileCount).toBe(0);
-      expect(stats.folderUserRoleCount).toBe(0);
+      expect(stats.objectUserCount).toBe(0);
     });
   });
 });
