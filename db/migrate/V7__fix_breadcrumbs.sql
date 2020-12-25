@@ -1,3 +1,5 @@
+DELIMITER $$
+
 -- Update pst_get_folder_breadcrumbs to sort by path.
 DROP PROCEDURE IF EXISTS `pst_get_folder_breadcrumbs` $$
 CREATE PROCEDURE `pst_get_folder_breadcrumbs`(
@@ -46,7 +48,7 @@ BEGIN
       par.folder_id, 
       par.parent_id, 
       par.name,
-      par.pathm,
+      par.path,
       pst_get_folder_user_role(p_user_id, par.library_id, par.folder_id) AS role
     FROM 
       folder_tree AS ft JOIN pst_folders AS par
@@ -65,3 +67,5 @@ BEGIN
     path;
 
 END $$
+
+DELIMITER ;
