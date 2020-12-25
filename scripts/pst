@@ -15,6 +15,7 @@ usage() {
   echo "   stop               Stops the Picstrata containers"
 	echo "   ls                 Lists the Picstrata containers"
 	echo "   logs [container]   Shows the logs for a given container"
+	echo "   push               Push the docker images to the repository"
 	echo
 	echo "Where [container] is one of 'api', 'wrk1', 'wrk2', or 'wq'"
 	echo
@@ -34,7 +35,7 @@ API_CONTAINER=$CONTAINER_PREFIX-api
 WORKERS_CONTAINER=$CONTAINER_PREFIX-workers
 QUEUE_CONTAINER=$CONTAINER_PREFIX-queue
 
-VERSION=0.8.3
+VERSION=0.8.4
 
 buildContainers () {
 	cd pkg
@@ -72,7 +73,7 @@ listServices () {
   docker ps | grep -E "CONTAINER ID|$CONTAINER_PREFIX"
 }
 
-viewContainerLogs () {
+viewContainerLogs() {
 	case "$1" in
 	"api")
 		docker logs $API_CONTAINER 2>&1
@@ -92,6 +93,15 @@ viewContainerLogs () {
 	esac;
 }
 
+pushImages() {
+	docker push picstrata/api:$VERSION
+	docker push picstrata/api:latest
+	docker push picstrata/db:$VERSION
+	docker push picstrata/db:latest
+	docker push picstrata/workers:$VERSION
+	docker push picstrata/workers:latest
+}
+
 # Change to the root of the project
 pushd "$( dirname "$0" )"/.. > /dev/null
 
@@ -108,11 +118,12 @@ stop)
 ls)
   listServices
   ;;
-
 logs)
 	viewContainerLogs $2
 	;; 
-
+push)
+	pushImages $2
+	;; 
 *)
 	usage
 	;;
