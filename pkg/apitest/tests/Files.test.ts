@@ -80,6 +80,13 @@ const TestPictures = [
     processedByteLength: 933484,
     cameraMake: 'Apple',
     cameraModel: 'iPhone XR'
+  },
+  {
+    path: '../../test/samples/E. coli.tiff',
+    contentType: PictureMimeType.Tiff,
+    height: 512,
+    width: 640,
+    byteLength: 258948
   }
 ];
 
@@ -409,7 +416,8 @@ describe('File Tests', () => {
             TestPictures[1].byteLength +
             TestPictures[2].byteLength +
             TestPictures[3].byteLength +
-            TestPictures[4].processedByteLength!
+            TestPictures[4].processedByteLength! +
+            TestPictures[5].byteLength
         );
         expect(folder.fileSizeSm).toBeGreaterThan(0);
         expect(folder.fileSizeMd).toBeGreaterThan(folder.fileSizeSm);
