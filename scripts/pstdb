@@ -22,38 +22,36 @@ usage() {
 	echo
 }
 
+if [ "$PST_DATABASE_HOST" == "" ] || [ "$PST_DATABASE_USER" == "" ]; then
+	echo Error: Missing PST_DATABASE_HOST and/or PST_DATABASE_USER environment variable.
+	exit 1
+fi
+
+DATABASE_HOST=$PST_DATABASE_HOST
+
+
 # The name of the database to initialize.
 DATABASE_NAME=picstrata
 
-# The name of the login-path to use.  To create a login-path use
-# a command like the following:
-#
-#   mysql_config_editor set --login-path=picstrataadmin --host=localhost --user=myPicstrataAdminUser --password
-#
-# To list all login-path entries use this command:
-#
-#   mysql_config_editor print --all
-LOGIN_PATH=picstrataadmin
+# The name of the login-path to use.
+LOGIN_PATH=pstadmin
 
 # The name of the MySQL user that will be used by the web app
 # to access the database.
-USER=psuser
+USER=$PST_DATABASE_USER
 
 # JDBC needs to know the time zone of the MySQL server.
 SERVER_TIMEZONE=America/Los_Angeles
 
 # The JDBC connection URL for the database.
-JDBC_CONNECT_URL="jdbc:mysql://localhost/$DATABASE_NAME?useUnicode=true&useSSL=false&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=$SERVER_TIMEZONE"
+JDBC_CONNECT_URL="jdbc:mysql://$DATABASE_HOST/$DATABASE_NAME?useUnicode=true&useSSL=false&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=$SERVER_TIMEZONE"
 
 # The MySQL CLI command.
 MYSQL="mysql --login-path=$LOGIN_PATH "
 
-# Flyway 6.3.2 (latest version at this time) breaks our migration scripts.
-# Use an older version for now.
-FLYWAY=/usr/local/bin/flyway-6.0.4/flyway
+FLYWAY=/usr/local/bin/flyway
 
 createDb() {
-
 	CREATESCRIPT=~/tmp/create_picstrata_db.sql
 	INITIALIZESCRIPT=~/tmp/initialize_picstrata_db.sql
 	SRCDIR="$( pwd )"
@@ -82,9 +80,13 @@ createDb() {
 
 	# We need to deploy in two steps because MySQL's 
 	# USE statement does not allow a variable name.
+	echo Creating database $DATABASE_NAME...
 	$MYSQL < $CREATESCRIPT
+
+	echo Initializing database...
 	$MYSQL $DATABASE_NAME < $INITIALIZESCRIPT
 
+	echo Migrating database...
 	migrateDb
 }
 

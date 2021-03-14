@@ -12,7 +12,7 @@ usage() {
 	echo
 	echo "   build              Builds the Picstrata containers."
 	echo "   start              Starts the Picstrata containers."
-  echo "   stop               Stops the Picstrata containers"
+    echo "   stop               Stops the Picstrata containers"
 	echo "   ls                 Lists the Picstrata containers"
 	echo "   logs [container]   Shows the logs for a given container"
 	echo "   push               Push the docker images to the repository"
@@ -23,7 +23,6 @@ usage() {
 	echo
 	echo "   PST_DATABASE_HOST"
 	echo "   PST_DATABASE_USER"
-	echo "   PST_DATABASE_PASSWORD"
 	echo "   PST_QUEUE_TYPE"
 	echo "   PST_TIMEZONE_DB_API_KEY"
 	echo "   PST_API_KEY_1"
@@ -54,6 +53,7 @@ startServices() {
 	cd pkg
 	HOST_IP=`hostname -I | awk '{print $1}'`
 	export PST_DATABASE_HOST=$HOST_IP
+	export PST_DATABASE_PASSWORD=$(my_print_defaults -s pstuser | grep password | cut -d "=" -f 2)
 	docker-compose --compatibility up -d
   echo Containers started.
 }

@@ -58,6 +58,7 @@ enum MySqlErrNo {
 const TagSeparator = '¬';
 
 const dbConfig = config.get('Database') as IDatabaseConfig;
+debug(`Connecting to database ${dbConfig.name} on host ${dbConfig.host} as user ${dbConfig.user}.`);
 const connectionPool = mysql.createPool({
   connectionLimit: 20,
   host: dbConfig.host,
