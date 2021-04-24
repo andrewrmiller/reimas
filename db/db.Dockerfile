@@ -1,4 +1,4 @@
-FROM flyway/flyway:6.2
+FROM flyway/flyway:7.8.1
 
 WORKDIR /usr/src/db
 COPY migrate/ migrate/picstrata
