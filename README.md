@@ -54,9 +54,21 @@ statements to create the users:
 
 ```
 CREATE USER 'pstadmin'@'%' IDENTIFIED BY 'INSERT_ADMIN_PASSWORD_HERE';
+```
+
+```
 GRANT ALL ON *.* to 'pstadmin'@'%';
+```
+
+```
 GRANT GRANT OPTION ON *.* TO 'pstadmin'@'%';
+```
+
+```
 CREATE USER 'pstuser'@'%' IDENTIFIED WITH mysql_native_password BY 'INSERT_USER_PASSWORD_HERE';
+```
+
+```
 FLUSH PRIVELEGES;
 ```
 
