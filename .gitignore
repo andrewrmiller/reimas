@@ -64,5 +64,5 @@ typings/
 pkg/api/uploads
 pkg/api/libraries
 
-# Dev notes.
-current.md
+# VS Code settings
+.vscode/*

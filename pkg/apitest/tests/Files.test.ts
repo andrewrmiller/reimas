@@ -41,6 +41,15 @@ const NewLibrary: ILibraryAdd = {
   description: 'Test Library Description'
 };
 
+const MetadataEx = {
+  Make: 'Apple',
+  Model: 'iPhone 11',
+  DateTimeOriginal: '2015:07:04 09:00:00.00',
+  GPSLatitude: 28.52343,
+  GPSLongitude: -80.68181,
+  GPSAltitude: 10000
+};
+
 const TestPictures = [
   {
     path: '../../test/samples/Aurora.jpg',
@@ -61,7 +70,8 @@ const TestPictures = [
     contentType: PictureMimeType.Jpg,
     height: 1521,
     width: 2028,
-    byteLength: 4515013
+    byteLength: 4515013,
+    metadataEx: JSON.stringify(MetadataEx)
   },
   {
     path: '../../test/samples/Space.jpg',
@@ -203,7 +213,8 @@ describe('File Tests', () => {
         testLibraryId,
         allPicturesFolderId,
         picture.path,
-        picture.contentType
+        picture.contentType,
+        picture.metadataEx
       ).then(response => {
         expect(response.status).toBe(HttpStatusCode.OK);
         return response.json().then((files: IFile[]) => {
@@ -400,6 +411,23 @@ describe('File Tests', () => {
         expect(file.tags[0]).toBe('Atmosphere');
         expect(file.tags[1]).toBe('Nature');
         expect(file.tags[2]).toBe('Night');
+      });
+    });
+
+    // Metadata provided outside the file should be processed properly.
+    await sendRequest(
+      `libraries/${testLibraryId}/files/${fileIds[2]}`,
+      ReaderUserId
+    ).then(response => {
+      response.json().then((file: IFile) => {
+        expect(file.width).toBe(TestPictures[2].width);
+        expect(file.height).toBe(TestPictures[2].height);
+        expect(file.cameraMake).toBe(MetadataEx.Make);
+        expect(file.cameraModel).toBe(MetadataEx.Model);
+        expect(file.latitude).toBe(MetadataEx.GPSLatitude.toString());
+        expect(file.longitude).toBe(MetadataEx.GPSLongitude.toString());
+        expect(file.altitude).toBe(MetadataEx.GPSAltitude.toString());
+        expect(file.takenOn).toBe('2015-07-04T13:00:00.000Z');
       });
     });
 

@@ -78,13 +78,15 @@ export async function postFile(
  * @param folderId Unique ID of the parent folder.
  * @param localPath Local path to the file to upload.
  * @param contentType Content type of the file to upload.
+ * @param metadataEx Optional additional metadata represented as JSON.
  */
 export async function postFileToFolder(
   userId: string,
   libraryId: string,
   folderId: string,
   localPath: string,
-  contentType: string
+  contentType: string,
+  metadataEx?: string
 ) {
   const form = new FormData();
   const buffer = fs.readFileSync(localPath);
@@ -94,6 +96,10 @@ export async function postFileToFolder(
     contentType,
     filename
   });
+
+  if (metadataEx) {
+    form.append('metadata', metadataEx);
+  }
 
   return postFile(
     `libraries/${libraryId}/folders/${folderId}/files`,

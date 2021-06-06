@@ -92,6 +92,7 @@ export interface IDbFileContentInfo {
   mime_type: string;
   path: string;
   is_processing: boolean;
+  metadata_ex?: string;
 }
 
 export interface IDbAlbum {

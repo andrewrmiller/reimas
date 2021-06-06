@@ -9,11 +9,13 @@ import queryString from 'query-string';
 import sharp from 'sharp';
 import { IProcessPictureMsg, PictureStore } from 'storage';
 import { path as buildTempPath } from 'temp';
-import { ExifTool } from './ExifTool';
+import { ExifTool, IExifResponse } from './ExifTool';
 import { getLocalFilePath } from './getLocalFilePath';
 
 const fsPromises = fs.promises;
 const debug = createDebug('workers:processPicture');
+
+type ExifResponseKey = keyof IExifResponse;
 
 /**
  * Result returned from the jpeg-autrotate library.
@@ -202,51 +204,84 @@ export function updateMetadata(
   fileId: string,
   localFilePath: string
 ) {
+  return getMetadata(pictureStore, libraryId, fileId, localFilePath).then(
+    metadata => {
+      return pictureStore.getLibrary(libraryId).then(async library => {
+        // By default we use the time zone of the library when figuring out
+        // the date/time of the file.  But if there are GPS coordinates we
+        // try to use those coordinates to figure out the actual time zone.
+        let gpsTimeZone: string | undefined;
+        if (metadata.GPSLatitude && metadata.GPSLongitude) {
+          gpsTimeZone = await getGpsTimeZone(
+            metadata.GPSLatitude,
+            metadata.GPSLongitude
+          ).catch(err => {
+            debug('Error: Failed to determine time zone from GPS coordinates.');
+            debug(err.message);
+            debug('Using library default time zone instead.');
+          });
+        }
+
+        const timeZone = gpsTimeZone || library.timeZone;
+        debug(`Time zone: ${timeZone}`);
+
+        // The taken on timestamp could come from one of two places.
+        const takenOn = metadata.DateTimeOriginal || metadata.CreateDate;
+
+        // Convert the EXIF date/time (which includes no time zone info) to
+        // an instant using the time zone we selected.
+        const takenOnInstant = Dates.exifDateTimeToInstant(takenOn, timeZone);
+
+        return pictureStore
+          .updateFile(libraryId, fileId, {
+            takenOn: takenOnInstant ? takenOnInstant.toString() : undefined,
+            rating: metadata.Rating,
+            title: metadata.Title || metadata.ImageDescription,
+            comments: metadata.Comment,
+            cameraMake: metadata.Make,
+            cameraModel: metadata.Model,
+            latitude: metadata.GPSLatitude,
+            longitude: metadata.GPSLongitude,
+            altitude: metadata.GPSAltitude,
+            tags: metadata.Keyword
+          } as IFileUpdate)
+          .then(result => {
+            debug('File metadata updated successfully');
+            return metadata;
+          });
+      });
+    }
+  );
+}
+
+/**
+ * Retrieves the metadata embedded in the file and augments that with any
+ * metadata that was provided at the time the file was uploaded.
+ *
+ * @param pictureStore The PictureStore instance to use.
+ * @param libraryId Unique ID of the parent library.
+ * @param fileId Unique ID of the file to update.
+ * @param localFilePath Local path to the file.
+ */
+async function getMetadata(
+  pictureStore: PictureStore,
+  libraryId: string,
+  fileId: string,
+  localFilePath: string
+) {
   return ExifTool.getMetadata(localFilePath).then(metadata => {
-    return pictureStore.getLibrary(libraryId).then(async library => {
-      // By default we use the time zone of the library when figuring out
-      // the date/time of the file.  But if there are GPS coordinates we
-      // try to use those coordinates to figure out the actual time zone.
-      let gpsTimeZone: string | undefined;
-      if (metadata.GPSLatitude && metadata.GPSLongitude) {
-        gpsTimeZone = await getGpsTimeZone(
-          metadata.GPSLatitude,
-          metadata.GPSLongitude
-        ).catch(err => {
-          debug('Error: Failed to determine time zone from GPS coordinates.');
-          debug(err.message);
-          debug('Using library default time zone instead.');
-        });
-      }
-
-      const timeZone = gpsTimeZone || library.timeZone;
-      debug(`Time zone: ${timeZone}`);
-
-      // The taken on timestamp could come from one of two places.
-      const takenOn = metadata.DateTimeOriginal || metadata.CreateDate;
-
-      // Convert the EXIF date/time (which includes no time zone info) to
-      // an instant using the time zone we selected.
-      const takenOnInstant = Dates.exifDateTimeToInstant(takenOn, timeZone);
-
-      return pictureStore
-        .updateFile(libraryId, fileId, {
-          takenOn: takenOnInstant ? takenOnInstant.toString() : undefined,
-          rating: metadata.Rating,
-          title: metadata.Title || metadata.ImageDescription,
-          comments: metadata.Comment,
-          cameraMake: metadata.Make,
-          cameraModel: metadata.Model,
-          latitude: metadata.GPSLatitude,
-          longitude: metadata.GPSLongitude,
-          altitude: metadata.GPSAltitude,
-          tags: metadata.Keyword
-        } as IFileUpdate)
-        .then(result => {
-          debug('File metadata updated successfully');
-          return metadata;
-        });
-    });
+    return pictureStore
+      .getFileMetadataEx(libraryId, fileId)
+      .then(metadataExJson => {
+        if (metadataExJson) {
+          const metadataEx = JSON.parse(metadataExJson);
+          for (const [key, value] of Object.entries(metadataEx)) {
+            (metadata as { [key: string]: any })[key as ExifResponseKey] =
+              value;
+          }
+        }
+        return metadata;
+      });
   });
 }
 

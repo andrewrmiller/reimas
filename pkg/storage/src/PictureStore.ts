@@ -604,20 +604,20 @@ export class PictureStore {
         // If the file is a video and it is not in MP4 format, we retrieve
         // the converted MP4 video instead of the file itself.
         if (
-          contents.isVideo &&
+          contents.is_video &&
           !originalFile &&
-          contents.mimeType !== VideoMimeType.MP4
+          contents.mime_type !== VideoMimeType.MP4
         ) {
           filePath = Paths.deleteLastSubpath(filePath);
-          filePath = `${filePath}/cnv/${contents.fileId}`;
+          filePath = `${filePath}/cnv/${contents.file_id}`;
         }
 
         return {
           stream: this.getFileStream(libraryId, filePath),
           mimeType:
-            contents.isVideo && !originalFile
+            contents.is_video && !originalFile
               ? VideoMimeType.MP4
-              : contents.mimeType,
+              : contents.mime_type,
           filename: contents.name
         };
       });
@@ -644,7 +644,7 @@ export class PictureStore {
       .then(contents => {
         let filePath = contents.path;
         filePath = Paths.deleteLastSubpath(filePath);
-        filePath = `${filePath}/tn_${size}/${contents.fileId}`;
+        filePath = `${filePath}/tn_${size}/${contents.file_id}`;
 
         return {
           stream: this.getFileStream(libraryId, filePath),
@@ -664,6 +664,25 @@ export class PictureStore {
   }
 
   /**
+   * Retrieves the extra metadata that may have been uploaded along
+   * with a file.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   */
+  public getFileMetadataEx(libraryId: string, fileId: string) {
+    debug(
+      `Retrieving the metadata_ex value associated with file ${fileId} in library ${libraryId}`
+    );
+    const db = DbFactory.createInstance();
+    return db
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
+      .then(dbFileContentInfo => {
+        return dbFileContentInfo.metadata_ex;
+      });
+  }
+
+  /**
    * Downloads a file to a temporary file in the local file system.
    *
    * @param libraryId Unique ID of the library.
@@ -676,7 +695,7 @@ export class PictureStore {
       .then(contentInfo => {
         // Generate a temporary path and filename.
         const tempPath = buildTempPath({
-          suffix: contentInfo.fileId
+          suffix: contentInfo.file_id
         });
 
         return new Promise<string>((resolve, reject) => {
@@ -715,7 +734,8 @@ export class PictureStore {
     localPath: string,
     filename: string,
     mimeType: string,
-    fileSize: number
+    fileSize: number,
+    extMetadata?: string
   ) {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
@@ -755,15 +775,22 @@ export class PictureStore {
 
             // File has been imported into the file system.  Now
             // create a row in the database with the file's metadata.
-            const file = await db.addFile(userId, libraryId, folderId, fileId, {
-              name: filename,
-              mimeType,
-              isVideo: metadata.isVideo,
-              height: metadata.height,
-              width: metadata.width,
-              fileSize,
-              isProcessing: true
-            } as IFileAdd);
+            const file = await db.addFile(
+              userId,
+              libraryId,
+              folderId,
+              fileId,
+              {
+                name: filename,
+                mimeType,
+                isVideo: metadata.isVideo,
+                height: metadata.height,
+                width: metadata.width,
+                fileSize,
+                isProcessing: true
+              } as IFileAdd,
+              extMetadata
+            );
 
             await queue.enqueueProcessFileJob(file);
 
@@ -829,7 +856,7 @@ export class PictureStore {
               .then(_ => {
                 return queue.enqueueRecalcFolderJob(
                   libraryId,
-                  fileInfo.folderId
+                  fileInfo.folder_id
                 );
               });
           });
@@ -899,7 +926,7 @@ export class PictureStore {
                 .then(file => {
                   return queue.enqueueRecalcFolderJob(
                     libraryId,
-                    fileInfo.folderId
+                    fileInfo.folder_id
                   );
                 })
                 .catch(dbErr => {
@@ -973,7 +1000,7 @@ export class PictureStore {
                 .then(file => {
                   return queue.enqueueRecalcFolderJob(
                     libraryId,
-                    fileInfo.folderId
+                    fileInfo.folder_id
                   );
                 })
                 .catch(dbErr => {
@@ -1043,21 +1070,21 @@ export class PictureStore {
           .deleteFile(`${libraryId}/${file.path}`)
           .then(() => {
             return fileSystem.deleteFile(
-              this.buildLibraryPath(libraryId, fileDir, `tn_sm/${file.fileId}`)
+              this.buildLibraryPath(libraryId, fileDir, `tn_sm/${file.file_id}`)
             );
           })
           .then(() => {
             return fileSystem.deleteFile(
-              this.buildLibraryPath(libraryId, fileDir, `tn_md/${file.fileId}`)
+              this.buildLibraryPath(libraryId, fileDir, `tn_md/${file.file_id}`)
             );
           })
           .then(() => {
             return fileSystem.deleteFile(
-              this.buildLibraryPath(libraryId, fileDir, `tn_lg/${file.fileId}`)
+              this.buildLibraryPath(libraryId, fileDir, `tn_lg/${file.file_id}`)
             );
           })
           .then(() => {
-            queue.enqueueRecalcFolderJob(file.libraryId, file.folderId);
+            queue.enqueueRecalcFolderJob(file.library_id, file.folder_id);
             // Return the result from the database delete.
             return result;
           })

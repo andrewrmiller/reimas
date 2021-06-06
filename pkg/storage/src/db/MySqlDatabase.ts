@@ -5,7 +5,6 @@ import {
   IBreadcrumb,
   IFile,
   IFileAdd,
-  IFileContentInfo,
   IFileUpdate,
   IFolder,
   IFolderAdd,
@@ -37,8 +36,7 @@ import {
   IDbFile,
   IDbFileContentInfo,
   IDbFolder,
-  IDbLibrary,
-  IDmlResponse
+  IDbLibrary
 } from './dbModels';
 import { MySqlQueryBuilder } from './MySqlQueryBuilder';
 
@@ -58,7 +56,9 @@ enum MySqlErrNo {
 const TagSeparator = '¬';
 
 const dbConfig = config.get('Database') as IDatabaseConfig;
-debug(`Connecting to database ${dbConfig.name} on host ${dbConfig.host} as user ${dbConfig.user}.`);
+debug(
+  `Connecting to database ${dbConfig.name} on host ${dbConfig.host} as user ${dbConfig.user}.`
+);
 const connectionPool = mysql.createPool({
   connectionLimit: 20,
   host: dbConfig.host,
@@ -435,9 +435,10 @@ export class MySqlDatabase {
       'pst_get_file_content_info',
       [userId, libraryId, fileId]
     ).then(dbFileContentInfo => {
-      return ChangeCase.toCamelObject(
-        MySqlDatabase.convertBitFields(dbFileContentInfo, FileBitFields)
-      ) as IFileContentInfo;
+      return MySqlDatabase.convertBitFields(
+        dbFileContentInfo,
+        FileBitFields
+      ) as IDbFileContentInfo;
     });
   }
 
@@ -446,7 +447,8 @@ export class MySqlDatabase {
     libraryId: string,
     folderId: string,
     fileId: string,
-    add: IFileAdd
+    add: IFileAdd,
+    metadataEx?: string
   ) {
     debug(`Adding a new file ${add.name} to library ${libraryId}.`);
     return this.callChangeProc<IDbFile>('pst_add_file', [
@@ -460,7 +462,8 @@ export class MySqlDatabase {
       add.height,
       add.width,
       add.fileSize,
-      add.isProcessing
+      add.isProcessing,
+      metadataEx || null
     ]).then((file: IDbFile) => {
       return MySqlDatabase.convertDbFile(file);
     });

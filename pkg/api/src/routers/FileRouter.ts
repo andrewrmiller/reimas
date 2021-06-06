@@ -26,7 +26,8 @@ router.post(
     const params = req.params as ParamsDictionary;
     const importPromises: Array<Promise<IFile>> = [];
     const pictureStore = createPictureStore(req);
-    for (const file of (req.files as any) as Express.Multer.File[]) {
+    const uploadedFiles: Express.Multer.File[] = req.files as any;
+    for (const file of uploadedFiles) {
       // NOTE: Uploaded file will be deleted by importFile method.
       importPromises.push(
         pictureStore.importFile(
@@ -35,7 +36,8 @@ router.post(
           file.path, // Relative path to the file in the uploads dir
           file.originalname,
           file.mimetype,
-          file.size
+          file.size,
+          req.body.metadata
         )
       );
     }
