@@ -431,6 +431,16 @@ describe('File Tests', () => {
       });
     });
 
+    // Tiff files should be converted to JPEG.
+    await sendRequest(
+      `libraries/${testLibraryId}/files/${fileIds[5]}`,
+      ReaderUserId
+    ).then(response => {
+      response.json().then((file: IFile) => {
+        expect(file.fileSizeCnv).toBeGreaterThan(0);
+      });
+    });
+
     // Verify folder calcs.
     await sendRequest(
       `libraries/${testLibraryId}/folders/${allPicturesFolderId}`,

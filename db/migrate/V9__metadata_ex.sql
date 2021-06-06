@@ -131,7 +131,7 @@ BEGIN
       width,
       imported_on,
       file_size,
-      file_size_cnv_video,
+      file_size_cnv,
       is_processing,
       metadata_ex
     )

@@ -597,7 +597,7 @@ export class MySqlDatabase {
     });
   }
 
-  public updateFileConvertedVideo(
+  public updateFileConvertedSize(
     userId: string,
     libraryId: string,
     fileId: string,
@@ -606,7 +606,7 @@ export class MySqlDatabase {
     debug(
       `Updating converted video size on ${fileId} in library ${libraryId}.`
     );
-    return this.callChangeProc<IDbFile>('pst_update_file_cnv_video', [
+    return this.callChangeProc<IDbFile>('pst_update_file_cnv_size', [
       userId,
       libraryId,
       fileId,

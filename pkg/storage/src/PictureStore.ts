@@ -92,6 +92,17 @@ export class PictureStore {
   }
 
   /**
+   * Converts an error without an HTTP status code to an HttpError
+   * with the provided status.
+   *
+   * @param err Error to convert.
+   * @param statusCode Status code to use if err does not have a status value.
+   */
+  private static convertNonHttpError(err: any, statusCode: HttpStatusCode) {
+    return err.status ? err : createHttpError(statusCode, err.message);
+  }
+
+  /**
    * Extracts the metadata from the file.
    *
    * @param filePath Full path to the file to inspect.
@@ -991,7 +1002,7 @@ export class PictureStore {
 
               // File has been imported into the file system.  Update the database.
               return db
-                .updateFileConvertedVideo(
+                .updateFileConvertedSize(
                   this.getUserId(),
                   libraryId,
                   fileId,
@@ -1021,6 +1032,74 @@ export class PictureStore {
                 err.message
               );
             }
+          });
+      });
+  }
+
+  /**
+   * Imports a converted file into a library.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file.
+   * @param localPath Local path to the converted video file.
+   * @param fileSize Size of the converted video file.
+   */
+  public importConvertedFile(
+    libraryId: string,
+    fileId: string,
+    localPath: string,
+    fileSize: number
+  ) {
+    debug(`Importing conversion for file ${fileId} in library ${libraryId}.`);
+
+    const db = DbFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
+
+    return db
+      .getFileContentInfo(this.getUserId(), libraryId, fileId)
+      .then(fileInfo => {
+        const pictureFolder = Paths.deleteLastSubpath(fileInfo.path);
+        const convertedFolder = this.buildLibraryPath(
+          libraryId,
+          pictureFolder,
+          'cnv'
+        );
+
+        return fileSystem
+          .createFolder(convertedFolder)
+          .then(() => {
+            const fileSystemPath = `${convertedFolder}/${fileId}`;
+            return fileSystem.importFile(localPath, fileSystemPath).then(() => {
+              PictureStore.deleteFile(localPath);
+
+              // File has been imported into the file system.  Update the database.
+              return db
+                .updateFileConvertedSize(
+                  this.getUserId(),
+                  libraryId,
+                  fileId,
+                  fileSize
+                )
+                .then(file => {
+                  return queue.enqueueRecalcFolderJob(
+                    libraryId,
+                    fileInfo.folder_id
+                  );
+                })
+                .catch(dbErr => {
+                  // We failed to update the database.  Make sure we clean
+                  // up the file that we created in the file system.
+                  fileSystem.deleteFile(fileSystemPath);
+                  throw dbErr;
+                });
+            });
+          })
+          .catch(err => {
+            debug('Error importing converted video: %O', err);
+            throw PictureStore.convertNonHttpError(
+              err,
+              HttpStatusCode.INTERNAL_SERVER_ERROR
+            );
           });
       });
   }

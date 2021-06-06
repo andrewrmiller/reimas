@@ -1,5 +1,10 @@
 import { IFileUpdate, ThumbnailSize } from '@picstrata/client';
-import { Dates, PictureExtension, ThumbnailDimensions } from 'common';
+import {
+  Dates,
+  PictureExtension,
+  PictureMimeType,
+  ThumbnailDimensions
+} from 'common';
 import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
@@ -126,6 +131,12 @@ async function processLocalPictureFile(
       localFilePath = rotatedFilePath;
       deleteLocalFile = true;
     }
+  }
+
+  // Tiff files cannot  be rendered by default in most web browsers.  Convert
+  // all TIFF files to JPG to work around this limitation.
+  if (metadata.MIMEType === PictureMimeType.Tiff) {
+    await convertToJpg(pictureStore, libraryId, fileId, localFilePath);
   }
 
   return createThumbnails(pictureStore, libraryId, fileId, localFilePath)
@@ -408,5 +419,33 @@ function createThumbnail(
         resizedFilePath,
         info.size
       );
+    });
+}
+
+function convertToJpg(
+  pictureStore: PictureStore,
+  libraryId: string,
+  fileId: string,
+  localFilePath: string
+) {
+  const jpgPath = buildTempPath({
+    suffix: `.${PictureExtension.Jpg}`
+  });
+
+  debug('Converting picture file to JPG at %s', jpgPath);
+  return sharp(localFilePath)
+    .toFile(jpgPath)
+    .then(info => {
+      return pictureStore.importConvertedFile(
+        libraryId,
+        fileId,
+        jpgPath,
+        info.size
+      );
+    })
+    .catch(err => {
+      debug('Error importing converted picture: %O', err);
+      fsPromises.unlink(jpgPath);
+      throw err;
     });
 }
