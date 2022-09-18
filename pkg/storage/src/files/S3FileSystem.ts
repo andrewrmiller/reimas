@@ -192,6 +192,25 @@ export class S3FileSystem implements IFileSystem {
   }
 
   /**
+   * Copies a file in one location to another.
+   *
+   * @param sourcePath Relative path to the source file.
+   * @param targetPath Relative path to the target file.
+   */
+  public copyFile(sourcePath: string, targetPath: string) {
+    debug(
+      `Copying file ${sourcePath} to ${targetPath} in bucket ${this.config.bucket}`
+    );
+    return s3Client
+      .copyObject({
+        Bucket: this.config.bucket,
+        CopySource: sourcePath,
+        Key: targetPath
+      })
+      .promise();
+  }
+
+  /**
    * Returns the full local path to a file in the library.
    *
    * @param path Relative path to the file.

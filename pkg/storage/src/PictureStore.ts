@@ -1168,12 +1168,54 @@ export class PictureStore {
             return result;
           })
           .catch(err => {
-            debug(`ERROR: Delete file failed for folder ${file.path}.`);
+            debug(`ERROR: Delete file failed for file ${file.path}.`);
             debug(`File was deleted in db but file system delete failed.`);
             debug(`File may need to be cleaned up.`);
             throw err;
           });
       });
+    });
+  }
+
+  public copyFile(libraryId: string, fileId: string, targetFolderId: string) {
+    const db = DbFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
+    const userId = this.getUserId();
+    const targetFileId = createGuid();
+
+    // Copy the file in the database first.
+    return db.getFileContentInfo(userId, libraryId, fileId).then(sourceFile => {
+      return db
+        .copyFile(userId, libraryId, fileId, targetFileId, targetFolderId)
+        .then(targetFile => {
+          // Grab info about the target folder so we can build the target path.
+          return db
+            .getFolder(userId, libraryId, targetFolderId)
+            .then(targetFolder => {
+              // Now copy the file in the file system.
+              return fileSystem
+                .copyFile(
+                  `${libraryId}/${sourceFile.path}`,
+                  this.buildLibraryPath(
+                    libraryId,
+                    targetFolder.path,
+                    targetFile.fileId
+                  )
+                )
+                .then(async file => {
+                  await queue.enqueueProcessFileJob(targetFile);
+                  return targetFile;
+                })
+                .catch(err => {
+                  debug(`ERROR: Copy file failed for file ${sourceFile.path}.`);
+                  debug(
+                    `Copy of file was created in db but file system copy failed.`
+                  );
+                  db.deleteFile(userId, libraryId, targetFile.fileId);
+                  throw err;
+                });
+            });
+        });
     });
   }
 

@@ -627,6 +627,27 @@ export class MySqlDatabase {
     });
   }
 
+  public copyFile(
+    userId: string,
+    libraryId: string,
+    fileId: string,
+    targetFileId: string,
+    targetFolderId: string
+  ) {
+    debug(
+      `Copying file ${fileId} in library ${libraryId} to folder ${targetFolderId}.`
+    );
+    return this.callChangeProc<IDbFile>('pst_copy_file', [
+      userId,
+      libraryId,
+      fileId,
+      targetFolderId,
+      targetFileId
+    ]).then((file: IDbFile) => {
+      return MySqlDatabase.convertDbFile(file);
+    });
+  }
+
   public addAlbum(
     userId: string,
     libraryId: string,

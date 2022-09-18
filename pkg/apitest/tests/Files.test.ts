@@ -1,11 +1,4 @@
-import {
-  IFile,
-  IFolder,
-  IFolderAdd,
-  ILibrary,
-  ILibraryAdd,
-  Role
-} from '@picstrata/client';
+import { IFile, IFolder, ILibrary, ILibraryAdd, Role } from '@picstrata/client';
 import {
   HttpMethod,
   HttpStatusCode,
@@ -17,6 +10,9 @@ import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
 import {
   ApiBaseUrl,
+  createFolder,
+  copyFile,
+  getFilesInFolder,
   getStats,
   postFileToFolder,
   sendRequest,
@@ -215,14 +211,11 @@ describe('File Tests', () => {
         picture.path,
         picture.contentType,
         picture.metadataEx
-      ).then(response => {
-        expect(response.status).toBe(HttpStatusCode.OK);
-        return response.json().then((files: IFile[]) => {
-          expect(files[0].mimeType).toBe(picture.contentType);
-          expect(files[0].height).toBe(picture.height);
-          expect(files[0].width).toBe(picture.width);
-          fileIds.push(files[0].fileId);
-        });
+      ).then((file: IFile) => {
+        expect(file.mimeType).toBe(picture.contentType);
+        expect(file.height).toBe(picture.height);
+        expect(file.width).toBe(picture.width);
+        fileIds.push(file.fileId);
       });
     }
 
@@ -567,38 +560,24 @@ describe('File Tests', () => {
   });
 
   test('Verify addition of videos to library', async () => {
-    let videoFolderId: string;
-
     // Create VideoSubFolder
-    await sendRequest(
-      `libraries/${testLibraryId}/folders`,
+    const videoFolder = await createFolder(
       OwnerUserId,
-      HttpMethod.Post,
-      JSON.stringify({
-        parentId: allPicturesFolderId,
-        name: 'VideoSubFolder'
-      } as IFolderAdd)
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then((folder: IFolder) => {
-        videoFolderId = folder.folderId;
-        expect(folder.userRole).toBe(Role.Owner);
-      });
-    });
+      testLibraryId,
+      allPicturesFolderId,
+      'VideoSubFolder'
+    );
 
     // Upload some videos.
     for (const video of TestVideos) {
       await postFileToFolder(
         OwnerUserId,
         testLibraryId,
-        videoFolderId!,
+        videoFolder.folderId,
         video.path,
         video.contentType
-      ).then(response => {
-        expect(response.status).toBe(HttpStatusCode.OK);
-        return response.json().then((files: IFile[]) => {
-          expect(files[0].mimeType).toBe(video.contentType);
-        });
+      ).then((file: IFile) => {
+        expect(file.mimeType).toBe(video.contentType);
       });
     }
 
@@ -607,19 +586,16 @@ describe('File Tests', () => {
     await waitForProcessingComplete();
 
     // Get the list of files back along with their metadata.
-    await sendRequest(
-      `libraries/${testLibraryId}/folders/${videoFolderId!}/files`,
-      OwnerUserId
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then((files: IFile[]) => {
-        expect(files).toHaveLength(TestVideos.length);
-        for (const videoFile of files) {
-          expect(videoFile.width).toBeGreaterThan(0);
-          expect(videoFile.height).toBeGreaterThan(0);
-        }
-      });
-    });
+    const files = await getFilesInFolder(
+      OwnerUserId,
+      testLibraryId,
+      videoFolder.folderId
+    );
+    expect(files).toHaveLength(TestVideos.length);
+    for (const videoFile of files) {
+      expect(videoFile.width).toBeGreaterThan(0);
+      expect(videoFile.height).toBeGreaterThan(0);
+    }
   });
 
   test('Verify name conflict resolution', async () => {
@@ -634,12 +610,9 @@ describe('File Tests', () => {
       allPicturesFolderId,
       picture.path,
       picture.contentType
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      response.json().then((files: IFile[]) => {
-        fileIds[1] = files[0].fileId;
-        expect(files[0].name).toBe(name);
-      });
+    ).then((file: IFile) => {
+      fileIds[1] = file.fileId;
+      expect(file.name).toBe(name);
     });
 
     // Upload the same file again and verify that a new name was generated.
@@ -649,12 +622,9 @@ describe('File Tests', () => {
       allPicturesFolderId,
       picture.path,
       picture.contentType
-    ).then(response => {
-      expect(response.status).toBe(HttpStatusCode.OK);
-      return response.json().then((files: IFile[]) => {
-        secondFileId = files[0].fileId;
-        expect(files[0].name).not.toBe(Paths.getLastSubpath(picture.path));
-      });
+    ).then((file: IFile) => {
+      secondFileId = file.fileId;
+      expect(file.name).not.toBe(Paths.getLastSubpath(picture.path));
     });
 
     // Try to rename the second file to overwrite the first.
@@ -678,6 +648,84 @@ describe('File Tests', () => {
     ).then(response => {
       expect(response.status).toBe(HttpStatusCode.BAD_REQUEST);
     });
+  });
+
+  test('Verify that files can be copied to other folders', async () => {
+    const subFolder1 = await createFolder(
+      OwnerUserId,
+      testLibraryId,
+      allPicturesFolderId,
+      'SubFolder1'
+    );
+    const subFolder2 = await createFolder(
+      OwnerUserId,
+      testLibraryId,
+      allPicturesFolderId,
+      'SubFolder2'
+    );
+    const file = await postFileToFolder(
+      OwnerUserId,
+      testLibraryId,
+      subFolder1.folderId,
+      TestPictures[0].path,
+      TestPictures[0].contentType,
+      TestPictures[0].metadataEx
+    );
+
+    // Copy the file from SubFolder1 to SubFolder2.
+    const copy1 = await copyFile(
+      OwnerUserId,
+      testLibraryId,
+      file.fileId,
+      subFolder2.folderId
+    );
+    expect(copy1.name).toBe(file.name);
+
+    // Make sure the file shows up in SubFolder2
+    const subFolder2Files = await getFilesInFolder(
+      OwnerUserId,
+      testLibraryId,
+      subFolder2.folderId
+    );
+    expect(subFolder2Files.length).toBe(1);
+
+    await waitForProcessingComplete();
+
+    const subFolder3 = await createFolder(
+      OwnerUserId,
+      testLibraryId,
+      subFolder2.folderId,
+      'SubFolder3'
+    );
+
+    // Copy the file from SubFolder1 to SubFolder3.
+    const copy2 = await copyFile(
+      OwnerUserId,
+      testLibraryId,
+      file.fileId,
+      subFolder3.folderId
+    );
+    expect(copy2.name).toBe(file.name);
+
+    // Copy the file from SubFolder2 to Subfolder3
+    const copy3 = await copyFile(
+      OwnerUserId,
+      testLibraryId,
+      copy1.fileId,
+      subFolder3.folderId
+    );
+    expect(copy3.name).not.toBe(file.name);
+    expect(copy3.name).toContain('(2)');
+
+    // Make sure the file shows up in SubFolder3
+    const subFolder3Files = await getFilesInFolder(
+      OwnerUserId,
+      testLibraryId,
+      subFolder3.folderId
+    );
+    expect(subFolder3Files.length).toBe(2);
+
+    await waitForProcessingComplete();
   });
 
   test('Verify clean up', async () => {

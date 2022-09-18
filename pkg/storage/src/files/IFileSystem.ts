@@ -47,6 +47,14 @@ export interface IFileSystem {
   deleteFile(path: string): Promise<any>;
 
   /**
+   * Copies a file in one location to another.
+   *
+   * @param sourcePath
+   * @param targetPath
+   */
+  copyFile(sourcePath: string, targetPath: string): Promise<any>;
+
+  /**
    * Returns the full local path to a file in the library.
    *
    * @param path Relative path to the file.

@@ -112,6 +112,22 @@ export class LocalFileSystem implements IFileSystem {
   }
 
   /**
+   * Copies a file in one location to another.
+   *
+   * @param sourcePath Relative path to the source file.
+   * @param targetPath Relative path to the target file.
+   */
+  public copyFile(sourcePath: string, targetPath: string) {
+    const sourceFilePath = `${this.config.root}/${sourcePath}`;
+    const targetFilePath = `${this.config.root}/${targetPath}`;
+    return fsPromises.copyFile(sourceFilePath, targetFilePath).then(() => {
+      // UNDONE: Comment seems off.  Not really this code's job right?
+      // Return the filename to the caller so they know what file we ended up using.
+      return Paths.getLastSubpath(targetPath);
+    });
+  }
+
+  /**
    * Returns the full local path to a file in the library.
    *
    * @param path Relative path to the file.

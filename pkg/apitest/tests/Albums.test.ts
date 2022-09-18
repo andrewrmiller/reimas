@@ -158,12 +158,9 @@ describe('Album Tests', () => {
         allPicturesFolderId,
         file.path,
         file.contentType
-      ).then(response => {
-        expect(response.status).toBe(HttpStatusCode.OK);
-        return response.json().then((files: IFile[]) => {
-          expect(files[0].mimeType).toBe(file.contentType);
-          fileIds.push(files[0].fileId);
-        });
+      ).then((newFile: IFile) => {
+        expect(newFile.mimeType).toBe(file.contentType);
+        fileIds.push(newFile.fileId);
       });
     }
 
@@ -191,12 +188,9 @@ describe('Album Tests', () => {
         subFolderAId,
         file.path,
         file.contentType
-      ).then(response => {
-        expect(response.status).toBe(HttpStatusCode.OK);
-        return response.json().then((files: IFile[]) => {
-          expect(files[0].mimeType).toBe(file.contentType);
-          fileIds.push(files[0].fileId);
-        });
+      ).then((newFile: IFile) => {
+        expect(newFile.mimeType).toBe(file.contentType);
+        fileIds.push(newFile.fileId);
       });
     }
 
@@ -224,12 +218,9 @@ describe('Album Tests', () => {
         subFolderBId,
         file.path,
         file.contentType
-      ).then(response => {
-        expect(response.status).toBe(HttpStatusCode.OK);
-        return response.json().then((files: IFile[]) => {
-          expect(files[0].mimeType).toBe(file.contentType);
-          fileIds.push(files[0].fileId);
-        });
+      ).then((newFile: IFile) => {
+        expect(newFile.mimeType).toBe(file.contentType);
+        fileIds.push(newFile.fileId);
       });
     }
 

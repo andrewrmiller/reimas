@@ -1,4 +1,12 @@
-import { ApiKeyAuthType, UserIdHeader } from '@picstrata/client';
+import {
+  ApiKeyAuthType,
+  UserIdHeader,
+  IFile,
+  IFolder,
+  IFolderAdd,
+  Role,
+  IFileCopyTarget
+} from '@picstrata/client';
 import { HttpMethod, HttpStatusCode, Paths } from 'common';
 import createDebug from 'debug';
 import FormData from 'form-data';
@@ -43,6 +51,39 @@ export async function sendRequest(
     method,
     headers,
     body
+  });
+}
+
+/**
+ * Creates a folder in a library.
+ *
+ * @param userId Unique ID of the user creating the folder.
+ * @param libraryId Unique ID of the library.
+ * @param parentId Unique ID of the parent folder.
+ * @param name Name of the new folder.
+ *
+ * @returns An IFolder instance.
+ */
+export function createFolder(
+  userId: string,
+  libraryId: string,
+  parentId: string,
+  name: string
+) {
+  return sendRequest(
+    `libraries/${libraryId}/folders`,
+    userId,
+    HttpMethod.Post,
+    JSON.stringify({
+      parentId,
+      name
+    } as IFolderAdd)
+  ).then(response => {
+    expect(response.status).toBe(HttpStatusCode.OK);
+    return response.json().then((folder: IFolder) => {
+      expect(folder.userRole).toBe(Role.Owner);
+      return folder;
+    });
   });
 }
 
@@ -105,7 +146,70 @@ export async function postFileToFolder(
     `libraries/${libraryId}/folders/${folderId}/files`,
     userId,
     form
-  );
+  ).then(response => {
+    expect(response.status).toBe(HttpStatusCode.OK);
+    return response.json().then((files: IFile[]) => {
+      return files[0];
+    });
+  });
+}
+
+/**
+ * Retrieves the list of files in a folder.
+ *
+ * @param userId Unique ID of the user creating the folder.
+ * @param libraryId Unique ID of the library.
+ * @param folderId Unique ID of the folder.
+ *
+ * @returns An array of IFile instances.
+ */
+export function getFilesInFolder(
+  userId: string,
+  libraryId: string,
+  folderId: string
+) {
+  return sendRequest(
+    `libraries/${libraryId}/folders/${folderId}/files`,
+    userId
+  ).then(response => {
+    expect(response.status).toBe(HttpStatusCode.OK);
+    return response.json().then((files: IFile[]) => {
+      return files;
+    });
+  });
+}
+
+/**
+ * Copies a file into a target folder.
+ *
+ * @param userId Unique ID of the user creating the folder.
+ * @param libraryId Unique ID of the library.
+ * @param fileId Unique ID of the source file.
+ * @param targetFolderId Unique ID of the target folder.
+ *
+ * @returns An IFile instance.
+ */
+export function copyFile(
+  userId: string,
+  libraryId: string,
+  fileId: string,
+  targetFolderId: string
+) {
+  // Copy the file from SubFolder1 to SubFolder3.
+  return sendRequest(
+    `libraries/${libraryId}/files/${fileId}/copy`,
+    userId,
+    HttpMethod.Put,
+    JSON.stringify({
+      targetFolderId
+    } as IFileCopyTarget)
+  ).then(response => {
+    expect(response.status).toBe(HttpStatusCode.OK);
+    return response.json().then((file: IFile) => {
+      expect(file.isProcessing).toBeTruthy();
+      return file;
+    });
+  });
 }
 
 /**

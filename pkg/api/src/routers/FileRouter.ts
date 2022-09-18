@@ -1,4 +1,9 @@
-import { IFile, IFileUpdate, ThumbnailSize } from '@picstrata/client';
+import {
+  IFile,
+  IFileCopyTarget,
+  IFileUpdate,
+  ThumbnailSize
+} from '@picstrata/client';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
@@ -24,7 +29,7 @@ router.post(
   upload.array('files'),
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    const importPromises: Array<Promise<IFile>> = [];
+    const importPromises: Promise<IFile>[] = [];
     const pictureStore = createPictureStore(req);
     const uploadedFiles: Express.Multer.File[] = req.files as any;
     for (const file of uploadedFiles) {
@@ -138,6 +143,23 @@ router.delete(
     const params = req.params as ParamsDictionary;
     createPictureStore(req)
       .deleteFile(params.libraryId, params.fileId)
+      .then(data => {
+        res.send(data);
+      })
+      .catch(next);
+  }
+);
+
+/**
+ * Copies a file from one folder to another.
+ */
+router.put(
+  '/:libraryId/files/:fileId/copy',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    const target = req.body as IFileCopyTarget;
+    createPictureStore(req)
+      .copyFile(params.libraryId, params.fileId, target.targetFolderId)
       .then(data => {
         res.send(data);
       })
