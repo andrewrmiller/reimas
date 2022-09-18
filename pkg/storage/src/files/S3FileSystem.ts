@@ -10,7 +10,6 @@ import {
 } from '../config/IFileSystemConfig';
 import { IFileSystem } from './IFileSystem';
 
-const fsPromises = fs.promises;
 const debug = createDebug('storage:s3filesystem');
 
 /**
@@ -83,7 +82,8 @@ export class S3FileSystem implements IFileSystem {
         ACL: 'public-read',
         Body: ''
       })
-      .promise();
+      .promise()
+      .then(() => null);
   }
 
   /**
@@ -152,8 +152,7 @@ export class S3FileSystem implements IFileSystem {
       })
       .promise()
       .then(() => {
-        // Return the filename to the caller so they know what file we ended up using.
-        return Paths.getLastSubpath(targetPath);
+        return;
       });
   }
 
@@ -188,7 +187,8 @@ export class S3FileSystem implements IFileSystem {
         Bucket: this.config.bucket,
         Key: path
       })
-      .promise();
+      .promise()
+      .then(() => null);
   }
 
   /**
@@ -207,7 +207,8 @@ export class S3FileSystem implements IFileSystem {
         CopySource: sourcePath,
         Key: targetPath
       })
-      .promise();
+      .promise()
+      .then(() => null);
   }
 
   /**

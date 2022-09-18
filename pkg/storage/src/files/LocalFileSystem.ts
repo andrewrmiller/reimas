@@ -33,7 +33,7 @@ export class LocalFileSystem implements IFileSystem {
    *
    * @param path Relative path to the folder.
    */
-  public createFolder(path: string) {
+  public createFolder(path: string): Promise<void | null> {
     const folderPath = `${this.config.root}/${path}`;
     debug(`Creating local file system folder ${folderPath}`);
     try {
@@ -41,7 +41,7 @@ export class LocalFileSystem implements IFileSystem {
 
       // Folder already exists.  We're done.
       return new Promise((resolve, reject) => {
-        resolve();
+        resolve(null);
       });
     } catch (err) {
       return fsPromises.mkdir(folderPath);
@@ -86,18 +86,11 @@ export class LocalFileSystem implements IFileSystem {
    *
    * @param localPath Local path to the file to import.
    * @param targetPath Relative path for the imported file.
-   *
-   * NOTE: The source file at localPath will be deleted after
-   * the file is imported or if an error occurs.
    */
-  public importFile(localPath: string, targetPath: string): Promise<string> {
+  public importFile(localPath: string, targetPath: string): Promise<void> {
     const target = `${this.config.root}/${targetPath}`;
-
     debug(`Importing ${localPath} as ${target}`);
-    return fsPromises.copyFile(localPath, target).then(() => {
-      // Return the filename to the caller so they know what file we ended up using.
-      return Paths.getLastSubpath(target);
-    });
+    return fsPromises.copyFile(localPath, target);
   }
 
   /**
@@ -117,14 +110,10 @@ export class LocalFileSystem implements IFileSystem {
    * @param sourcePath Relative path to the source file.
    * @param targetPath Relative path to the target file.
    */
-  public copyFile(sourcePath: string, targetPath: string) {
+  public copyFile(sourcePath: string, targetPath: string): Promise<void> {
     const sourceFilePath = `${this.config.root}/${sourcePath}`;
     const targetFilePath = `${this.config.root}/${targetPath}`;
-    return fsPromises.copyFile(sourceFilePath, targetFilePath).then(() => {
-      // UNDONE: Comment seems off.  Not really this code's job right?
-      // Return the filename to the caller so they know what file we ended up using.
-      return Paths.getLastSubpath(targetPath);
-    });
+    return fsPromises.copyFile(sourceFilePath, targetFilePath);
   }
 
   /**

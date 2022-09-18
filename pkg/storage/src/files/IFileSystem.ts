@@ -12,14 +12,14 @@ export interface IFileSystem {
    *
    * @param path Relative path to the folder.
    */
-  createFolder(path: string): Promise<any>;
+  createFolder(path: string): Promise<void | null>;
 
   /**
    * Deletes a folder under the file system root.
    *
    * @param path Relative path to the folder.
    */
-  deleteFolder(path: string): Promise<any>;
+  deleteFolder(path: string): Promise<void | null>;
 
   /**
    * Imports a file into a folder under the file system root.
@@ -30,7 +30,7 @@ export interface IFileSystem {
    * NOTE: The source file at localPath will be deleted after
    * the file is imported or if an error occurs.
    */
-  importFile(localPath: string, targetPath: string): Promise<any>;
+  importFile(localPath: string, targetPath: string): Promise<void | null>;
 
   /**
    * Returns a read-only stream of a file in the file system.
@@ -44,15 +44,15 @@ export interface IFileSystem {
    *
    * @param path Relative path to the file.
    */
-  deleteFile(path: string): Promise<any>;
+  deleteFile(path: string): Promise<void | null>;
 
   /**
    * Copies a file in one location to another.
    *
-   * @param sourcePath
-   * @param targetPath
+   * @param sourcePath Relative path to the source file.
+   * @param targetPath Relative path to the target file.
    */
-  copyFile(sourcePath: string, targetPath: string): Promise<any>;
+  copyFile(sourcePath: string, targetPath: string): Promise<void | null>;
 
   /**
    * Returns the full local path to a file in the library.
