@@ -28,7 +28,7 @@
     "rimraf": "^3.0.0",
     "temp": "^0.9.1",
     "typescript": "^3.6.3",
-    "uuid": "^3.3.3"
+    "uuid": "^9.0.0"
   },
   "devDependencies": {
     "@types/aws-sdk": "^2.7.0",
@@ -43,6 +43,6 @@
     "@types/rimraf": "^2.0.2",
     "@types/temp": "^0.8.34",
     "@types/uuid": "^3.4.6",
-    "ts-node": "^8.4.1"
+    "ts-node": "^8.3.4"
   }
 }

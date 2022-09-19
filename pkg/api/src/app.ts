@@ -42,49 +42,57 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // Top-level error handler.
-app.use((err: any, req: express.Request, res: express.Response) => {
-  let statusCode: number;
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    /* eslint-disable @typescript-eslint/no-unused-vars */
+    next: express.NextFunction
+  ) => {
+    let statusCode: number;
 
-  // If this was a database error, try to map the DbErrorCode
-  // to a meaningful HttpStatus code.
-  if (err instanceof DbError) {
-    switch (err.errorCode) {
-      case DbErrorCode.ItemNotFound:
-        statusCode = HttpStatusCode.NOT_FOUND;
-        break;
+    // If this was a database error, try to map the DbErrorCode
+    // to a meaningful HttpStatus code.
+    if (err instanceof DbError) {
+      switch (err.errorCode) {
+        case DbErrorCode.ItemNotFound:
+          statusCode = HttpStatusCode.NOT_FOUND;
+          break;
 
-      case DbErrorCode.DuplicateItemExists:
-        statusCode = HttpStatusCode.CONFLICT;
-        break;
+        case DbErrorCode.DuplicateItemExists:
+          statusCode = HttpStatusCode.CONFLICT;
+          break;
 
-      case DbErrorCode.ItemTooLarge:
-      case DbErrorCode.MaximumSizeExceeded:
-      case DbErrorCode.QuotaExceeded:
-      case DbErrorCode.InvalidFieldValue:
-        statusCode = HttpStatusCode.BAD_REQUEST;
-        break;
+        case DbErrorCode.ItemTooLarge:
+        case DbErrorCode.MaximumSizeExceeded:
+        case DbErrorCode.QuotaExceeded:
+        case DbErrorCode.InvalidFieldValue:
+          statusCode = HttpStatusCode.BAD_REQUEST;
+          break;
 
-      case DbErrorCode.NotAuthorized:
-        statusCode = HttpStatusCode.UNAUTHORIZED;
-        break;
+        case DbErrorCode.NotAuthorized:
+          statusCode = HttpStatusCode.UNAUTHORIZED;
+          break;
 
-      default:
-        statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+        default:
+          statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+      }
+    } else {
+      statusCode = err.status || HttpStatusCode.INTERNAL_SERVER_ERROR;
     }
-  } else {
-    statusCode = err.status || HttpStatusCode.INTERNAL_SERVER_ERROR;
+
+    // Set locals, only providing error in development.
+    res.locals.message = err.message;
+    res.locals.error = req.app.get('env') === 'development' ? err : {};
+
+    debug(`ERROR: ${err.message}`);
+
+    // Render the error page.
+    res.status(statusCode);
+    res.render('error');
   }
-
-  // Set locals, only providing error in development.
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  debug(`ERROR: ${err.message}`);
-
-  // Render the error page.
-  res.status(statusCode);
-  res.render('error');
-});
+);
 
 debug('API server ready.');
 
