@@ -1,3 +1,4 @@
+import { ExportJobStatus } from '@picstrata/client';
 import archiver from 'archiver';
 import { Paths } from 'common';
 import createDebug from 'debug';
@@ -22,6 +23,12 @@ export async function exportFiles(message: IExportFilesMsg): Promise<boolean> {
   const zipFilename = buildTempPath({ prefix: 'exp', suffix: `.zip` });
 
   try {
+    pictureStore.updateExportJob(
+      job.libraryId,
+      job.jobId,
+      ExportJobStatus.Processing
+    );
+
     await createExportZip(
       pictureStore,
       job.libraryId,
@@ -33,10 +40,22 @@ export async function exportFiles(message: IExportFilesMsg): Promise<boolean> {
     await pictureStore.importZipFile(job.libraryId, job.jobId, zipFilename);
     await fsPromises.unlink(zipFilename);
 
+    pictureStore.updateExportJob(
+      job.libraryId,
+      job.jobId,
+      ExportJobStatus.Success
+    );
     debug(`Export job ${job.jobId} complete.`);
     return true;
   } catch (err) {
-    debug(`Error caught while creating zip file: ${(err as any).message}`);
+    const message = (err as any).message;
+    pictureStore.updateExportJob(
+      job.libraryId,
+      job.jobId,
+      ExportJobStatus.Failed,
+      message
+    );
+    debug(`Error caught while creating zip file: ${message}`);
     await fsPromises.unlink(zipFilename);
     return false;
   }

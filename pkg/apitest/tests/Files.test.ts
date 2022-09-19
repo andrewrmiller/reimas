@@ -1,5 +1,6 @@
 import {
   IExportJobAdd,
+  ExportJobStatus,
   IFile,
   IFolder,
   ILibrary,
@@ -799,6 +800,16 @@ describe('File Tests', () => {
     expect(payload.jobId).toHaveLength(36);
 
     await waitForQueueDrain();
+
+    await sendRequest(
+      `libraries/${testLibraryId}/exportjobs/${payload.jobId}`,
+      OwnerUserId
+    ).then(async response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      const job = await response.json();
+      expect(job.status).toBe(ExportJobStatus.Success);
+      expect(job.fileIds).toHaveLength(6);
+    });
 
     await sendRequest(
       `libraries/${testLibraryId}/exports/${payload.jobId}`,

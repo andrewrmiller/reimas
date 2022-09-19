@@ -1,5 +1,4 @@
 import {
-  ExportJobStatus,
   IAlbumAdd,
   IAlbumUpdate,
   IExportJobAdd,
@@ -264,7 +263,7 @@ export class PictureStore {
   private static deleteFile(localPath: string) {
     fsPromises
       .unlink(localPath)
-      .then(_ => {
+      .then(() => {
         debug(`Deleted file ${localPath}.`);
       })
       .catch(err => {
@@ -408,6 +407,7 @@ export class PictureStore {
    * @param libraryId Unique ID of the library to delete.
    */
   public async deleteLibrary(libraryId: string) {
+    debug(`Deleting library ${libraryId}.`);
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
 
@@ -418,6 +418,7 @@ export class PictureStore {
     try {
       await fileSystem.deleteFolder(libraryId);
       await fileSystem.deleteFolder(`exports/${libraryId}`);
+      debug(`Library ${libraryId} deleted.`);
     } catch (err) {
       debug(`ERROR: Delete library failed for library ${libraryId}`);
       debug(`Library was deleted in db but file system delete failed.`);
@@ -1310,25 +1311,65 @@ export class PictureStore {
   }
 
   /**
-   * Enqueues a job to export a set of files as a .ZIP.
+   * Enqueues a job to export a set of files as a .zip.
    *
    * @param libraryId Unique ID of the library containing the files.
    * @param add List of files to export and target filename.
    *
    * @returns A Promise that returns the job ID.
    */
-  public addExportJob(libraryId: string, add: IExportJobAdd) {
+  public async addExportJob(libraryId: string, add: IExportJobAdd) {
     const jobId = createGuid();
+    const userId = this.getUserId();
     debug(`Enqueueing export .zip job with ID ${jobId}.`);
 
-    return queue
-      .enqueueExportJob({
-        ...add,
-        jobId,
-        libraryId,
-        status: ExportJobStatus.Queued
-      })
-      .then(() => jobId);
+    const db = DbFactory.createInstance();
+    const exportJob = await db.addExportFile(
+      userId,
+      libraryId,
+      jobId,
+      add.fileIds
+    );
+    return queue.enqueueExportJob({ ...exportJob, ...add }).then(() => jobId);
+  }
+
+  /**
+   * Updates the status of an existing export job.
+   *
+   * @param libraryId Unique ID of the library where the export job was created.
+   * @param jobId Job identifier returned from the addExportJob call.
+   * @param status The new status.
+   * @param error Optional error information to store with the job.
+   *
+   * @returns A Promise that returns the export job.
+   */
+  public async updateExportJob(
+    libraryId: string,
+    jobId: string,
+    status: string,
+    error?: string
+  ) {
+    const userId = this.getUserId();
+    debug(`Updating export job ${jobId} with status '${status}'.`);
+
+    const db = DbFactory.createInstance();
+    return db.updateExportFile(userId, libraryId, jobId, status, error);
+  }
+
+  /**
+   * Retrieves an export job from the database.
+   *
+   * @param libraryId Unique ID of the library where the export job was created.
+   * @param jobId Job identifier returned from the addExportJob call.
+   *
+   * @returns A Promise that returns the export job .
+   */
+  public async getExportFile(libraryId: string, jobId: string) {
+    const userId = this.getUserId();
+    debug(`Retrieving export job ${jobId} from library ${libraryId}.`);
+
+    const db = DbFactory.createInstance();
+    return db.getExportFile(userId, libraryId, jobId);
   }
 
   /**
@@ -1364,7 +1405,7 @@ export class PictureStore {
    */
   public async getZipFileContents(libraryId: string, jobId: string) {
     debug(
-      `Retrieving the contents of export file ${jobId}.zip in library ${libraryId}`
+      `Retrieving the contents of export job ${jobId}.zip in library ${libraryId}`
     );
 
     const fileSystem = FileSystemFactory.createInstance();

@@ -103,3 +103,10 @@ export interface IDbAlbum {
   where: string;
   order_by: string;
 }
+
+export interface IDbExportJob {
+  library_id: string;
+  job_id: string;
+  file_ids: string;
+  status: string;
+}

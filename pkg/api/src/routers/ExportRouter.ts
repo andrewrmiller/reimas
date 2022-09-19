@@ -25,6 +25,22 @@ router.post(
 );
 
 /**
+ * Gets the status of an export job.
+ */
+router.get(
+  '/:libraryId/exportjobs/:jobId',
+  (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const params = req.params as ParamsDictionary;
+    createPictureStore(req)
+      .getExportFile(params.libraryId, params.jobId)
+      .then(exportFile => {
+        res.json(exportFile);
+      })
+      .catch(next);
+  }
+);
+
+/**
  * Gets the contents an exported file.
  */
 router.get(

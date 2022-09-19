@@ -3,6 +3,7 @@ import {
   IAlbumAdd,
   IAlbumUpdate,
   IBreadcrumb,
+  IExportJob,
   IFile,
   IFileAdd,
   IFileUpdate,
@@ -27,6 +28,7 @@ import { DbError, DbErrorCode } from './DbError';
 import {
   IDbAlbum,
   IDbBreadcrumb,
+  IDbExportJob,
   IDbFile,
   IDbFileContentInfo,
   IDbFolder,
@@ -753,6 +755,59 @@ export class MySqlDatabase {
     });
   }
 
+  public addExportFile(
+    userId: string,
+    libraryId: string,
+    jobId: string,
+    fileIds: string[]
+  ) {
+    debug(
+      `Adding a new export job in library ${libraryId} on behalf of user ${userId}`
+    );
+    return this.callChangeProc<IDbExportJob>('pst_add_export_job', [
+      userId,
+      libraryId,
+      jobId,
+      JSON.stringify(fileIds)
+    ]).then((exportJob: IDbExportJob) => {
+      return this.convertDbExportJob(exportJob);
+    });
+  }
+
+  public getExportFile(userId: string, libraryId: string, jobId: string) {
+    debug(
+      `Retrieving export job in library ${libraryId} on behalf of user ${userId}`
+    );
+    return this.callSelectOneProc<IDbExportJob>('pst_get_export_job', [
+      userId,
+      libraryId,
+      jobId
+    ]).then((exportJob: IDbExportJob) => {
+      return this.convertDbExportJob(exportJob);
+    });
+  }
+
+  public updateExportFile(
+    userId: string,
+    libraryId: string,
+    jobId: string,
+    status: string,
+    error?: string
+  ) {
+    debug(
+      `Updating export job in library ${libraryId} on behalf of user ${userId}`
+    );
+    return this.callChangeProc<IDbExportJob>('pst_update_export_job', [
+      userId,
+      libraryId,
+      jobId,
+      status,
+      error ?? null
+    ]).then((exportJob: IDbExportJob) => {
+      return this.convertDbExportJob(exportJob);
+    });
+  }
+
   /**
    * Invokes a procedure which selects zero or more items from the database.
    *
@@ -782,7 +837,9 @@ export class MySqlDatabase {
                 resolve(results[0] as TResult[]);
               } catch (error) {
                 debug(
-                  `callSelectManyProc: Result processing failed: ${error.message}`
+                  `callSelectManyProc: Result processing failed: ${
+                    (error as any).message
+                  }`
                 );
                 reject(error);
               }
@@ -832,7 +889,9 @@ export class MySqlDatabase {
                 }
               } catch (error) {
                 debug(
-                  `callSelectOneProc: Result processing failed: ${error.message}`
+                  `callSelectOneProc: Result processing failed: ${
+                    (error as any).message
+                  }`
                 );
                 reject(error);
               }
@@ -880,7 +939,9 @@ export class MySqlDatabase {
               resolve(results[0][0] as TResult);
             } catch (error) {
               debug(
-                `callChangeProc: Result processing failed: ${error.message}`
+                `callChangeProc: Result processing failed: ${
+                  (error as any).message
+                }`
               );
               reject(error);
             }
@@ -971,5 +1032,17 @@ export class MySqlDatabase {
           `sqlMessage: ${error.sqlMessage} sql: ${error.sql}`
         );
     }
+  }
+
+  /**
+   * Converts an IDbExportJob instance to an IExportJob instance.
+   *
+   * @param dbExportJob The job to convert.
+   */
+  private convertDbExportJob(dbExportJob: IDbExportJob) {
+    const job = ChangeCase.toCamelObject(dbExportJob) as IExportJob;
+    // The list of file IDs being exported is stores as a JSON string.
+    job.fileIds = JSON.parse(dbExportJob.file_ids);
+    return job;
   }
 }
