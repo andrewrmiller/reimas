@@ -15,7 +15,6 @@
     "@js-joda/core": "^2.0.0",
     "@js-joda/timezone": "^2.2.0",
     "@picstrata/client": "^1.0.12",
-    "aws-sdk": "^2.535.0",
     "config": "^3.2.2",
     "debug": "^4.1.1",
     "ffmpeg": "^0.0.4",
@@ -28,7 +27,6 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "@types/aws-sdk": "^2.7.0",
     "@types/config": "^0.0.34",
     "@types/debug": "^4.1.5",
     "@types/ffmpeg": "1.0.1",
