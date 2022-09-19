@@ -361,7 +361,7 @@ export class PictureStore {
    * @param add Library creation information.
    */
 
-  public addLibrary(add: ILibraryAdd) {
+  public async addLibrary(add: ILibraryAdd) {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
 
@@ -371,18 +371,24 @@ export class PictureStore {
     add.libraryId = createGuid();
     debug(`Generated ID ${add.libraryId} for new library ${add.name}`);
 
-    // Create the library folder on disk first.
-    return fileSystem.createFolder(add.libraryId).then(() => {
+    // Create the library folders on disk first.
+    await fileSystem.createFolder(add.libraryId);
+    await fileSystem.createFolder(`exports/${add.libraryId}`);
+
+    try {
       // Now add the library to the database.
-      return db.addLibrary(this.getUserId(), add).catch(err => {
-        // Failed to add it to the database.  Make an attempt to
-        // remove the file system folder that we just created.
-        debug(`ERROR: Create library failed for library ${add.name}`);
-        debug('Folder was created in file system but database insert failed.');
-        fileSystem.deleteFolder(add.libraryId!);
-        throw err;
-      });
-    });
+      return db.addLibrary(this.getUserId(), add);
+    } catch (err) {
+      // Failed to add it to the database.  Make an attempt to
+      // remove the file system folder that we just created.
+      debug(`ERROR: Create library failed for library ${add.name}`);
+      debug(
+        'Folder(s) was/were created in file system but database insert failed.'
+      );
+      await fileSystem.deleteFolder(`exports/${add.libraryId}`);
+      await fileSystem.deleteFolder(add.libraryId);
+      throw err;
+    }
   }
 
   /**
@@ -401,26 +407,26 @@ export class PictureStore {
    *
    * @param libraryId Unique ID of the library to delete.
    */
-  public deleteLibrary(libraryId: string) {
+  public async deleteLibrary(libraryId: string) {
     const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
 
     // Delete the library in the database first.
-    return db.deleteLibrary(this.getUserId(), libraryId).then(result => {
-      // Now try to delete the library folder in the file system.
-      return fileSystem
-        .deleteFolder(libraryId)
-        .then(() => {
-          // Return the result from the database delete.
-          return result;
-        })
-        .catch(err => {
-          debug(`ERROR: Delete library failed for library ${libraryId}`);
-          debug(`Library was deleted in db but file system delete failed.`);
-          debug(`Library folder '${libraryId}' may need to be cleaned up.`);
-          throw err;
-        });
-    });
+    const result = await db.deleteLibrary(this.getUserId(), libraryId);
+
+    // Now try to delete the resources in the file system.
+    try {
+      await fileSystem.deleteFolder(libraryId);
+      await fileSystem.deleteFolder(`exports/${libraryId}`);
+    } catch (err) {
+      debug(`ERROR: Delete library failed for library ${libraryId}`);
+      debug(`Library was deleted in db but file system delete failed.`);
+      debug(`Library folder '${libraryId}' may need to be cleaned up.`);
+      throw err;
+    }
+
+    // Return the result from the database delete.
+    return result;
   }
 
   /**
@@ -768,7 +774,7 @@ export class PictureStore {
     const metadata = await PictureStore.getFileMetadata(
       localPath,
       supportStatus === FormatSupportStatus.IsSupportedVideo
-    ).catch(err => {
+    ).catch(() => {
       throw createHttpError(
         HttpStatusCode.BAD_REQUEST,
         `Unrecognized picture or video file: ${filename}`
@@ -784,7 +790,7 @@ export class PictureStore {
             localPath,
             this.buildLibraryPath(libraryId, folder.path, fileId)
           )
-          .then(async _ => {
+          .then(async () => {
             PictureStore.deleteFile(localPath);
 
             // File has been imported into the file system.  Now
@@ -867,7 +873,7 @@ export class PictureStore {
                 width,
                 fileSize
               )
-              .then(_ => {
+              .then(() => {
                 return queue.enqueueRecalcFolderJob(
                   libraryId,
                   fileInfo.folder_id
@@ -937,7 +943,7 @@ export class PictureStore {
                   thumbSize,
                   fileSize
                 )
-                .then(file => {
+                .then(() => {
                   return queue.enqueueRecalcFolderJob(
                     libraryId,
                     fileInfo.folder_id
@@ -1011,7 +1017,7 @@ export class PictureStore {
                   fileId,
                   fileSize
                 )
-                .then(file => {
+                .then(() => {
                   return queue.enqueueRecalcFolderJob(
                     libraryId,
                     fileInfo.folder_id
@@ -1083,7 +1089,7 @@ export class PictureStore {
                   fileId,
                   fileSize
                 )
-                .then(file => {
+                .then(() => {
                   return queue.enqueueRecalcFolderJob(
                     libraryId,
                     fileInfo.folder_id
@@ -1284,7 +1290,6 @@ export class PictureStore {
    */
   public deleteAlbum(libraryId: string, albumId: string) {
     const db = DbFactory.createInstance();
-    const fileSystem = FileSystemFactory.createInstance();
     const userId = this.getUserId();
 
     // Grab the album info first and then delete the album in the database.
@@ -1340,7 +1345,6 @@ export class PictureStore {
   ) {
     debug(`Importing .zip file created by job ID ${jobId}.`);
 
-    const db = DbFactory.createInstance();
     const fileSystem = FileSystemFactory.createInstance();
 
     const exportFolder = `exports/${libraryId}`;
@@ -1424,3 +1428,4 @@ export class PictureStore {
       : `${libraryId}/${itemName}`;
   }
 }
+``;
