@@ -1,10 +1,13 @@
+import { IExportJob } from '@picstrata/client';
+
 /**
  * Enumeration of the types of messages that can be posted to the queue.
  */
 export enum MessageType {
   ProcessPicture,
   ProcessVideo,
-  RecalcFolder
+  RecalcFolder,
+  ExportFiles
 }
 
 /**
@@ -37,4 +40,8 @@ export interface IProcessVideoMsg extends IMessage {
 export interface IRecalcFolderMsg extends IMessage {
   libraryId: string;
   folderId: string;
+}
+
+export interface IExportFilesMsg extends IMessage {
+  exportJob: IExportJob;
 }

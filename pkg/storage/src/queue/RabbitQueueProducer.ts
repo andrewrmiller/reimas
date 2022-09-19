@@ -1,10 +1,12 @@
-import { IFile } from '@picstrata/client';
+import { IExportJob, IFile } from '@picstrata/client';
 import amqp from 'amqplib';
+import Promise from 'bluebird';
 import { Paths, VideoExtension } from 'common';
 import createDebug from 'debug';
 import { AmqpConnection } from './AmqpConnection';
 import { IQueueProducer } from './IQueueClient';
 import {
+  IExportFilesMsg,
   IProcessPictureMsg,
   IProcessVideoMsg,
   IRecalcFolderMsg,
@@ -14,8 +16,10 @@ import { JobsChannelName } from './workers';
 
 const debug = createDebug('storage:queueproducer');
 
-export class RabbitQueueProducer extends AmqpConnection
-  implements IQueueProducer {
+export class RabbitQueueProducer
+  extends AmqpConnection
+  implements IQueueProducer
+{
   public enqueueRecalcFolderJob(
     libraryId: string,
     folderId: string
@@ -59,6 +63,21 @@ export class RabbitQueueProducer extends AmqpConnection
         !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
       ) {
         throw new Error('Failed to enqueue process picture/video message.');
+      }
+    });
+  }
+
+  public enqueueExportJob(exportJob: IExportJob) {
+    return this.enqueue(ch => {
+      debug('Publishing export files job.');
+      const message = {
+        type: MessageType.ExportFiles,
+        exportJob
+      } as IExportFilesMsg;
+      if (
+        !ch.sendToQueue(JobsChannelName, Buffer.from(JSON.stringify(message)))
+      ) {
+        throw new Error('Failed to enqueue export files message.');
       }
     });
   }

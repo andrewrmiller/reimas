@@ -1,4 +1,11 @@
-import { IFile, IFolder, ILibrary, ILibraryAdd, Role } from '@picstrata/client';
+import {
+  IExportJobAdd,
+  IFile,
+  IFolder,
+  ILibrary,
+  ILibraryAdd,
+  Role
+} from '@picstrata/client';
 import {
   HttpMethod,
   HttpStatusCode,
@@ -14,6 +21,7 @@ import {
   copyFile,
   getFilesInFolder,
   getStats,
+  logTestStart,
   postFileToFolder,
   sendRequest,
   sleep,
@@ -135,6 +143,10 @@ describe('File Tests', () => {
   beforeAll(() => {
     jest.setTimeout(20000);
     debug(`Testing file routes on API server at ${ApiBaseUrl}`);
+  });
+
+  beforeEach(async () => {
+    await logTestStart();
   });
 
   test('Verify initial state', async () => {
@@ -726,6 +738,77 @@ describe('File Tests', () => {
     expect(subFolder3Files.length).toBe(2);
 
     await waitForProcessingComplete();
+  });
+
+  test('Verify that files can be exported as a zip', async () => {
+    const folder1 = await createFolder(
+      OwnerUserId,
+      testLibraryId,
+      allPicturesFolderId,
+      'Files to Export'
+    );
+
+    const folder2 = await createFolder(
+      OwnerUserId,
+      testLibraryId,
+      allPicturesFolderId,
+      'More Files to Export'
+    );
+
+    const fileIds: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const file = await postFileToFolder(
+        OwnerUserId,
+        testLibraryId,
+        folder1.folderId,
+        TestPictures[i].path,
+        TestPictures[i].contentType,
+        TestPictures[i].metadataEx
+      );
+      fileIds.push(file.fileId);
+    }
+
+    // Add one of the files to another folder to test
+    // duplicate filename handling.
+    const file = await postFileToFolder(
+      OwnerUserId,
+      testLibraryId,
+      folder2.folderId,
+      TestPictures[0].path,
+      TestPictures[0].contentType,
+      TestPictures[0].metadataEx
+    );
+    fileIds.push(file.fileId);
+
+    // Verify that we can post the export job.
+    const response = await sendRequest(
+      `libraries/${testLibraryId}/exportjobs`,
+      OwnerUserId,
+      HttpMethod.Post,
+      JSON.stringify({
+        libraryId: testLibraryId,
+        fileIds,
+        filename: 'TextExport.zip'
+      } as IExportJobAdd)
+    );
+    expect(response.status).toBe(HttpStatusCode.OK);
+
+    // Verify that we  get a job ID (a GUID) back.
+    const payload = await response.json();
+    expect(payload.jobId).toBeDefined();
+    expect(payload.jobId).toHaveLength(36);
+
+    await waitForQueueDrain();
+
+    await sendRequest(
+      `libraries/${testLibraryId}/exports/${payload.jobId}`,
+      OwnerUserId
+    ).then(response => {
+      expect(response.status).toBe(HttpStatusCode.OK);
+      return response.blob().then((blob: any) => {
+        expect(blob.size).toBeGreaterThan(10);
+      });
+    });
   });
 
   test('Verify clean up', async () => {

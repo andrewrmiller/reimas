@@ -1,6 +1,8 @@
 import {
+  ExportJobStatus,
   IAlbumAdd,
   IAlbumUpdate,
+  IExportJobAdd,
   IFileAdd,
   IFileUpdate,
   IFolderAdd,
@@ -13,6 +15,7 @@ import {
 } from '@picstrata/client';
 import {
   HttpStatusCode,
+  OtherMimeType,
   Paths,
   PictureExtension,
   PictureMimeType,
@@ -1299,6 +1302,73 @@ export class PictureStore {
   public getAlbumFiles(libraryId: string, albumId: string) {
     const db = DbFactory.createInstance();
     return db.getAlbumFiles(this.getUserId(), libraryId, albumId);
+  }
+
+  /**
+   * Enqueues a job to export a set of files as a .ZIP.
+   *
+   * @param libraryId Unique ID of the library containing the files.
+   * @param add List of files to export and target filename.
+   *
+   * @returns A Promise that returns the job ID.
+   */
+  public addExportJob(libraryId: string, add: IExportJobAdd) {
+    const jobId = createGuid();
+    debug(`Enqueueing export .zip job with ID ${jobId}.`);
+
+    return queue
+      .enqueueExportJob({
+        ...add,
+        jobId,
+        libraryId,
+        status: ExportJobStatus.Queued
+      })
+      .then(() => jobId);
+  }
+
+  /**
+   * Imports a ZIP file and stores it in the /exports folder.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param jobId The export job ID.
+   * @param localPath Local path to the converted video file.
+   */
+  public async importZipFile(
+    libraryId: string,
+    jobId: string,
+    localPath: string
+  ) {
+    debug(`Importing .zip file created by job ID ${jobId}.`);
+
+    const db = DbFactory.createInstance();
+    const fileSystem = FileSystemFactory.createInstance();
+
+    const exportFolder = `exports/${libraryId}`;
+    await fileSystem.createFolder(exportFolder);
+    return await fileSystem.importFile(
+      localPath,
+      `${exportFolder}/${jobId}.zip`
+    );
+  }
+
+  /**
+   * Retrieves a stream of the exported .zip file contents and also a mime
+   * type for the file stream.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param jobId ID of the job that exported the file.
+   */
+  public async getZipFileContents(libraryId: string, jobId: string) {
+    debug(
+      `Retrieving the contents of export file ${jobId}.zip in library ${libraryId}`
+    );
+
+    const fileSystem = FileSystemFactory.createInstance();
+    return {
+      stream: fileSystem.getFileStream(`exports/${libraryId}/${jobId}.zip`),
+      mimeType: OtherMimeType.ZIP,
+      filename: 'Export.zip'
+    };
   }
 
   /**

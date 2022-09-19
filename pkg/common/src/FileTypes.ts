@@ -29,3 +29,7 @@ export enum VideoMimeType {
   WMV = 'video/x-ms-wmv',
   AVI = 'video/x-msvideo'
 }
+
+export enum OtherMimeType {
+  ZIP = 'application/zip'
+}

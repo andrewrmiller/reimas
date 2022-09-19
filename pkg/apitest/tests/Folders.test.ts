@@ -10,7 +10,12 @@ import {
 import { HttpMethod, HttpStatusCode } from 'common';
 import createDebug from 'debug';
 import { v1 as createGuid } from 'uuid';
-import { ApiBaseUrl, getStats, sendRequest } from './TestUtilities';
+import {
+  ApiBaseUrl,
+  getStats,
+  logTestStart,
+  sendRequest
+} from './TestUtilities';
 
 const debug = createDebug('apitest:libraries');
 
@@ -37,6 +42,10 @@ describe('Folder Tests', () => {
 
   beforeAll(() => {
     debug(`Testing folder routes on API server at ${ApiBaseUrl}`);
+  });
+
+  beforeEach(async () => {
+    await logTestStart();
   });
 
   test('Verify initial state', async () => {

@@ -7,6 +7,7 @@ import logger from 'morgan';
 import path from 'path';
 import { DbError, DbErrorCode } from 'storage';
 import albumRouter from './routers/AlbumRouter';
+import exportRouter from './routers/ExportRouter';
 import fileRouter from './routers/FileRouter';
 import folderRouter from './routers/FolderRouter';
 import libraryRouter from './routers/LibraryRouter';
@@ -30,6 +31,7 @@ app.use('/libraries', libraryRouter);
 app.use('/libraries', folderRouter);
 app.use('/libraries', fileRouter);
 app.use('/libraries', albumRouter);
+app.use('/libraries', exportRouter);
 app.use('/service', serviceRouter);
 
 // Catch all other request here and forward to error handler.

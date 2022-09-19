@@ -49,7 +49,7 @@ buildContainers () {
 	docker build --rm -f workers.Dockerfile -t picstrata/workers:$VERSION -t picstrata/workers:latest .
 	cd ../db 
 	docker build --rm -f db.Dockerfile -t picstrata/db:$VERSION -t picstrata/db:latest .
-	docker rmi $(docker images --filter "dangling=true" -q --no-trunc)
+	docker rmi -f $(docker images --filter "dangling=true" -q --no-trunc)
 	cd ..
 }
 

@@ -24,6 +24,7 @@ import { v1 as createGuid } from 'uuid';
 import {
   ApiBaseUrl,
   getStats,
+  logTestStart,
   postFileToFolder,
   sendRequest,
   sleep,
@@ -108,6 +109,10 @@ describe('Album Tests', () => {
   beforeAll(() => {
     jest.setTimeout(20000);
     debug(`Testing album routes on API server at ${ApiBaseUrl}`);
+  });
+
+  beforeEach(async () => {
+    await logTestStart();
   });
 
   test('Verify initial state', async () => {

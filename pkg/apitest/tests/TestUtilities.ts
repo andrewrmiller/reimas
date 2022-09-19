@@ -14,6 +14,7 @@ import fs from 'fs';
 import fetch, { BodyInit, Headers } from 'node-fetch';
 
 const debug = createDebug('apitest:libraries');
+const testLog = createDebug('apitest:testinfo');
 
 export const ApiBaseUrl = `http://localhost:${process.env.APITEST_PORT}`;
 
@@ -21,6 +22,12 @@ const AuthorizationHeader = 'Authorization';
 const WaitRetryCount = 20;
 
 const ApiKey = process.env.PST_API_KEY_1;
+
+export async function logTestStart() {
+  const state = expect.getState();
+  const path = state.testPath.split('/tests/')[1];
+  testLog(`[${path}] Starting test: ${state.currentTestName}`);
+}
 
 export async function getStats() {
   return sendRequest('service/stats').then(result => {

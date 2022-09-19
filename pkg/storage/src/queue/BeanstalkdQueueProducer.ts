@@ -1,4 +1,4 @@
-import { IFile } from '@picstrata/client';
+import { IExportJob, IFile } from '@picstrata/client';
 import { Paths, VideoExtension } from 'common';
 import createDebug from 'debug';
 import {
@@ -7,6 +7,7 @@ import {
 } from './BeanstalkdConnection';
 import { IQueueProducer } from './IQueueClient';
 import {
+  IExportFilesMsg,
   IMessage,
   IProcessPictureMsg,
   IProcessVideoMsg,
@@ -19,8 +20,10 @@ const debug = createDebug('storage:queueproducer');
 const JobDelay = 0;
 const JobLengthMaxSeconds = 60;
 
-export class BeanstalkdQueueProducer extends BeanstalkdConnection
-  implements IQueueProducer {
+export class BeanstalkdQueueProducer
+  extends BeanstalkdConnection
+  implements IQueueProducer
+{
   public enqueueRecalcFolderJob(
     libraryId: string,
     folderId: string
@@ -50,6 +53,16 @@ export class BeanstalkdQueueProducer extends BeanstalkdConnection
         convertToMp4: Paths.getFileExtension(file.name) !== VideoExtension.MP4
       } as IProcessVideoMsg);
     }
+  }
+
+  public enqueueExportJob(exportJob: IExportJob) {
+    debug(
+      `Publishing export job ${exportJob.jobId} to create ${exportJob.filename}`
+    );
+    return this.enqueue({
+      type: MessageType.ExportFiles,
+      exportJob
+    } as IExportFilesMsg);
   }
 
   private enqueue(message: IMessage) {

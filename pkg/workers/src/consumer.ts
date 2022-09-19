@@ -1,5 +1,6 @@
 import createDebug from 'debug';
 import {
+  IExportFilesMsg,
   IMessage,
   IProcessPictureMsg,
   IProcessVideoMsg,
@@ -7,6 +8,7 @@ import {
   MessageType,
   QueueFactory
 } from 'storage';
+import { exportFiles } from './exportFiles';
 import { processPicture } from './processPicture';
 import { processVideo } from './processVideo';
 import { recalcFolder } from './recalcFolder';
@@ -39,8 +41,13 @@ function processMessage(message: IMessage, tag: string): Promise<boolean> {
       p = recalcFolder(message as IRecalcFolderMsg);
       break;
 
+    case MessageType.ExportFiles:
+      debug(`Tag ${tag}: Exporting files.`);
+      p = exportFiles(message as IExportFilesMsg);
+      break;
+
     default:
-      throw new Error('Uknown message type found in queue.');
+      throw new Error('Unknown message type found in queue.');
   }
 
   return p
