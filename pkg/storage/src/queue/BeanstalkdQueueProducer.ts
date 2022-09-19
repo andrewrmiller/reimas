@@ -57,7 +57,7 @@ export class BeanstalkdQueueProducer
 
   public enqueueExportJob(exportJob: IExportJob) {
     debug(
-      `Publishing export job ${exportJob.jobId} to create ${exportJob.filename}`
+      `Publishing export job ${exportJob.jobId} with ${exportJob.fileIds.length} to include.`
     );
     return this.enqueue({
       type: MessageType.ExportFiles,
