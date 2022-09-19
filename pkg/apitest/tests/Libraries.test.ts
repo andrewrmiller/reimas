@@ -28,7 +28,6 @@ const UpdatedLibraryName = 'Test Library Updated';
 
 describe('Library Tests', () => {
   let testLibraryId: string;
-  let allPicturesFolderId: string;
 
   beforeAll(() => {
     debug(`Testing library routes on API server at ${ApiBaseUrl}`);
@@ -99,7 +98,6 @@ describe('Library Tests', () => {
               expect(folders).toHaveLength(1);
               const folder = folders[0];
               expect(folder.name).toBe('All Pictures');
-              allPicturesFolderId = folder.folderId;
             });
           });
         });

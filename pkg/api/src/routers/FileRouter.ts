@@ -29,6 +29,9 @@ router.post(
   upload.array('files'),
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(
+      `Adding a file with id = ${params.fileId} to library ${params.folderIds}`
+    );
     const importPromises: Promise<IFile>[] = [];
     const pictureStore = createPictureStore(req);
     const uploadedFiles: Express.Multer.File[] = req.files as any;
@@ -62,6 +65,9 @@ router.get(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(
+      `Fetching metadata for file ${params.fileId} in library ${params.fileId}`
+    );
     createPictureStore(req)
       .getFile(params.libraryId, params.fileId)
       .then(data => {
@@ -78,6 +84,9 @@ router.get(
   '/:libraryId/files/:fileId/contents',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(
+      `Fetching contents for file ${params.fileId} in library ${params.fileId}`
+    );
     const asAttachment = req.query.attachment === 'true';
     createPictureStore(req)
       .getFileContents(params.libraryId, params.fileId, asAttachment)
@@ -103,6 +112,9 @@ router.get(
   '/:libraryId/files/:fileId/thumbnails/:size',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(
+      `Fetching thumbnail for file ${params.fileId} in library ${params.fileId}`
+    );
     createPictureStore(req)
       .getFileThumbnail(
         params.libraryId,
@@ -125,6 +137,7 @@ router.patch(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(`Updating file ${params.fileId} in library ${params.fileId}`);
     createPictureStore(req)
       .updateFile(params.libraryId, params.fileId, req.body as IFileUpdate)
       .then(data => {
@@ -141,6 +154,7 @@ router.delete(
   '/:libraryId/files/:fileId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(`Deleting file ${params.fileId} in library ${params.fileId}`);
     createPictureStore(req)
       .deleteFile(params.libraryId, params.fileId)
       .then(data => {
@@ -157,6 +171,9 @@ router.put(
   '/:libraryId/files/:fileId/copy',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(
+      `Cop9ying file ${params.fileId} in library ${params.fileId} to folder ${req.body.targetFolderId}`
+    );
     const target = req.body as IFileCopyTarget;
     createPictureStore(req)
       .copyFile(params.libraryId, params.fileId, target.targetFolderId)

@@ -6,7 +6,7 @@ import { getApiKey, getUserIdHeader } from '../common/HttpHeader';
 
 export function createPictureStore(
   req: express.Request,
-  allowAnonymous: boolean = false
+  allowAnonymous = false
 ) {
   const apiKey = getApiKey(req);
   if (!apiKey) {

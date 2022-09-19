@@ -21,13 +21,7 @@ import {
 import { ChangeCase } from 'common';
 import config from 'config';
 import createDebug from 'debug';
-import mysql, {
-  Connection,
-  FieldInfo,
-  MysqlError,
-  Query,
-  queryCallback
-} from 'mysql';
+import mysql, { Connection, MysqlError, Query, queryCallback } from 'mysql';
 import { IDatabaseConfig } from '../config/IDatabaseConfig';
 import { DbError, DbErrorCode } from './DbError';
 import {
@@ -777,7 +771,7 @@ export class MySqlDatabase {
           conn,
           procName,
           parameters,
-          (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
+          (error: MysqlError | null, results: any) => {
             if (error) {
               debug(
                 `callSelectManyProc: Call to ${procName} failed: ${error.message}`
@@ -820,7 +814,7 @@ export class MySqlDatabase {
           conn,
           procName,
           parameters,
-          (error: MysqlError | null, results: any, fields?: FieldInfo[]) => {
+          (error: MysqlError | null, results: any) => {
             if (error) {
               debug(
                 `callSelectOneProc: Call to ${procName} failed: ${error.message}`
@@ -870,35 +864,28 @@ export class MySqlDatabase {
           return;
         }
 
-        this.invokeStoredProc(
-          conn,
-          procName,
-          parameters,
-          (error, results, fields) => {
-            if (error) {
-              debug(
-                `callChangeProc: Call to ${procName} failed: ${error.message}`
-              );
-              reject(this.createDbError(error));
-            } else {
-              try {
-                debug(
-                  'callChangeProc: Number of result sets:' + results.length
-                );
+        this.invokeStoredProc(conn, procName, parameters, (error, results) => {
+          if (error) {
+            debug(
+              `callChangeProc: Call to ${procName} failed: ${error.message}`
+            );
+            reject(this.createDbError(error));
+          } else {
+            try {
+              debug('callChangeProc: Number of result sets:' + results.length);
 
-                // The DML operation was successful.  The result
-                // set contains information about the item that was inserted,
-                // updated or deleted.
-                resolve(results[0][0] as TResult);
-              } catch (error) {
-                debug(
-                  `callChangeProc: Result processing failed: ${error.message}`
-                );
-                reject(error);
-              }
+              // The DML operation was successful.  The result
+              // set contains information about the item that was inserted,
+              // updated or deleted.
+              resolve(results[0][0] as TResult);
+            } catch (error) {
+              debug(
+                `callChangeProc: Result processing failed: ${error.message}`
+              );
+              reject(error);
             }
           }
-        );
+        });
         conn.release();
       });
     });

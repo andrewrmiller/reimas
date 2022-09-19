@@ -89,7 +89,7 @@ export class ExifTool {
     return new Promise((resolve, reject) => {
       child_process.exec(
         `${exifToolPath} -j -n -F "${filePath}"`,
-        (err, stdout, stderr) => {
+        (err, stdout) => {
           if (err) {
             return reject(err);
           }

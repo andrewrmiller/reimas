@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "API integration tests.",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run lint && tsc",
+    "lint": "../node_modules/eslint/bin/eslint.js tests/**/*.ts",
     "test": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1  APITEST_PORT=3100 jest --config ./jest.config.js --runInBand",
     "testdev": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1 APITEST_PORT=3000 jest --config ./jest.config.js --runInBand"
   },
@@ -25,7 +26,6 @@
     "@types/node-fetch": "^2.5.3",
     "@types/uuid": "^3.4.6",
     "ts-jest": "^25.3.1",
-    "tslint": "^6.1.3",
     "typescript": "^3.6.4"
   }
 }

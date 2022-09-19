@@ -613,7 +613,7 @@ describe('File Tests', () => {
   test('Verify name conflict resolution', async () => {
     const picture = TestPictures[1];
     const name = Paths.getLastSubpath(picture.path);
-    let secondFileId: string = '';
+    let secondFileId = '';
 
     // Upload a file and verify that it gets the expected name.
     await postFileToFolder(

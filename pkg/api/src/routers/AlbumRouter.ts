@@ -12,11 +12,6 @@ import { createPictureStore } from './RouterHelpers';
 const router = express.Router();
 const debug = createDebug('api:routers');
 
-const BuiltInAlbums: { [key: string]: string } = {
-  favorites: 'Favorites',
-  videos: 'Videos'
-};
-
 /**
  * Creates a new album in a library.
  */
@@ -24,6 +19,7 @@ router.post(
   '/:libraryId/albums',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
+    debug(`Creating a new album in library ${params.libraryId}`);
     createPictureStore(req)
       .addAlbum(params.libraryId, req.body as IAlbumAdd)
       .then(data => {
@@ -39,8 +35,6 @@ router.post(
 router.get(
   '/:libraryId/albums',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const params = req.params as ParamsDictionary;
-
     createPictureStore(req)
       .getAlbums(req.params.libraryId)
       .then(albums => {
@@ -56,8 +50,6 @@ router.get(
 router.get(
   '/:libraryId/albums/:albumId',
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const params = req.params as ParamsDictionary;
-
     createPictureStore(req)
       .getAlbum(req.params.libraryId, req.params.albumId)
       .then(album => {

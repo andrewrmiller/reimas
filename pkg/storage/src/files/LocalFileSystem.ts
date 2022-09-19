@@ -1,4 +1,3 @@
-import { Paths } from 'common';
 import createDebug from 'debug';
 import fs from 'fs';
 import rimraf from 'rimraf';
@@ -40,7 +39,7 @@ export class LocalFileSystem implements IFileSystem {
       fs.accessSync(folderPath);
 
       // Folder already exists.  We're done.
-      return new Promise((resolve, reject) => {
+      return new Promise(resolve => {
         resolve(null);
       });
     } catch (err) {

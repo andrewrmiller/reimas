@@ -256,7 +256,7 @@ export function updateMetadata(
             altitude: metadata.GPSAltitude,
             tags: metadata.Keyword
           } as IFileUpdate)
-          .then(result => {
+          .then(() => {
             debug('File metadata updated successfully');
             return metadata;
           });
@@ -372,7 +372,7 @@ async function autoRotate(
 
   return fs.promises
     .writeFile(rotatedFilePath, rotated.buffer)
-    .then(fsResult => {
+    .then(() => {
       return pictureStore
         .updatePicture(
           libraryId,
@@ -382,7 +382,7 @@ async function autoRotate(
           rotated!.dimensions.height,
           rotated!.dimensions.width
         )
-        .then(dbResult => {
+        .then(() => {
           return rotatedFilePath;
         });
     })

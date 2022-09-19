@@ -1,5 +1,4 @@
 import AWS from 'aws-sdk';
-import { Paths } from 'common';
 import config from 'config';
 import createDebug from 'debug';
 import fs from 'fs';
@@ -218,6 +217,7 @@ export class S3FileSystem implements IFileSystem {
    *
    * @throws Error since this is not a local file system.
    */
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   public getLocalFilePath(path: string): string {
     throw new Error('Local file paths are not supported.');
   }

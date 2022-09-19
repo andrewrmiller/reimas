@@ -7,8 +7,10 @@ import { JobsChannelName } from './workers';
 
 const debug = createDebug('storage:queueconsumer');
 
-export class RabbitQueueConsumer extends AmqpConnection
-  implements IQueueClient {
+export class RabbitQueueConsumer
+  extends AmqpConnection
+  implements IQueueClient
+{
   private messageHandler: (message: IMessage, tag: string) => Promise<boolean>;
   private consumerChannel?: amqp.Channel;
 
@@ -46,7 +48,7 @@ export class RabbitQueueConsumer extends AmqpConnection
 
         ch.prefetch(1);
 
-        return ch.assertQueue(JobsChannelName, { durable: true }).then(ok => {
+        return ch.assertQueue(JobsChannelName, { durable: true }).then(() => {
           return ch
             .consume(JobsChannelName, this.handleMessageReceived, {
               noAck: false

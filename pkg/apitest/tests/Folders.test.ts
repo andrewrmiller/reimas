@@ -394,7 +394,7 @@ describe('Folder Tests', () => {
   });
 
   test('Verify contributor subfolder operations', async () => {
-    let childFolderAId: string = '';
+    let childFolderAId = '';
 
     // Contributors should be able to create new subfolders.
     await sendRequest(

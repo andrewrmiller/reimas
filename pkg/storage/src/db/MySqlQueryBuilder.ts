@@ -79,12 +79,13 @@ export class MySqlQueryBuilder {
         return `${columnName} LIKE '%${criterion.value as string}%'`;
 
       case Operator.OneOf:
-      case Operator.NotOneOf:
+      case Operator.NotOneOf: {
         const values = (criterion.value as string[]).map(v =>
           escapeFunctions.escape(v)
         );
         const func = criterion.operator === Operator.OneOf ? 'IN' : 'NOT IN';
         return `${columnName} ${func} [${values.join(',')}]`;
+      }
 
       default:
         throw new Error(
@@ -136,11 +137,12 @@ export class MySqlQueryBuilder {
     switch (criterion.operator) {
       case Operator.Equals:
         return this.buildParentFolderIdHelper(criterion.value as string);
-      case Operator.OneOf:
+      case Operator.OneOf: {
         const criteria = (criterion.value as string[]).map(v =>
           MySqlQueryBuilder.buildParentFolderIdHelper(v)
         );
         return `(${criteria.join(' OR ')})`;
+      }
       default:
         throw new Error(
           `Invalid operator ${criterion.operator} for attribute ${criterion.attribute}`

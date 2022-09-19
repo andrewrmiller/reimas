@@ -6,12 +6,9 @@ const router = express.Router();
 /**
  * Simple health check route.
  */
-router.get(
-  '/healthcheck',
-  (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    res.send('Picstrata API service is healthy.');
-  }
-);
+router.get('/healthcheck', (req: express.Request, res: express.Response) => {
+  res.send('Picstrata API service is healthy.');
+});
 
 /**
  * Gets statstics for the service.

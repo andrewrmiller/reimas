@@ -14,7 +14,7 @@ import { processVideo } from './processVideo';
 import { recalcFolder } from './recalcFolder';
 
 const debug = createDebug('workers:consumer');
-const queue = QueueFactory.createConsumerInstance(processMessage);
+QueueFactory.createConsumerInstance(processMessage);
 
 /**
  * Processes a message received from the queue.

@@ -48,6 +48,7 @@ async function createExportZip(
   fileIds: string[],
   zipFileName: string
 ): Promise<void> {
+  /* eslint-disable no-async-promise-executor */
   return new Promise(async (resolve, reject) => {
     const output = fs.createWriteStream(zipFileName);
     const archive = archiver('zip', {

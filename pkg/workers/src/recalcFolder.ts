@@ -11,7 +11,7 @@ export function recalcFolder(message: IRecalcFolderMsg): Promise<boolean> {
   const pictureStore = PictureStore.createForSystemOp();
   return pictureStore
     .recalcFolder(message.libraryId, message.folderId)
-    .then(folder => {
+    .then(() => {
       return true;
     })
     .catch(err => {
