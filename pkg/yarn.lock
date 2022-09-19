@@ -656,10 +656,10 @@
   dependencies:
     "@babel/types" "^7.3.0"
 
-"@types/beanstalkd@^2.2.0":
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/@types/beanstalkd/-/beanstalkd-2.2.0.tgz#979ea9953ea30bc6a7fd68813ae7454d1b917dd8"
-  integrity sha512-ryHl/WlMxrPrTuLZdG+Ra6yjOWYC5LeDPtXip6nLzvpRfGRN9MJI/bfh/SNSwAuMRsWnwTBWylZz5nUZvwSGxQ==
+"@types/beanstalkd@^2.2.2":
+  version "2.2.2"
+  resolved "https://registry.yarnpkg.com/@types/beanstalkd/-/beanstalkd-2.2.2.tgz#ff06de8ebce37d81e839d907c70d1cadf0ca9ea1"
+  integrity sha512-SzYRragCDWA1MPmguh4Xp8KYqnQfxuoWcz8k+ERVvZjSkBlegbAePv2t6NVr5dX2Wud2kQEkvousFifTwy7RhA==
   dependencies:
     "@types/node" "*"
 
@@ -1420,18 +1420,18 @@ bcrypt-pbkdf@^1.0.0:
   dependencies:
     tweetnacl "^0.14.3"
 
-beanstalkd-protocol@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/beanstalkd-protocol/-/beanstalkd-protocol-1.0.0.tgz#735195c7ecde0679b9f9d8ac2badbe185f2dc51e"
-  integrity sha1-c1GVx+zeBnm5+disK62+GF8txR4=
+beanstalkd-protocol@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/beanstalkd-protocol/-/beanstalkd-protocol-1.0.1.tgz#eed218e865bbba894c1d2fe21944117f1faa32a9"
+  integrity sha512-3LVZru/dWiYMjb+CNmYOuf2Xy1rgy4WsomEzIoZVclCXxzwwncxTl9TUUyJOO8IJ2GB5r7BWohBKBYxMAU9ysA==
 
-beanstalkd@^2.2.4:
-  version "2.2.4"
-  resolved "https://registry.yarnpkg.com/beanstalkd/-/beanstalkd-2.2.4.tgz#162a86c957c71ade2fc387af65f78047ac971c28"
-  integrity sha512-AC5mI40a8cRdulEc2rblUPoqF77sw0m8CvNa7DmS+aMCmIpX1iJ9QdDo1p8PR7VIzXYD/JGQ30JSZZ3OwP+zzQ==
+beanstalkd@^2.2.5:
+  version "2.2.5"
+  resolved "https://registry.yarnpkg.com/beanstalkd/-/beanstalkd-2.2.5.tgz#0fdc4f110f39f9ea979af6e5ea3e367250962d91"
+  integrity sha512-OqptEiFBQl8lYQKuJGTwwyKKcpWbP0vtbZWAPLWcymxAgqNgst7Y6R+2GHfTknzOtJ5b8Su8Yx1f3MAsf4z92A==
   dependencies:
     babel-runtime "^5.8.25"
-    beanstalkd-protocol "^1.0.0"
+    beanstalkd-protocol "^1.0.1"
     bluebird "^3.4.7"
     debug "^2.2.0"
     js-yaml "^3.13.1"
