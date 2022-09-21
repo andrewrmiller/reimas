@@ -1,9 +1,4 @@
-import {
-  IFile,
-  IFileCopyTarget,
-  IFileUpdate,
-  ThumbnailSize
-} from '@picstrata/client';
+import { IFile, IFileUpdate, ThumbnailSize } from '@picstrata/client';
 import createDebug from 'debug';
 import express from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
@@ -29,32 +24,44 @@ router.post(
   upload.array('files'),
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const params = req.params as ParamsDictionary;
-    debug(
-      `Adding a file with id = ${params.fileId} to library ${params.folderIds}`
-    );
-    const importPromises: Promise<IFile>[] = [];
-    const pictureStore = createPictureStore(req);
-    const uploadedFiles: Express.Multer.File[] = req.files as any;
-    for (const file of uploadedFiles) {
-      // NOTE: Uploaded file will be deleted by importFile method.
-      importPromises.push(
-        pictureStore.importFile(
-          params.libraryId,
-          params.folderId,
-          file.path, // Relative path to the file in the uploads dir
-          file.originalname,
-          file.mimetype,
-          file.size,
-          req.body.metadata
-        )
+    if (req.query.source) {
+      debug(
+        `Copying file ${req.query.source} in library ${params.libraryId} to folder ${params.folderId}`
       );
-    }
+      createPictureStore(req)
+        .copyFile(params.libraryId, req.query.source, params.folderId)
+        .then(data => {
+          res.send(data);
+        })
+        .catch(next);
+    } else {
+      debug(
+        `Adding a file to folder ${params.folderId} to library ${params.libraryId}`
+      );
+      const importPromises: Promise<IFile>[] = [];
+      const pictureStore = createPictureStore(req);
+      const uploadedFiles: Express.Multer.File[] = req.files as any;
+      for (const file of uploadedFiles) {
+        // NOTE: Uploaded file will be deleted by importFile method.
+        importPromises.push(
+          pictureStore.importFile(
+            params.libraryId,
+            params.folderId,
+            file.path, // Relative path to the file in the uploads dir
+            file.originalname,
+            file.mimetype,
+            file.size,
+            req.body.metadata
+          )
+        );
+      }
 
-    Promise.all(importPromises)
-      .then((files: IFile[]) => {
-        res.send(files);
-      })
-      .catch(next);
+      Promise.all(importPromises)
+        .then((files: IFile[]) => {
+          res.send(files);
+        })
+        .catch(next);
+    }
   }
 );
 
@@ -157,26 +164,6 @@ router.delete(
     debug(`Deleting file ${params.fileId} in library ${params.fileId}`);
     createPictureStore(req)
       .deleteFile(params.libraryId, params.fileId)
-      .then(data => {
-        res.send(data);
-      })
-      .catch(next);
-  }
-);
-
-/**
- * Copies a file from one folder to another.
- */
-router.put(
-  '/:libraryId/files/:fileId/copy',
-  (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const params = req.params as ParamsDictionary;
-    debug(
-      `Cop9ying file ${params.fileId} in library ${params.fileId} to folder ${req.body.targetFolderId}`
-    );
-    const target = req.body as IFileCopyTarget;
-    createPictureStore(req)
-      .copyFile(params.libraryId, params.fileId, target.targetFolderId)
       .then(data => {
         res.send(data);
       })

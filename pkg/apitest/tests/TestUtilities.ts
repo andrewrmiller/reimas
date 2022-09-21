@@ -4,8 +4,7 @@ import {
   IFile,
   IFolder,
   IFolderAdd,
-  Role,
-  IFileCopyTarget
+  Role
 } from '@picstrata/client';
 import { HttpMethod, HttpStatusCode, Paths } from 'common';
 import createDebug from 'debug';
@@ -204,12 +203,9 @@ export function copyFile(
 ) {
   // Copy the file from SubFolder1 to SubFolder3.
   return sendRequest(
-    `libraries/${libraryId}/files/${fileId}/copy`,
+    `libraries/${libraryId}/folders/${targetFolderId}/files?source=${fileId}`,
     userId,
-    HttpMethod.Put,
-    JSON.stringify({
-      targetFolderId
-    } as IFileCopyTarget)
+    HttpMethod.Post
   ).then(response => {
     expect(response.status).toBe(HttpStatusCode.OK);
     return response.json().then((file: IFile) => {

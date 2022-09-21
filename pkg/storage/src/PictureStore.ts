@@ -70,6 +70,9 @@ interface IFileMetadata {
 
 const queue = QueueFactory.createProducerInstance();
 
+// Folders that contain generated content like thumbnails.
+const GENERATED_FOLDERS = ['tn_sm', 'tn_md', 'tn_lg', 'cnv'];
+
 /**
  * Service which wraps the database and the file system to
  * provide a single picture storage facade.
@@ -1144,49 +1147,38 @@ export class PictureStore {
     }
   }
 
-  public deleteFile(libraryId: string, fileId: string) {
+  public async deleteFile(libraryId: string, fileId: string) {
     const db = DbFactory.createInstance();
-    const fileSystem = FileSystemFactory.createInstance();
     const userId = this.getUserId();
 
     // Grab the file info first and then delete the file in the database.
-    return db.getFileContentInfo(userId, libraryId, fileId).then(file => {
-      return db.deleteFile(userId, libraryId, fileId).then(result => {
-        // Now try to delete the file in the file system
-        // along with any thumbnails that have been created.
-        const fileDir = Paths.deleteLastSubpath(file.path);
-        return fileSystem
-          .deleteFile(`${libraryId}/${file.path}`)
-          .then(() => {
-            return fileSystem.deleteFile(
-              this.buildLibraryPath(libraryId, fileDir, `tn_sm/${file.file_id}`)
-            );
-          })
-          .then(() => {
-            return fileSystem.deleteFile(
-              this.buildLibraryPath(libraryId, fileDir, `tn_md/${file.file_id}`)
-            );
-          })
-          .then(() => {
-            return fileSystem.deleteFile(
-              this.buildLibraryPath(libraryId, fileDir, `tn_lg/${file.file_id}`)
-            );
-          })
-          .then(() => {
-            queue.enqueueRecalcFolderJob(file.library_id, file.folder_id);
-            // Return the result from the database delete.
-            return result;
-          })
-          .catch(err => {
-            debug(`ERROR: Delete file failed for file ${file.path}.`);
-            debug(`File was deleted in db but file system delete failed.`);
-            debug(`File may need to be cleaned up.`);
-            throw err;
-          });
-      });
-    });
+    const file = await db.getFileContentInfo(userId, libraryId, fileId);
+    const result = await db.deleteFile(userId, libraryId, fileId);
+
+    // Now try to delete the file in the file system
+    // along with any thumbnails that have been created.
+    const fileDir = Paths.deleteLastSubpath(file.path);
+
+    await this.tryDeleteFile(`${libraryId}/${file.path}`);
+
+    for (const folder of GENERATED_FOLDERS) {
+      await this.tryDeleteFile(
+        this.buildLibraryPath(libraryId, fileDir, `${folder}/${file.file_id}`)
+      );
+    }
+
+    // Recalc folder size and return the result from the database delete.
+    await queue.enqueueRecalcFolderJob(file.library_id, file.folder_id);
+    return result;
   }
 
+  /**
+   * Copies a file from one folder to another.
+   *
+   * @param libraryId Unique ID of the parent library.
+   * @param fileId Unique ID of the file to update.
+   * @param targetFolderId Unique ID of the folder to which the file should be copied.
+   */
   public async copyFile(
     libraryId: string,
     fileId: string,
@@ -1468,5 +1460,21 @@ export class PictureStore {
       ? `${libraryId}/${parentFolderPath}/${itemName}`
       : `${libraryId}/${itemName}`;
   }
+
+  /**
+   * Attempts to delete a file in the file system.  Errors are
+   * logged and then suppressed.
+   *
+   * @param filePath Path to the file in the file system.
+   */
+  private async tryDeleteFile(filePath: string) {
+    const fileSystem = FileSystemFactory.createInstance();
+    try {
+      await fileSystem.deleteFile(filePath);
+      return true;
+    } catch (err) {
+      debug(`An error occurred deleting file ${filePath}`);
+      return false;
+    }
+  }
 }
-``;
