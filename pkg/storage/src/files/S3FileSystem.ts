@@ -203,7 +203,7 @@ export class S3FileSystem implements IFileSystem {
     return s3Client
       .copyObject({
         Bucket: this.config.bucket,
-        CopySource: sourcePath,
+        CopySource: `${this.config.bucket}/${sourcePath}`,
         Key: targetPath
       })
       .promise()

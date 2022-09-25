@@ -587,10 +587,10 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@picstrata/client@^1.0.14":
-  version "1.0.14"
-  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-1.0.14.tgz#0ba1089cea3ad4a55bee1b949d7f69bec166c8ae"
-  integrity sha512-QC61TXd2+m7AfI5SppDJMokCvpnfOsfTtvkuasZcrwP8vB3hr+JDfOZirKT5iiUMSIoGlp/5uagaR8O6U8pkyA==
+"@picstrata/client@^1.0.15":
+  version "1.0.15"
+  resolved "https://registry.yarnpkg.com/@picstrata/client/-/client-1.0.15.tgz#738ffd07c711680b7a748a48196b1bd47e204b00"
+  integrity sha512-LiSxjH0dTZ+uCZorjfnGDlLq4PjF0AzTYqIQK8bugPcGIHCndasSzM4W1QQxv6sxYmMquWQiJN14VNo9G0IxnQ==
   dependencies:
     typescript "^3.7.2"
 

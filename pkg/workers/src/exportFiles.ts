@@ -16,59 +16,115 @@ const fsPromises = fs.promises;
 export async function exportFiles(message: IExportFilesMsg): Promise<boolean> {
   const job = message.exportJob;
   debug(
-    `Exporting ${job.fileIds.length} files from library ${job.libraryId} as job ID ${job.jobId}.`
+    `Export job ${job.jobId}: Adding ${job.fileIds.length} files from library ${job.libraryId}.`
   );
 
   const pictureStore = PictureStore.createForSystemOp();
   const zipFilename = buildTempPath({ prefix: 'exp', suffix: `.zip` });
 
   try {
-    pictureStore.updateExportJob(
+    await pictureStore.updateExportJob(
       job.libraryId,
       job.jobId,
       ExportJobStatus.Processing
     );
 
-    await createExportZip(
+    // Build a map of file name to local file path.  If the files are
+    // not stored locally by default, this will download temp copies.
+    const fileMap = await getExportFileMap(
       pictureStore,
       job.libraryId,
-      job.fileIds,
-      zipFilename
+      job.fileIds
     );
+
+    // Now that we have all the files locally and we have resolved any
+    // naming conflicts, create the .zip file.
+    try {
+      await createExportZip(job.libraryId, job.jobId, fileMap, zipFilename);
+    } finally {
+      if (!pictureStore.isLocalFileSystem()) {
+        await removeTempFiles(fileMap.values());
+      }
+    }
 
     // Upload the .zip to the /exports folder and delete the temp file.
     await pictureStore.importZipFile(job.libraryId, job.jobId, zipFilename);
     await fsPromises.unlink(zipFilename);
 
-    pictureStore.updateExportJob(
+    await pictureStore.updateExportJob(
       job.libraryId,
       job.jobId,
       ExportJobStatus.Success
     );
-    debug(`Export job ${job.jobId} complete.`);
+    debug(`Export job ${job.jobId}: Job is complete.`);
     return true;
   } catch (err) {
     const message = (err as any).message;
-    pictureStore.updateExportJob(
+    await pictureStore.updateExportJob(
       job.libraryId,
       job.jobId,
       ExportJobStatus.Failed,
       message
     );
-    debug(`Error caught while creating zip file: ${message}`);
-    await fsPromises.unlink(zipFilename);
+    debug(
+      `Export job ${job.jobId}: Error caught while creating zip file: ${message}`
+    );
+    if (fs.existsSync(zipFilename)) {
+      await fsPromises.unlink(zipFilename);
+    }
     return false;
   }
 }
 
-async function createExportZip(
+async function getExportFileMap(
   pictureStore: PictureStore,
   libraryId: string,
-  fileIds: string[],
+  fileIds: string[]
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    for (const fileId of fileIds) {
+      const localFile = await getLocalFilePath(libraryId, fileId);
+      const file = await pictureStore.getFile(libraryId, fileId);
+
+      // .zip files allow files with the same name to coexist in the .zip
+      // but extractors often do bad things when this happens.  Better to
+      // use unique names for all pictures being added.
+      let suffix = 2;
+      const originalName = file.name;
+      while (map.has(file.name.toLocaleLowerCase())) {
+        file.name = Paths.addFilenameSuffixToPath(originalName, suffix++);
+      }
+
+      map.set(file.name.toLocaleLowerCase(), localFile);
+    }
+  } catch (err) {
+    // We weren't able to find or download all the files needed.
+    // If the files are not stored locally by default, they were
+    // downloaded and need to be cleaned up.
+    if (!pictureStore.isLocalFileSystem()) {
+      await removeTempFiles(map.values());
+      for (const localFile of map.values()) {
+        await fsPromises.unlink(localFile);
+      }
+    }
+    throw err;
+  }
+
+  return map;
+}
+
+async function createExportZip(
+  libraryId: string,
+  jobId: string,
+  fileMap: Map<string, string>,
   zipFileName: string
 ): Promise<void> {
-  /* eslint-disable no-async-promise-executor */
-  return new Promise(async (resolve, reject) => {
+  debug(
+    `Export job ${jobId}: Adding ${fileMap.size} files to .zip ${zipFileName} for library ${libraryId}.`
+  );
+
+  return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipFileName);
     const archive = archiver('zip', {
       zlib: { level: 9 } // Sets the compression level.
@@ -76,31 +132,17 @@ async function createExportZip(
     output.on('close', resolve);
     archive.on('error', reject);
 
-    const fileSet = new Set();
-    for (const fileId of fileIds) {
-      const localFile = await getLocalFilePath(libraryId, fileId);
-      try {
-        const file = await pictureStore.getFile(libraryId, fileId);
-
-        // .zip files allow files with the same name to coexist in the .zip
-        // but extractors often do bad things when this happens.  Better to
-        // use unique names for all pictures being added.
-        let suffix = 2;
-        const originalName = file.name;
-        while (fileSet.has(file.name.toLocaleLowerCase())) {
-          file.name = Paths.addFilenameSuffixToPath(originalName, suffix++);
-        }
-
-        archive.file(localFile, { name: file.name });
-        fileSet.add(file.name.toLocaleLowerCase());
-      } finally {
-        if (!pictureStore.isLocalFileSystem()) {
-          fsPromises.unlink(localFile);
-        }
-      }
+    for (const filename of fileMap.keys()) {
+      archive.file(fileMap.get(filename)!, { name: filename });
     }
 
     archive.pipe(output);
     archive.finalize();
   });
+}
+
+async function removeTempFiles(tempFiles: IterableIterator<string>) {
+  for (const tempFile of tempFiles) {
+    await fsPromises.unlink(tempFile);
+  }
 }

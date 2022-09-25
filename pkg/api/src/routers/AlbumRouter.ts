@@ -60,7 +60,7 @@ router.get(
 );
 
 /**
- * Updates an existing folder in a library.
+ * Updates an existing album in a library.
  */
 router.patch(
   '/:libraryId/albums/:albumId',
