@@ -1221,6 +1221,19 @@ export class PictureStore {
   }
 
   /**
+   * Finds all of the files in the DB that need to be processed and enqueues
+   * jobs that will do that processing.
+   */
+  public async enqueueProcessFileJobs() {
+    const db = DbFactory.createInstance();
+    const files = await db.getFilesToProcess();
+    debug(`Found ${files.length} files that need processing.`);
+    for (const f of files) {
+      await queue.enqueueProcessFileJob(f);
+    }
+  }
+
+  /**
    * Adds a new album to an existing library.
    *
    * @param libraryId Unique ID of the parent library.

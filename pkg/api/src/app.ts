@@ -12,6 +12,7 @@ import fileRouter from './routers/FileRouter';
 import folderRouter from './routers/FolderRouter';
 import libraryRouter from './routers/LibraryRouter';
 import serviceRouter from './routers/ServiceRouter';
+import { PictureStore } from 'storage';
 
 const debug = createDebug('api:app');
 
@@ -93,6 +94,10 @@ app.use(
     res.render('error');
   }
 );
+
+// There may be files in the database that need processing.
+const pictureStore = PictureStore.createForSystemOp();
+pictureStore.enqueueProcessFileJobs();
 
 debug('API server ready.');
 

@@ -644,6 +644,15 @@ export class MySqlDatabase {
     });
   }
 
+  public getFilesToProcess() {
+    return this.callSelectManyProc<IDbFile>(
+      'pst_get_files_to_process',
+      []
+    ).then((files: IDbFile[]) => {
+      return files.map(f => MySqlDatabase.convertDbFile(f));
+    });
+  }
+
   public addAlbum(
     userId: string,
     libraryId: string,
