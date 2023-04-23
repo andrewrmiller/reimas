@@ -1,24 +1,24 @@
 #!/bin/bash
 
 usage() {
-	echo
-	echo "pst - Build and container management utility for Picstrata."
-	echo
-	echo "Usage:"
-	echo
-	echo "   pst <command>"
-	echo 
-	echo "Available commands:"
-	echo
-	echo "   build              Builds the Picstrata containers."
-	echo "   start              Starts the Picstrata containers."
+    echo
+    echo "pst - Build and container management utility for Picstrata."
+    echo
+    echo "Usage:"
+    echo
+    echo "   pst <command>"
+    echo 
+    echo "Available commands:"
+    echo
+    echo "   build              Builds the Picstrata containers."
+    echo "   start              Starts the Picstrata containers."
     echo "   stop               Stops the Picstrata containers"
-	echo "   ls                 Lists the Picstrata containers"
-	echo "   logs [container]   Shows the logs for a given container"
-	echo "   push               Push the docker images to the repository"
-	echo
-	echo "Where [container] is one of 'api', 'wrk1', 'wrk2', or 'wq'"
-	echo
+    echo "   ls                 Lists the Picstrata containers"
+    echo "   logs [container]   Shows the logs for a given container"
+    echo "   push               Push the docker images to the repository"
+    echo
+    echo "Where [container] is one of 'api', 'wrk1', 'wrk2', or 'wq'"
+    echo
 }
 
 # Change to the root of the project
@@ -29,13 +29,13 @@ if [ -f .env ]; then
 fi
 
 if [ "$PST_DB_HOST" == "" ]; then
-	echo "Error: Missing PST_DB_HOST environment variable."
-	exit 1
+    echo "Error: Missing PST_DB_HOST environment variable."
+    exit 1
 fi
 
 if [ "$PST_DB_USER_NAME" == "" ] || [ "$PST_DB_USER_PASSWORD" == "" ]; then
-	echo "Error: Missing PST_DB_USER_NAME or PST_DB_USER_PASSWORD environment variable."
-	exit 1
+    echo "Error: Missing PST_DB_USER_NAME or PST_DB_USER_PASSWORD environment variable."
+    exit 1
 fi
 
 DB_HOST=$PST_DB_HOST
@@ -45,7 +45,7 @@ DB_USER_PASSWORD=$PST_DB_USER_PASSWORD
 # If MySQL is running on localhost, use host.docker.internal to allow
 # Flyway to access the MySQL instance.  https://stackoverflow.com/questions/31324981.
 if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
-	DB_HOST=172.17.0.1
+    DB_HOST=172.17.0.1
 fi
 
 CONTAINER_PREFIX=picstrata
@@ -56,34 +56,34 @@ QUEUE_CONTAINER=$CONTAINER_PREFIX-queue
 VERSION=0.8.9
 
 buildContainers () {
-	cd pkg
-	docker build --rm -f beanstalkd.Dockerfile -t picstrata/beanstalkd:$VERSION -t picstrata/beanstalkd:latest .
-	npm run build
-	retVal=$?
-	if [ $retVal -ne 0 ]; then
-		echo "npm build error occurred."
-		exit $retVal
-	fi
-	docker build --rm -f api.Dockerfile -t picstrata/api:$VERSION -t picstrata/api:latest .
-	docker build --rm -f workers.Dockerfile -t picstrata/workers:$VERSION -t picstrata/workers:latest .
-	cd ../db 
-	docker build --rm -f db.Dockerfile -t picstrata/db:$VERSION -t picstrata/db:latest .
-	docker rmi -f $(docker images --filter "dangling=true" -q --no-trunc)
-	cd ..
+    cd pkg
+    docker build --rm -f beanstalkd.Dockerfile -t picstrata/beanstalkd:$VERSION -t picstrata/beanstalkd:latest .
+    npm run build
+    retVal=$?
+    if [ $retVal -ne 0 ]; then
+        echo "npm build error occurred."
+        exit $retVal
+    fi
+    docker build --rm -f api.Dockerfile -t picstrata/api:$VERSION -t picstrata/api:latest .
+    docker build --rm -f workers.Dockerfile -t picstrata/workers:$VERSION -t picstrata/workers:latest .
+    cd ../db 
+    docker build --rm -f db.Dockerfile -t picstrata/db:$VERSION -t picstrata/db:latest .
+    docker rmi -f $(docker images --filter "dangling=true" -q --no-trunc)
+    cd ..
 }
 
 startServices() {
-	echo Starting Picstrata containers...
-	cd pkg
-	PST_DB_HOST=$DB_HOST PST_DB_USER_NAME=$DB_USER_NAME PST_DB_USER_PASSWORD=$DB_USER_PASSWORD docker-compose --compatibility up -d
-	echo Containers started.
+    echo Starting Picstrata containers...
+    cd pkg
+    PST_DB_HOST=$DB_HOST PST_DB_USER_NAME=$DB_USER_NAME PST_DB_USER_PASSWORD=$DB_USER_PASSWORD docker-compose --compatibility up -d
+    echo Containers started.
 }
 
 stopServices() {
-	echo Stopping Picstrata containers...
-	cd pkg
-	PST_DB_HOST=$DB_HOST docker-compose --compatibility down
-	echo Containers stopped.
+    echo Stopping Picstrata containers...
+    cd pkg
+    PST_DB_HOST=$DB_HOST docker-compose --compatibility down
+    echo Containers stopped.
 }
 
 listServices () {
@@ -93,56 +93,56 @@ listServices () {
 }
 
 viewContainerLogs() {
-	case "$1" in
-	"api")
-		docker logs $API_CONTAINER 2>&1
-		;;
-	"wrk1")
-		docker logs $WORKERS_CONTAINER-1 2>&1
-		;;
-	"wrk2")
-		docker logs $WORKERS_CONTAINER-2 2>&1
-		;;
-	"wq")
-		docker logs $QUEUE_CONTAINER 2>&1
-		;;
-	*)
-		usage
-		;;
-	esac;
+    case "$1" in
+    "api")
+        docker logs $API_CONTAINER 2>&1
+        ;;
+    "wrk1")
+        docker logs $WORKERS_CONTAINER-1 2>&1
+        ;;
+    "wrk2")
+        docker logs $WORKERS_CONTAINER-2 2>&1
+        ;;
+    "wq")
+        docker logs $QUEUE_CONTAINER 2>&1
+        ;;
+    *)
+        usage
+        ;;
+    esac;
 }
 
 pushImages() {
-	docker push picstrata/api:$VERSION
-	docker push picstrata/api:latest
-	docker push picstrata/db:$VERSION
-	docker push picstrata/db:latest
-	docker push picstrata/workers:$VERSION
-	docker push picstrata/workers:latest
+    docker push picstrata/api:$VERSION
+    docker push picstrata/api:latest
+    docker push picstrata/db:$VERSION
+    docker push picstrata/db:latest
+    docker push picstrata/workers:$VERSION
+    docker push picstrata/workers:latest
 }
 
 case "$1" in 
 build)
-	buildContainers
-	;;
+    buildContainers
+    ;;
 start)
-	startServices
-	;;
+    startServices
+    ;;
 stop)
-	stopServices
-	;;
+    stopServices
+    ;;
 ls)
   listServices
   ;;
 logs)
-	viewContainerLogs $2
-	;; 
+    viewContainerLogs $2
+    ;; 
 push)
-	pushImages $2
-	;; 
+    pushImages $2
+    ;; 
 *)
-	usage
-	;;
+    usage
+    ;;
 esac
 
 popd > /dev/null

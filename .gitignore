@@ -66,3 +66,4 @@ pkg/api/libraries
 
 # VS Code settings
 .vscode/*
+!.vscode/settings.json

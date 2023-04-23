@@ -1,26 +1,25 @@
 #!/bin/bash
 
 usage() {
-	echo
-	echo "pstdb - Picstrata database management utility."
-	echo
-	echo "Usage:"
-	echo
-	echo "   pstdb <command>"
-	echo 
-	echo "Available commands:"
-	echo
-	echo "   addUsers           Create Picstrata users in MySQL."
-	echo "   create             Create a new Picstrata database."
-	echo "   migrate            Migrate a Picstrata database to the current version."
-	echo "   delete             Delete a Picstrata database."
-	echo "   recreate           Delete the Picstrata database then create a new database."
-	echo
-	echo "Requirements:"
-	echo
-	echo "   MySQL              https://www.mysql.com"
-	echo "   Flyway CLI         https://flywaydb.org/documentation/commandline"
-	echo
+    echo
+    echo "pstdb - Picstrata database management utility."
+    echo
+    echo "Usage:"
+    echo
+    echo "   pstdb <command>"
+    echo 
+    echo "Available commands:"
+    echo
+    echo "   addUsers           Create Picstrata users in MySQL."
+    echo "   create             Create a new Picstrata database."
+    echo "   migrate            Migrate a Picstrata database to the current version."
+    echo "   delete             Delete a Picstrata database."
+    echo "   recreate           Delete the Picstrata database then create a new database."
+    echo
+    echo "Requirements:"
+    echo
+    echo "   MySQL Client       https://www.mysql.com"
+    echo
 }
 
 # Change to the root of the database directory.
@@ -31,23 +30,23 @@ if [ -f ../.env ]; then
 fi
 
 if [ "$PST_DB_HOST" == "" ]; then
-	echo Error: Missing PST_DB_HOST environment variable.
-	exit 1
+    echo Error: Missing PST_DB_HOST environment variable.
+    exit 1
 fi
 
 if [ "$PST_DB_NAME" == "" ]; then
-	echo Error: Missing PST_DB_NAME environment variable.
-	exit 1
+    echo Error: Missing PST_DB_NAME environment variable.
+    exit 1
 fi
 
 if [ "$PST_DB_ADMIN_NAME" == "" ] || [ "$PST_DB_ADMIN_PASSWORD" == "" ]; then
-	echo Error: Missing PST_DB_ADMIN_NAME or PST_DB_ADMIN_PASSWORD environment variable.
-	exit 1
+    echo Error: Missing PST_DB_ADMIN_NAME or PST_DB_ADMIN_PASSWORD environment variable.
+    exit 1
 fi
 
 if [ "$PST_DB_USER_NAME" == "" ] || [ "$PST_DB_USER_PASSWORD" == "" ]; then
-	echo Error: Missing PST_DB_USER_NAME or PST_DB_USER_PASSWORD environment variable.
-	exit 1
+    echo Error: Missing PST_DB_USER_NAME or PST_DB_USER_PASSWORD environment variable.
+    exit 1
 fi
 
 DB_HOST=$PST_DB_HOST
@@ -61,160 +60,190 @@ DB_USER_PASSWORD=$PST_DB_USER_PASSWORD
 MYSQL="mysql --host=$DB_HOST"
 
 addUsers() {
-	echo -n "MySQL Root Password:"
-	read -s MYSQL_ROOT_PASSWORD
-	echo
-	if [ "$MYSQL_ROOT_PASSWORD" == "" ]; then
-		echo Error: Missing MySQL root password argument.
-		usage
-		exit 1
-	fi
+    echo -n "MySQL Root Password:"
+    read -s MYSQL_ROOT_PASSWORD
+    echo
+    if [ "$MYSQL_ROOT_PASSWORD" == "" ]; then
+        echo Error: Missing MySQL root password argument.
+        usage
+        exit 1
+    fi
 
-	MYSQL="$MYSQL --user=root"
+    MYSQL="$MYSQL --user=root"
 
-	# Create the admin account that is used to create the database and update the schema.
-	echo "Creating $DB_ADMIN_NAME user..."
-	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "CREATE USER '$DB_ADMIN_NAME'@'%' IDENTIFIED BY '"$DB_ADMIN_PASSWORD"';"
-	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "GRANT ALL ON *.* to '$DB_ADMIN_NAME'@'%';"
-	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "GRANT GRANT OPTION ON *.* TO '$DB_ADMIN_NAME'@'%'";
+    # Create the admin account that is used to create the database and update the schema.
+    echo "Creating $DB_ADMIN_NAME user..."
+    MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "CREATE USER '$DB_ADMIN_NAME'@'%' IDENTIFIED BY '"$DB_ADMIN_PASSWORD"';"
+    if [ "$?" != "0" ]; then
+        echo "Error: Failed to create $DB_ADMIN_NAME user."
+        exit 1
+    fi
 
-	# Create the user login with mysql_native_password so that it is compatible with the MySQL library.
-	echo "Creating $DB_USER_NAME user..."
-	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "CREATE USER '$DB_USER_NAME'@'%' IDENTIFIED WITH mysql_native_password BY '"$DB_USER_PASSWORD"';"
+    MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "GRANT ALL ON *.* to '$DB_ADMIN_NAME'@'%';"
+    if [ "$?" != "0" ]; then
+        echo "Error: Failed to GRANT ALL to $DB_ADMIN_NAME user."
+        exit 1
+    fi
 
-	# Make sure the privilege changes are fully realized.
-	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "FLUSH PRIVILEGES;"
+    MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "GRANT GRANT OPTION ON *.* TO '$DB_ADMIN_NAME'@'%'";
+    if [ "$?" != "0" ]; then
+        echo "Error: Failed to GRANT OPTION to $DB_ADMIN_NAME user."
+        exit 1
+    fi
 
-	echo 'Users added successfully to MySQL.'
+    # Create the user login with mysql_native_password so that it is compatible with the MySQL library.
+    echo "Creating $DB_USER_NAME user..."
+    MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "CREATE USER '$DB_USER_NAME'@'%' IDENTIFIED WITH mysql_native_password BY '"$DB_USER_PASSWORD"';"
+    if [ "$?" != "0" ]; then
+        echo "Error: Failed to create $DB_USER_NAME user."
+        exit 1
+    fi
+
+    # Make sure the privilege changes are fully realized.
+    MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "FLUSH PRIVILEGES;"
+
+    echo 'Users added successfully to MySQL.'
 }
 
 createDb() {
-	CREATESCRIPT=~/tmp/create_PST_db.sql
-	INITIALIZESCRIPT=~/tmp/initialize_PST_db.sql
-	SRCDIR="$( pwd )"
+    CREATESCRIPT=~/tmp/create_picstrata_db.sql
+    INITIALIZESCRIPT=~/tmp/initialize_picstrata_db.sql
+    SRCDIR="$( pwd )"
 
-	# Use the admin user to create the database.
-	MYSQL="$MYSQL --user=$DB_ADMIN_NAME"
+    # Use the admin user to create the database.
+    MYSQL="$MYSQL --user=$DB_ADMIN_NAME"
 
-	# Check to make sure that the database doesn't already exist.
-	if (MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name='$DB_NAME'" | grep $DB_NAME 1>/dev/null); then
-		echo
-		echo ERROR: MySQL database \'$DB_NAME\' already exists.
-		echo
-		return
-	fi
+    # Check to make sure that the database doesn't already exist.
+    if (MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name='$DB_NAME'" | grep $DB_NAME 1>/dev/null); then
+        echo
+        echo ERROR: MySQL database \'$DB_NAME\' already exists.
+        echo
+        return
+    fi
 
-	if [ ! -d ~/tmp ]; then
-	echo 'dir not found'
-	mkdir ~/tmp
-	fi
+    if [ ! -d ~/tmp ]; then
+        echo 'dir not found'
+        mkdir ~/tmp
+    fi
 
-	(echo SET @db_name=\'$DB_NAME\'\;) > $CREATESCRIPT
-	(echo SET @user_name=\'\\\'$DB_USER_NAME\\\'@\\\'%\\\'\'\;) >> $CREATESCRIPT
-	(cat $SRCDIR/init/create_db.sql; echo) >> $CREATESCRIPT
+    (echo SET @db_name=\'$DB_NAME\'\;) > $CREATESCRIPT
+    (echo SET @user_name=\'\\\'$DB_USER_NAME\\\'@\\\'%\\\'\'\;) >> $CREATESCRIPT
+    (cat $SRCDIR/init/create_db.sql; echo) >> $CREATESCRIPT
 
-	# Need to set this option to avoid a MySQL whine about not having some
-	# declarations in our stored procedures.  See this article:
-	# https://stackoverflow.com/questions/26015160.
-	(echo 'SET GLOBAL log_bin_trust_function_creators = 1;') > $INITIALIZESCRIPT;
+    # Need to set this option to avoid a MySQL whine about not having some
+    # declarations in our stored procedures.  See this article:
+    # https://stackoverflow.com/questions/26015160.
+    (echo 'SET GLOBAL log_bin_trust_function_creators = 1;') > $INITIALIZESCRIPT;
 
-	# We need to deploy in two steps because MySQL's 
-	# USE statement does not allow a variable name.
-	echo Creating database $DB_NAME...
-	MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL < $CREATESCRIPT
+    # We need to deploy in two steps because MySQL's 
+    # USE statement does not allow a variable name.
+    echo Creating database $DB_NAME...
+    MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL < $CREATESCRIPT
+    if [ "$?" != "0" ]; then
+        echo "Error: Failed to create $DB_NAME database."
+        exit 1
+    fi
 
-	echo Initializing database...
-	MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL $DB_NAME < $INITIALIZESCRIPT
+    echo Initializing database...
+    MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL $DB_NAME < $INITIALIZESCRIPT
+    if [ "$?" != "0" ]; then
+        echo "Error: Failed to initialize $DB_NAME database."
+        exit 1
+    fi
 
-	echo Migrating database...
-	migrateDb
+    echo Migrating database...
+    migrateDb
+    if [ "$?" != "0" ]; then
+        echo "Error: Failed to apply migrations to $DB_NAME database."
+        exit 1
+    fi
 
-	echo "Database created successfully."
+    echo "Database created successfully."
 }
 
 
 migrateDb() {
-	# Flyway is used for migrations.  It is run in a container.
-	MIGRATE_DIR=$(realpath ../db/migrate)
-	FLYWAY="docker run --rm -v $MIGRATE_DIR:/flyway/sql flyway/flyway"
+    # Flyway is used for migrations.  It is run in a container.
+    MIGRATE_DIR=$(realpath ../db/migrate)
+    FLYWAY="docker run --rm -v $MIGRATE_DIR:/flyway/sql flyway/flyway"
 
-	# If MySQL is running on localhost, we want to connect to the bridge as per
-	# https://stackoverflow.com/questions/48546124.
-	if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
-		DB_HOST=172.17.0.1
-	fi
+    # If MySQL is running on localhost, we want to connect to the bridge as per
+    # https://stackoverflow.com/questions/48546124.
+    if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
+        DB_HOST=172.17.0.1
+    fi
 
-	# JDBC needs to know the time zone of the MySQL server.
-	SERVER_TIMEZONE=America/Los_Angeles
+    # JDBC needs to know the time zone of the MySQL server.
+    SERVER_TIMEZONE=America/Los_Angeles
 
-	# The JDBC connection URL for the database.
-	JDBC_CONNECT_URL="jdbc:mysql://$DB_HOST/$DB_NAME?\
-		useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true&\
-		useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&\
-		serverTimezone=$SERVER_TIMEZONE"
+    # The JDBC connection URL for the database.
+    JDBC_CONNECT_URL="jdbc:mysql://$DB_HOST/$DB_NAME?\
+        useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true&\
+        useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&\
+        serverTimezone=$SERVER_TIMEZONE"
 
-	# Tell flyway to migrate the database.
-	$FLYWAY migrate \
-		-url="$JDBC_CONNECT_URL" \
-		-user=$DB_ADMIN_NAME \
-		-password=$DB_ADMIN_PASSWORD \
-		-table="pst_schema_history"
+    # Tell flyway to migrate the database.
+    $FLYWAY migrate \
+        -url="$JDBC_CONNECT_URL" \
+        -user=$DB_ADMIN_NAME \
+        -password=$DB_ADMIN_PASSWORD \
+        -table="pst_schema_history"
 }
 
 deleteDb() {
 
-	echo
-	echo Are you sure that you want to delete the $DB_NAME MySQL database.
-	echo
-	echo WARNING: This operation is irreversible.
-	echo
+    echo
+    echo Are you sure that you want to delete the $DB_NAME MySQL database.
+    echo
+    echo WARNING: This operation is irreversible.
+    echo
 
-	OPTIONS="Yes No"
-	select opt in $OPTIONS; do
-		if [ "$opt" = "Yes" ]; then
-			echo Deleting database...
-			break
-		elif [ "$opt" = "No" ]; then
-			echo Operation aborted.
-			return 1
-		else
-			echo Bad selection.
-			return 2
-		fi
-	done
+    OPTIONS="Yes No"
+    select opt in $OPTIONS; do
+        if [ "$opt" = "Yes" ]; then
+            echo Deleting database...
+            break
+        elif [ "$opt" = "No" ]; then
+            echo Operation aborted.
+            return 1
+        else
+            echo Bad selection.
+            return 2
+        fi
+    done
 
-	MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL --user=$DB_ADMIN_NAME -e "DROP DATABASE $DB_NAME"
-	return 0
+    MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL --user=$DB_ADMIN_NAME -e "DROP DATABASE $DB_NAME"
+    return 0
 }
 
 recreateDb() {
-	if deleteDb 0 ; then
-		createDb
-	else
-		return 1
-	fi
+    if deleteDb 0 ; then
+        createDb
+    else
+        return 1
+    fi
 }
 
 case "$1" in 
 add[uU]sers)
-	addUsers $2
-	;;
+    addUsers $2
+    ;;
 create)
-	createDb
-	;;
+    createDb
+    ;;
 migrate)
-	migrateDb
-	;;
+    migrateDb
+    ;;
 delete)
-	deleteDb
-	;;
+    deleteDb
+    ;;
 recreate)
-	recreateDb
-	;;
+    recreateDb
+    ;;
 
 *)
-	usage
-	;;
+    usage
+    ;;
 esac
 
 popd > /dev/null
