@@ -138,10 +138,10 @@ migrateDb() {
 	MIGRATE_DIR=$(realpath ../db/migrate)
 	FLYWAY="docker run --rm -v $MIGRATE_DIR:/flyway/sql flyway/flyway"
 
-	# If MySQL is running on localhost, use host.docker.internal to allow
-	# Flyway to access the MySQL instance.  https://stackoverflow.com/questions/31324981.
+	# If MySQL is running on localhost, we want to connect to the bridge as per
+	# https://stackoverflow.com/questions/48546124.
 	if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
-		DB_HOST=host.docker.internal
+		DB_HOST=172.17.0.1
 	fi
 
 	# JDBC needs to know the time zone of the MySQL server.

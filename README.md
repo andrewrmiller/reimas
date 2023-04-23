@@ -27,15 +27,19 @@ Picstrata is made up of the following services:
 |           |                                                                                                     |
 
 ## Building, Running and Testing Picstrata
+
 Follow the steps below to build, run and test Picstrata.
 
 ### Install Docker
-Picstrata is distributed as a collection of container images.  To build and test these images, Docker must exist on the development machine.
+
+Picstrata is distributed as a collection of container images. To build and test these images, Docker must exist on the development machine.
 
 You can install Docker from https://www.docker.com.
 
 ### Pull MySQL and Flyway Images
+
 Once Docker is installed and running properly, use the following commands to install the MySQL and Flyway images:
+
 ```
 docker pull mysql:latest
 docker pull flyway/flyway:latest
@@ -44,39 +48,65 @@ docker pull flyway/flyway:latest
 Alternatively, you can use the Docker Desktop UI to achieve the same.
 
 ### Start a MySQL Container
+
 Run this command to start the MySQL container and expose in on the host via port 3306:
+
 ```
 docker run -d -e MYSQL_ROOT_PASSWORD=S0m3R00tP4ssword -p 3306:3306 --name mysql mysql
 ```
+
 Remember to change the `MYSQL_ROOT_PASSWORD` value to your own secret value.
 
 ### Connect to the Container
+
 At this point the container should be exposed on port 3306 on the local host.
 
-Fire up your DB editing tool of choice (e.g. DBeaver) and create a connection.  Specify `localhost` as the host and connect as `root` with the password you provided.
+Fire up your DB editing tool of choice (e.g. DBeaver) and create a connection. Specify `localhost` as the host and connect as `root` with the password you provided.
 
 NOTE: You may need to set `allowPublicRetrieval` under Driver Settings to the value `TRUE`
 
 ### Environment Setup
-Picstrata uses a number of environment variables to build and run the containers on the target system.  These variables must be customized for your development enviroment.
+
+Picstrata uses a number of environment variables to build and run the containers on the target system. These variables must be customized for your development enviroment.
 
 Begin by creating a `.env` file from the provided `.env.template`:
+
 ```
 cp .env.template .env
 ```
 
-Next edit your `.env` file and customize the variables that you see there.  Comments in the file should make it pretty clear how to do this.  Note that all variables that have values beginning with "your_" should be changed.
+Next edit your `.env` file and customize the variables that you see there. Comments in the file should make it pretty clear how to do this. Note that all variables that have values beginning with "your\_" should be changed.
+
+### Install MySQL Client
+
+The `pstdb` script uses the MySQL client to configure users and the database. You'll need to have this client installed locally.
+
+On Linux:
+
+```
+sudo apt-get install mysql-client
+```
+
+On Mac:
+
+```
+brew install mysql-client
+```
+
+After the brew install you'll want to add the client to your path. You should be able to find it at `/opt/homebrew`.
 
 ### Create Database Users
+
 Picstrata uses the following MySQL users:
 
-| User     | Description                                       | Permissions                                |
-| -------- | ------------------------------------------------- | -------------------------------------------|
-| pstadmin | Used by `pstdb` to create and update the database | All schema privileges                      |
-| pstuser  | Used by Picstrata to access the database          | Set automatically by `pstdb`               |
-|          |                                                   |                                            |
+| User     | Description                                       | Permissions                  |
+| -------- | ------------------------------------------------- | ---------------------------- |
+| pstadmin | Used by `pstdb` to create and update the database | All schema privileges        |
+| pstuser  | Used by Picstrata to access the database          | Set automatically by `pstdb` |
+|          |                                                   |                              |
 
-These users only need to be created once.  Once MySQL is running and the environment is set up properly, user can be created with the following command:
+These users only need to be created once. Once MySQL is running and the environment is set up properly, user can be created with the following command:
+
 ```
 ./pstdb addUsers
 ```
@@ -99,6 +129,7 @@ where `nodeuser` is the name of the user account under which Node.js will be run
 This is generally your user account.
 
 ### Database Initialization
+
 To initialize and configure the Picstrata database on your MySQL host, use the
 `pstdb` script in the `/scripts` directory:
 
@@ -109,33 +140,38 @@ pstdb create
 Run `pstdb` with no arguments to get a list of other database functions.
 
 ### Installing Docker Compose
-Docker Compose is used to run the Picstrata containers. 
+
+Docker Compose is used to run the Picstrata containers.
 
 If you installed Docker Desktop then you already have Docker Compose.
 
 If not, Docker Compose should be installed using the steps found here: https://docs.docker.com/compose/install/.
 
 ### Installing NodeJS
-The Picstrata service containers (API and Worker) are built using NodeJS.  The 
-version of NodeJS required by these services can be found in the `.nvmrc` file at 
+
+The Picstrata service containers (API and Worker) are built using NodeJS. The
+version of NodeJS required by these services can be found in the `.nvmrc` file at
 the root of the project.
 
 To install NodeJS and manage versions we recommend using Node Version Manager (`nvm`).  
 You can find more info on `nvm` here: [Node Version Manager](https://github.com/nvm-sh/nvm).
 
 Once you have `nvm` installed and working properly, you can check to see if you have the the correct version of NodeJS with the following command:
+
 ```
 nvm use
 ```
 
 If you don't have the NodeJS version that matches Picstrata's `.nvmrc` file, just run:
+
 ```
 nvm install
 ```
 
 ### Installing Yarn
-The Picstrata packages are set up as a yarn workspace.  To propertly work with
-this workspace you will need to install yarn.  Instructions for doing so can
+
+The Picstrata packages are set up as a yarn workspace. To propertly work with
+this workspace you will need to install yarn. Instructions for doing so can
 be found here: [Yarn Installation](https://yarnpkg.com/getting-started/install).
 
 ### Building
