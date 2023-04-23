@@ -1,8 +1,8 @@
 Database:
-  host: PST_DATABASE_HOST
-  user: PST_DATABASE_USER
-  password: PST_DATABASE_PASSWORD
-  name: PST_DATABASE_NAME
+  host: PST_DB_HOST
+  user: PST_DB_USER_NAME
+  password: PST_DB_USER_PASSWORD
+  name: PST_DB_NAME
 FileSystem:
   type: PST_FILE_SYSTEM_TYPE
   localFileSystem:

@@ -5,7 +5,7 @@
   "scripts": {
     "build": "npm run lint &&  ../node_modules/typescript/bin/tsc",
     "lint": "../node_modules/eslint/bin/eslint.js src/{common,routers}/**/*.ts && ../node_modules/eslint/bin/eslint.js src/app.ts",
-    "api": "npm run build && node ./bin/www",
+    "api": "npm run build && dotenv -e ../../.env -- node ./bin/www",
     "workers": "cd ../workers && npm start",
     "start": "concurrently \"npm run workers\" \"npm run api\"",
     "up": "node ./bin/www"
@@ -37,6 +37,7 @@
     "@types/morgan": "^1.7.36",
     "@types/multer": "^1.4.7",
     "@types/node": "^12.7.4",
+    "dotenv-cli": "^7.2.1",
     "ts-node": "^8.3.0"
   }
 }

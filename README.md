@@ -27,21 +27,48 @@ Picstrata is made up of the following services:
 |           |                                                                                                     |
 
 ## Building, Running and Testing Picstrata
+Follow the steps below to build, run and test Picstrata.
 
-### MySQL Setup
+### Install Docker
+Picstrata is distributed as a collection of container images.  To build and test these images, Docker must exist on the development machine.
 
-The API and Workers services are configured by default to expect a MySQL instance
-running on your local machine. This can be overridden using environment variables
-if necessary.
+You can install Docker from https://www.docker.com.
 
-To install and configure MySQL locally run these commands:
-
+### Pull MySQL and Flyway Images
+Once Docker is installed and running properly, use the following commands to install the MySQL and Flyway images:
 ```
-sudo apt install mysql-server
-sudo mysql_secure_installation
+docker pull mysql:latest
+docker pull flyway/flyway:latest
 ```
 
-These MySQL users should be created:
+Alternatively, you can use the Docker Desktop UI to achieve the same.
+
+### Start a MySQL Container
+Run this command to start the MySQL container and expose in on the host via port 3306:
+```
+docker run -d -e MYSQL_ROOT_PASSWORD=S0m3R00tP4ssword -p 3306:3306 --name mysql mysql
+```
+Remember to change the `MYSQL_ROOT_PASSWORD` value to your own secret value.
+
+### Connect to the Container
+At this point the container should be exposed on port 3306 on the local host.
+
+Fire up your DB editing tool of choice (e.g. DBeaver) and create a connection.  Specify `localhost` as the host and connect as `root` with the password you provided.
+
+NOTE: You may need to set `allowPublicRetrieval` under Driver Settings to the value `TRUE`
+
+### Environment Setup
+Picstrata uses a number of environment variables to build and run the containers on the target system.  These variables must be customized for your development enviroment.
+
+Begin by creating a `.env` file from the provided `.env.template`:
+```
+cp .env.template .env
+```
+
+Next edit your `.env` file and customize the variables that you see there.  Comments in the file should make it pretty clear how to do this.  Note that all variables that have values beginning with "your_" should be changed.
+
+### Create Database Users
+Picstrata uses the following MySQL users:
 
 | User     | Description                                       | Permissions                                |
 | -------- | ------------------------------------------------- | -------------------------------------------|
@@ -49,100 +76,75 @@ These MySQL users should be created:
 | pstuser  | Used by Picstrata to access the database          | Set automatically by `pstdb`               |
 |          |                                                   |                                            |
 
-Use `sudo mysql` to connect to the local instance and then use these SQL
-statements to create the users:
-
+These users only need to be created once.  Once MySQL is running and the environment is set up properly, user can be created with the following command:
 ```
-CREATE USER 'pstadmin'@'%' IDENTIFIED BY 'INSERT_ADMIN_PASSWORD_HERE';
+./pstdb addUsers
 ```
 
-```
-GRANT ALL ON *.* to 'pstadmin'@'%';
-```
+Note that permissions for `pstuser` will be granted when the database is provisioned.
 
-```
-GRANT GRANT OPTION ON *.* TO 'pstadmin'@'%';
-```
-
-```
-CREATE USER 'pstuser'@'%' IDENTIFIED WITH mysql_native_password BY 'INSERT_USER_PASSWORD_HERE';
-```
-
-```
-FLUSH PRIVELEGES;
-```
-
-Note that permissions for pstuser will be granted when the database is provisioned.
-
-Once you have created these users you will need to set a login-path for both users
-so `pst` and `pstdb` are able to securely connect to MySQL:
-
-```
-mysql_config_editor set --login-path=pstadmin --host=localhost --user=pstadmin --password
-mysql_config_editor set --login-path=pstuser --host=localhost --user=pstuser --password
-```
-
-Finally, you need to make sure that MySQL allows connecting from any IP address on the
-host.  The docker containers connect using the first address in `hostname -I`.
-
-Edit `/etc/mysql/mysql.conf.d/mysqld.cnf` and comment out the `bind-address` line.  This
-will allow connections from host IP addresses other than localhost.  Once you have made
-this change run `sudo systemctl restart mysql` to restart mysql.
-
-### Environment Setup
-
-The following environment variables should be set to enable the execution and
-testing of the Picstrata microservice:
-
-| Variable                | Description                                                       |
-| ----------------------- | ----------------------------------------------------------------- |
-| PST_DATABASE_HOST       | MySQL database host (e.g. `localhost`).                           |
-| PST_DATABASE_USER       | User account to use when accessing the database (e.g. `pstuser`). |
-| PST_QUEUE_TYPE          | `beanstalkd` or `rabbitmq`                                        |
-| PST_TIMEZONE_DB_API_KEY | Your API key from timezonedb.com.                                 |
-| PST_API_KEY_1           | API key to use when accessing the REST API.                       |
-|                         |                                                                   |
-
-Note that timezonedb.com is used to properly extract the date and time photos were taken.
-
-For local development PST_API_KEY_1 can be set to any suitably random value.
-
-Other configuration options can be found in `custom-environment-variables.yaml`.
+### Library Setup
 
 During development, Picstrata libraries are stored on your local machine under
 `/var/lib/picstrata`. This directory should be initialized before building and
 running Picstrata using the following commands:
 
 ```
-sudo mkdir -p /var/lib/picstrata/libraries
+sudo mkdir -p /var/lib/picstrata/libraries/exports
 sudo chown -R nodeuser /var/lib/picstrata/libraries
 ```
 
 where `nodeuser` is the name of the user account under which Node.js will be run.
 
-### Database Initialization
-Before you can create and initialize the Picstrata database you must have Flyway
-installed.  You can find it here: https://flywaydb.org/documentation/commandline.
+This is generally your user account.
 
+### Database Initialization
 To initialize and configure the Picstrata database on your MySQL host, use the
-`pstdb` script in the `/scripts` directory.  e.g.:
+`pstdb` script in the `/scripts` directory:
 
 ```
 pstdb create
 ```
 
-### Installing Docker Compose
-Docker Compose is used to run the Picstrata containers.  It should be installed
-using the steps found here: https://docs.docker.com/compose/install/.
+Run `pstdb` with no arguments to get a list of other database functions.
 
+### Installing Docker Compose
+Docker Compose is used to run the Picstrata containers. 
+
+If you installed Docker Desktop then you already have Docker Compose.
+
+If not, Docker Compose should be installed using the steps found here: https://docs.docker.com/compose/install/.
+
+### Installing NodeJS
+The Picstrata service containers (API and Worker) are built using NodeJS.  The 
+version of NodeJS required by these services can be found in the `.nvmrc` file at 
+the root of the project.
+
+To install NodeJS and manage versions we recommend using Node Version Manager (`nvm`).  
+You can find more info on `nvm` here: [Node Version Manager](https://github.com/nvm-sh/nvm).
+
+Once you have `nvm` installed and working properly, you can check to see if you have the the correct version of NodeJS with the following command:
+```
+nvm use
+```
+
+If you don't have the NodeJS version that matches Picstrata's `.nvmrc` file, just run:
+```
+nvm install
+```
+
+### Installing Yarn
+The Picstrata packages are set up as a yarn workspace.  To propertly work with
+this workspace you will need to install yarn.  Instructions for doing so can
+be found here: [Yarn Installation](https://yarnpkg.com/getting-started/install).
 
 ### Building
 
-To build the Picstrata service containers, use the `picstrata` script under `/scripts`.
+To build the Picstrata service containers, use the `pst` script under `/scripts`.
 
-- `picstrata build` will build both of the Picstrata containers (API and Workers).
-- `picstrata start` will run all Picstrata containers on the local host.
-- `picstrata stop` will stop the running containers.
+- `pst build` will build all of the Picstrata containers (API, Worker and DB Migration).
+- `pst start` will run the API and Workers containers on the local host.
+- `pst stop` will stop the running containers.
 
 It is also possible to run each service outside of a container for easier
 testing and development. For example, if you want to run the API service
@@ -211,4 +213,4 @@ Null values stored in the database will not be returned in the JSON objects crea
 
 ### Date Handling
 
-The Picstrata API reads and writes UTC dates only. Similarly, dates are stroed in the Picstrata database in UTC format.
+The Picstrata API reads and writes UTC dates only. Similarly, dates are stored in the Picstrata database in UTC format.

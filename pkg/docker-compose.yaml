@@ -28,9 +28,9 @@ services:
     volumes:
       - /var/lib/picstrata:/var/lib/picstrata
     environment:
-      - PST_DATABASE_HOST
-      - PST_DATABASE_USER
-      - PST_DATABASE_PASSWORD
+      - PST_DB_HOST
+      - PST_DB_USER_NAME
+      - PST_DB_USER_PASSWORD
       - "PST_QUEUE_HOST=picstrata-queue"
       - PST_TIMEZONE_DB_API_KEY
       - DEBUG=*
@@ -45,9 +45,9 @@ services:
     volumes:
       - /var/lib/picstrata:/var/lib/picstrata
     environment:
-      - PST_DATABASE_HOST
-      - PST_DATABASE_USER
-      - PST_DATABASE_PASSWORD
+      - PST_DB_HOST
+      - PST_DB_USER_NAME
+      - PST_DB_USER_PASSWORD
       - "PST_QUEUE_HOST=picstrata-queue"
       - PST_TIMEZONE_DB_API_KEY
       - DEBUG=*
@@ -64,9 +64,9 @@ services:
     ports:
       - "3100:3000"
     environment:
-      - PST_DATABASE_HOST
-      - PST_DATABASE_USER
-      - PST_DATABASE_PASSWORD
+      - PST_DB_HOST
+      - PST_DB_USER_NAME
+      - PST_DB_USER_PASSWORD
       - "PST_QUEUE_HOST=picstrata-queue"
       - PST_API_KEY_1
       - PST_API_KEY_2

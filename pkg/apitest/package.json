@@ -5,8 +5,8 @@
   "scripts": {
     "build": "npm run lint && tsc",
     "lint": "../node_modules/eslint/bin/eslint.js tests/**/*.ts",
-    "test": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1  APITEST_PORT=3100 jest --config ./jest.config.js --runInBand",
-    "testdev": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1 APITEST_PORT=3000 jest --config ./jest.config.js --runInBand"
+    "test": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1 APITEST_PORT=3100 dotenv -e ../../.env -- jest --config ./jest.config.js --runInBand",
+    "testdev": "DEBUG=apitest:* NODE_ENV= SUPPRESS_NO_CONFIG_WARNING=1 APITEST_PORT=3000 dotenv -e ../../.env -- jest --config ./jest.config.js --runInBand"
   },
   "dependencies": {
     "@picstrata/client": "^1.0.15",
@@ -25,6 +25,7 @@
     "@types/node": "^12.12.5",
     "@types/node-fetch": "^2.5.3",
     "@types/uuid": "^8.3.4",
+    "dotenv-cli": "^7.2.1",
     "ts-jest": "^25.3.1",
     "typescript": "^3.6.4"
   }

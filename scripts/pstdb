@@ -10,6 +10,7 @@ usage() {
 	echo 
 	echo "Available commands:"
 	echo
+	echo "   addUsers           Create Picstrata users in MySQL."
 	echo "   create             Create a new Picstrata database."
 	echo "   migrate            Migrate a Picstrata database to the current version."
 	echo "   delete             Delete a Picstrata database."
@@ -22,44 +23,83 @@ usage() {
 	echo
 }
 
-if [ "$PST_DATABASE_HOST" == "" ] || [ "$PST_DATABASE_USER" == "" ]; then
-	echo Error: Missing PST_DATABASE_HOST and/or PST_DATABASE_USER environment variable.
+# Change to the root of the database directory.
+pushd "$( dirname "$0" )"/../db > /dev/null
+
+if [ -f ../.env ]; then
+  export $(cat ../.env | sed 's/#.*//g'| xargs)
+fi
+
+if [ "$PST_DB_HOST" == "" ]; then
+	echo Error: Missing PST_DB_HOST environment variable.
 	exit 1
 fi
 
-DATABASE_HOST=$PST_DATABASE_HOST
+if [ "$PST_DB_NAME" == "" ]; then
+	echo Error: Missing PST_DB_NAME environment variable.
+	exit 1
+fi
 
+if [ "$PST_DB_ADMIN_NAME" == "" ] || [ "$PST_DB_ADMIN_PASSWORD" == "" ]; then
+	echo Error: Missing PST_DB_ADMIN_NAME or PST_DB_ADMIN_PASSWORD environment variable.
+	exit 1
+fi
 
-# The name of the database to initialize.
-DATABASE_NAME=picstrata
+if [ "$PST_DB_USER_NAME" == "" ] || [ "$PST_DB_USER_PASSWORD" == "" ]; then
+	echo Error: Missing PST_DB_USER_NAME or PST_DB_USER_PASSWORD environment variable.
+	exit 1
+fi
 
-# The name of the login-path to use.
-LOGIN_PATH=pstadmin
-
-# The name of the MySQL user that will be used by the web app
-# to access the database.
-USER=$PST_DATABASE_USER
-
-# JDBC needs to know the time zone of the MySQL server.
-SERVER_TIMEZONE=America/Los_Angeles
-
-# The JDBC connection URL for the database.
-JDBC_CONNECT_URL="jdbc:mysql://$DATABASE_HOST/$DATABASE_NAME?useUnicode=true&useSSL=false&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=$SERVER_TIMEZONE"
+DB_HOST=$PST_DB_HOST
+DB_NAME=$PST_DB_NAME
+DB_ADMIN_NAME=$PST_DB_ADMIN_NAME
+DB_ADMIN_PASSWORD=$PST_DB_ADMIN_PASSWORD
+DB_USER_NAME=$PST_DB_USER_NAME
+DB_USER_PASSWORD=$PST_DB_USER_PASSWORD
 
 # The MySQL CLI command.
-MYSQL="mysql --login-path=$LOGIN_PATH "
+MYSQL="mysql --host=$DB_HOST"
 
-FLYWAY=/usr/local/bin/flyway
+addUsers() {
+	echo -n "MySQL Root Password:"
+	read -s MYSQL_ROOT_PASSWORD
+	echo
+	if [ "$MYSQL_ROOT_PASSWORD" == "" ]; then
+		echo Error: Missing MySQL root password argument.
+		usage
+		exit 1
+	fi
+
+	MYSQL="$MYSQL --user=root"
+
+	# Create the admin account that is used to create the database and update the schema.
+	echo "Creating $DB_ADMIN_NAME user..."
+	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "CREATE USER '$DB_ADMIN_NAME'@'%' IDENTIFIED BY '"$DB_ADMIN_PASSWORD"';"
+	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "GRANT ALL ON *.* to '$DB_ADMIN_NAME'@'%';"
+	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "GRANT GRANT OPTION ON *.* TO '$DB_ADMIN_NAME'@'%'";
+
+	# Create the user login with mysql_native_password so that it is compatible with the MySQL library.
+	echo "Creating $DB_USER_NAME user..."
+	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "CREATE USER '$DB_USER_NAME'@'%' IDENTIFIED WITH mysql_native_password BY '"$DB_USER_PASSWORD"';"
+
+	# Make sure the privilege changes are fully realized.
+	MYSQL_PWD=$MYSQL_ROOT_PASSWORD $MYSQL -e "FLUSH PRIVILEGES;"
+
+	echo 'Users added successfully to MySQL.'
+}
 
 createDb() {
-	CREATESCRIPT=~/tmp/create_picstrata_db.sql
-	INITIALIZESCRIPT=~/tmp/initialize_picstrata_db.sql
+	CREATESCRIPT=~/tmp/create_PST_db.sql
+	INITIALIZESCRIPT=~/tmp/initialize_PST_db.sql
 	SRCDIR="$( pwd )"
 
+	# Use the admin user to create the database.
+	MYSQL="$MYSQL --user=$DB_ADMIN_NAME"
+
 	# Check to make sure that the database doesn't already exist.
-	if ($MYSQL -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name='$DATABASE_NAME'" | grep $DATABASE_NAME 1>/dev/null); then
+	if (MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL -e "SELECT schema_name FROM information_schema.schemata WHERE schema_name='$DB_NAME'" | grep $DB_NAME 1>/dev/null); then
 		echo
-		echo ERROR: MySQL database \'$DATABASE_NAME\' already exists.
+		echo ERROR: MySQL database \'$DB_NAME\' already exists.
 		echo
 		return
 	fi
@@ -69,8 +109,8 @@ createDb() {
 	mkdir ~/tmp
 	fi
 
-	(echo SET @db_name=\'$DATABASE_NAME\'\;) > $CREATESCRIPT
-	(echo SET @user_name=\'\\\'$USER\\\'@\\\'%\\\'\'\;) >> $CREATESCRIPT
+	(echo SET @db_name=\'$DB_NAME\'\;) > $CREATESCRIPT
+	(echo SET @user_name=\'\\\'$DB_USER_NAME\\\'@\\\'%\\\'\'\;) >> $CREATESCRIPT
 	(cat $SRCDIR/init/create_db.sql; echo) >> $CREATESCRIPT
 
 	# Need to set this option to avoid a MySQL whine about not having some
@@ -80,35 +120,51 @@ createDb() {
 
 	# We need to deploy in two steps because MySQL's 
 	# USE statement does not allow a variable name.
-	echo Creating database $DATABASE_NAME...
-	$MYSQL < $CREATESCRIPT
+	echo Creating database $DB_NAME...
+	MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL < $CREATESCRIPT
 
 	echo Initializing database...
-	$MYSQL $DATABASE_NAME < $INITIALIZESCRIPT
+	MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL $DB_NAME < $INITIALIZESCRIPT
 
 	echo Migrating database...
 	migrateDb
+
+	echo "Database created successfully."
 }
 
 
 migrateDb() {
-	# Pull the admin user and password out of the config.
-	ADMIN_USER=$(my_print_defaults -s $LOGIN_PATH | grep user | cut -d "=" -f 2)
-	ADMIN_PASSWORD=$(my_print_defaults -s $LOGIN_PATH | grep password | cut -d "=" -f 2)
+	# Flyway is used for migrations.  It is run in a container.
+	MIGRATE_DIR=$(realpath ../db/migrate)
+	FLYWAY="docker run --rm -v $MIGRATE_DIR:/flyway/sql flyway/flyway"
+
+	# If MySQL is running on localhost, use host.docker.internal to allow
+	# Flyway to access the MySQL instance.  https://stackoverflow.com/questions/31324981.
+	if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
+		DB_HOST=host.docker.internal
+	fi
+
+	# JDBC needs to know the time zone of the MySQL server.
+	SERVER_TIMEZONE=America/Los_Angeles
+
+	# The JDBC connection URL for the database.
+	JDBC_CONNECT_URL="jdbc:mysql://$DB_HOST/$DB_NAME?\
+		useUnicode=true&useSSL=false&allowPublicKeyRetrieval=true&\
+		useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&\
+		serverTimezone=$SERVER_TIMEZONE"
 
 	# Tell flyway to migrate the database.
 	$FLYWAY migrate \
 		-url="$JDBC_CONNECT_URL" \
-		-user=$ADMIN_USER \
-		-password=$ADMIN_PASSWORD \
-		-table="pst_schema_history" \
-		-locations=filesystem:./migrate
+		-user=$DB_ADMIN_NAME \
+		-password=$DB_ADMIN_PASSWORD \
+		-table="pst_schema_history"
 }
 
 deleteDb() {
 
 	echo
-	echo Are you sure that you want to delete the $DATABASE_NAME MySQL database.
+	echo Are you sure that you want to delete the $DB_NAME MySQL database.
 	echo
 	echo WARNING: This operation is irreversible.
 	echo
@@ -127,7 +183,7 @@ deleteDb() {
 		fi
 	done
 
-	$MYSQL -e "DROP DATABASE $DATABASE_NAME"
+	MYSQL_PWD=$DB_ADMIN_PASSWORD $MYSQL --user=$DB_ADMIN_NAME -e "DROP DATABASE $DB_NAME"
 	return 0
 }
 
@@ -139,10 +195,10 @@ recreateDb() {
 	fi
 }
 
-# Change to the root of the database directory.
-pushd "$( dirname "$0" )"/../db > /dev/null
-
 case "$1" in 
+add[uU]sers)
+	addUsers $2
+	;;
 create)
 	createDb
 	;;

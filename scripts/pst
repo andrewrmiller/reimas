@@ -19,15 +19,34 @@ usage() {
 	echo
 	echo "Where [container] is one of 'api', 'wrk1', 'wrk2', or 'wq'"
 	echo
-	echo "The following environment variables must be set:"
-	echo
-	echo "   PST_DATABASE_HOST"
-	echo "   PST_DATABASE_USER"
-	echo "   PST_QUEUE_TYPE"
-	echo "   PST_TIMEZONE_DB_API_KEY"
-	echo "   PST_API_KEY_1"
-	echo
 }
+
+# Change to the root of the project
+pushd "$( dirname "$0" )"/.. > /dev/null
+
+if [ -f .env ]; then
+  export $(cat .env | sed 's/#.*//g'| xargs)
+fi
+
+if [ "$PST_DB_HOST" == "" ]; then
+	echo "Error: Missing PST_DB_HOST environment variable."
+	exit 1
+fi
+
+if [ "$PST_DB_USER_NAME" == "" ] || [ "$PST_DB_USER_PASSWORD" == "" ]; then
+	echo "Error: Missing PST_DB_USER_NAME or PST_DB_USER_PASSWORD environment variable."
+	exit 1
+fi
+
+DB_HOST=$PST_DB_HOST
+DB_USER_NAME=$PST_DB_USER_NAME
+DB_USER_PASSWORD=$PST_DB_USER_PASSWORD
+
+# If MySQL is running on localhost, use host.docker.internal to allow
+# Flyway to access the MySQL instance.  https://stackoverflow.com/questions/31324981.
+if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
+	DB_HOST=host.docker.internal
+fi
 
 CONTAINER_PREFIX=picstrata
 API_CONTAINER=$CONTAINER_PREFIX-api
@@ -56,20 +75,15 @@ buildContainers () {
 startServices() {
 	echo Starting Picstrata containers...
 	cd pkg
-	HOST_IP=`hostname -I | awk '{print $1}'`
-	export PST_DATABASE_HOST=$HOST_IP
-	export PST_DATABASE_PASSWORD=$(my_print_defaults -s pstuser | grep password | cut -d "=" -f 2)
-	docker-compose --compatibility up -d
-  echo Containers started.
+	PST_DB_HOST=$DB_HOST PST_DB_USER_NAME=$DB_USER_NAME PST_DB_USER_PASSWORD=$DB_USER_PASSWORD docker-compose --compatibility up -d
+	echo Containers started.
 }
 
 stopServices() {
-  echo Stopping Picstrata containers...
+	echo Stopping Picstrata containers...
 	cd pkg
-	HOST_IP=`hostname -I | awk '{print $1}'`
-	export PST_DATABASE_HOST=$HOST_IP
-	docker-compose --compatibility down
-  echo Containers stopped.
+	PST_DB_HOST=$DB_HOST docker-compose --compatibility down
+	echo Containers stopped.
 }
 
 listServices () {
@@ -106,9 +120,6 @@ pushImages() {
 	docker push picstrata/workers:$VERSION
 	docker push picstrata/workers:latest
 }
-
-# Change to the root of the project
-pushd "$( dirname "$0" )"/.. > /dev/null
 
 case "$1" in 
 build)
