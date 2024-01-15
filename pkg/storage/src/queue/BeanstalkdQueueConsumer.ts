@@ -10,9 +10,18 @@ import { JobsChannelName } from './workers';
 
 const debug = createDebug('storage:queueconsumer');
 
-export class BeanstalkdQueueConsumer extends BeanstalkdConnection
-  implements IQueueClient {
+// While we are processing a job, a background thread calls Beanstalkd's
+// touch() method to let Beanstalkd know that we're still working.  This
+// thread pings Beanstalkd every JobTouchIntervalMs milliseconds.
+const JobTouchIntervalMs = 2000;
+
+export class BeanstalkdQueueConsumer
+  extends BeanstalkdConnection
+  implements IQueueClient
+{
   private messageHandler: (message: IMessage, tag: string) => Promise<boolean>;
+  private currentJobId: number | undefined;
+  private timeout: NodeJS.Timeout | undefined;
 
   constructor(
     host: string,
@@ -61,6 +70,7 @@ export class BeanstalkdQueueConsumer extends BeanstalkdConnection
    */
   private handleMessageReceived(jobId: number, message: IMessage) {
     debug(`Received jobId ${jobId}.  Message=${JSON.stringify(message)}`);
+    this.startProcessing(jobId);
     return this.messageHandler!(message, `${jobId}`)
       .then(success => {
         const conn = this.connection;
@@ -95,7 +105,8 @@ export class BeanstalkdQueueConsumer extends BeanstalkdConnection
           `Uncaught error occurred while processing message: ${message.type}.`
         );
         this.handleError(err);
-      });
+      })
+      .finally(this.endProcessing);
   }
 
   /**
@@ -109,5 +120,25 @@ export class BeanstalkdQueueConsumer extends BeanstalkdConnection
     // Close the connection.  The base class will detect the closure
     // and try to reconnect after a short delay.
     this.close();
+  }
+
+  private startProcessing(jobId: number) {
+    this.currentJobId = jobId;
+    this.timeout = setTimeout(this.touchJob, JobTouchIntervalMs);
+  }
+
+  private touchJob() {
+    if (this.currentJobId && this.connection) {
+      this.connection.touch(this.currentJobId);
+      this.timeout = setTimeout(this.touchJob, JobTouchIntervalMs);
+    }
+  }
+
+  private endProcessing() {
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      this.timeout = undefined;
+    }
+    this.currentJobId = undefined;
   }
 }
