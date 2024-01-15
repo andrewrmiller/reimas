@@ -42,8 +42,8 @@ DB_HOST=$PST_DB_HOST
 DB_USER_NAME=$PST_DB_USER_NAME
 DB_USER_PASSWORD=$PST_DB_USER_PASSWORD
 
-# If MySQL is running on localhost, use host.docker.internal to allow
-# Flyway to access the MySQL instance.  https://stackoverflow.com/questions/31324981.
+# If MySQL is running on localhost, we want to connect to the bridge as per
+# https://stackoverflow.com/questions/48546124.
 if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
 	DB_HOST=172.17.0.1
 fi
