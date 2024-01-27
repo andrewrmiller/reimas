@@ -45,7 +45,7 @@ DB_USER_PASSWORD=$PST_DB_USER_PASSWORD
 # If MySQL is running on localhost, we want to connect to the bridge as per
 # https://stackoverflow.com/questions/48546124.
 if [ "$DB_HOST" == "127.0.0.1" ] || [ "$DB_HOST" == "localhost" ]; then
-    DB_HOST=172.17.0.1
+    [[ "$OSTYPE" == "darwin"* ]] && DB_HOST=host.docker.internal || DB_HOST=172.17.0.1
 fi
 
 CONTAINER_PREFIX=picstrata
@@ -53,7 +53,7 @@ API_CONTAINER=$CONTAINER_PREFIX-api
 WORKERS_CONTAINER=$CONTAINER_PREFIX-workers
 QUEUE_CONTAINER=$CONTAINER_PREFIX-queue
 
-VERSION=0.8.9
+VERSION=0.8.10
 
 buildContainers () {
     cd pkg

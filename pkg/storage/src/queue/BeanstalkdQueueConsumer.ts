@@ -29,6 +29,8 @@ export class BeanstalkdQueueConsumer
   ) {
     super(host);
     this.handleMessageReceived = this.handleMessageReceived.bind(this);
+    this.touchJob = this.touchJob.bind(this);
+    this.endProcessing = this.endProcessing.bind(this);
     this.messageHandler = messageHandler;
   }
 
