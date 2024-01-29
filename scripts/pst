@@ -53,21 +53,23 @@ API_CONTAINER=$CONTAINER_PREFIX-api
 WORKERS_CONTAINER=$CONTAINER_PREFIX-workers
 QUEUE_CONTAINER=$CONTAINER_PREFIX-queue
 
-VERSION=0.8.10
+VERSION=0.8.12
+
+[[ "$OSTYPE" == "darwin"* ]] && DOCKER_BUILD="docker buildx build --platform=linux/amd64" || DOCKER_BUILD="docker build" 
 
 buildContainers () {
     cd pkg
-    docker build --rm -f beanstalkd.Dockerfile -t picstrata/beanstalkd:$VERSION -t picstrata/beanstalkd:latest .
+    docker buildx build --platform=linux/amd64 --rm -f beanstalkd.Dockerfile -t picstrata/beanstalkd:$VERSION -t picstrata/beanstalkd:latest .
     npm run build
     retVal=$?
     if [ $retVal -ne 0 ]; then
         echo "npm build error occurred."
         exit $retVal
     fi
-    docker build --rm -f api.Dockerfile -t picstrata/api:$VERSION -t picstrata/api:latest .
-    docker build --rm -f workers.Dockerfile -t picstrata/workers:$VERSION -t picstrata/workers:latest .
+    $DOCKER_BUILD --rm -f api.Dockerfile -t picstrata/api:$VERSION -t picstrata/api:latest .
+    $DOCKER_BUILD --rm -f workers.Dockerfile -t picstrata/workers:$VERSION -t picstrata/workers:latest .
     cd ../db 
-    docker build --rm -f db.Dockerfile -t picstrata/db:$VERSION -t picstrata/db:latest .
+    $DOCKER_BUILD --rm -f db.Dockerfile -t picstrata/db:$VERSION -t picstrata/db:latest .
     docker rmi -f $(docker images --filter "dangling=true" -q --no-trunc)
     cd ..
 }
