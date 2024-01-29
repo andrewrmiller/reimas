@@ -60,14 +60,14 @@ export async function exportFiles(message: IExportFilesMsg): Promise<boolean> {
     return true;
   } catch (err) {
     const message = (err as any).message;
+    debug(
+      `Export job ${job.jobId}: Error caught while creating zip file: ${message}`
+    );
     await pictureStore.updateExportJob(
       job.libraryId,
       job.jobId,
       ExportJobStatus.Failed,
       message
-    );
-    debug(
-      `Export job ${job.jobId}: Error caught while creating zip file: ${message}`
     );
     if (fs.existsSync(zipFilename)) {
       await fsPromises.unlink(zipFilename);
